@@ -8,6 +8,7 @@ Expose existing owner campaign schedule services in protected campaign HTTP and 
 ### Requirements (EARS)
 - The system shall reject a scheduled batch mutation without fresh authenticated owner session, exact local origin and CSRF through `owner_http`.
 - The system shall display exact post content and due times before owner activation through `exact_batch_review`.
+- When the saved campaign approval does not cover the post or its rights, the browser and agent client shall direct the operator to owner review of the exact post. The rejection shall create no schedule or publish intent and shall not widen authority.
 - The system shall display saved batch status and job or intent identities without automatic replay through `durable_status`.
 - Saved progress and reports shall distinguish verified delivery, blocked work and uncertain provider effects. For an uncertain effect, direct the owner to check the provider receipt before retrying.
 - A batch that needs attention shall link to its exact saved campaign receipts when the campaign binding can be verified. Opening saved receipts shall not fetch live provider status, approve a retry, or start work.

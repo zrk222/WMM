@@ -894,6 +894,7 @@ function campaignScheduleOpen() {
 async function campaignScheduleSubmit(form) {
   const submit = form.querySelector('[type=submit]');
   if (submit.disabled) return;
+  const submitWasFocused = document.activeElement === submit;
   submit.disabled = true;
   try {
     campaignBound(form);
@@ -944,7 +945,18 @@ async function campaignScheduleSubmit(form) {
     );
     $('#campaign-schedule-review').campaign = saved;
   } catch (e) {
-    if (form.isConnected) form.querySelector('#campaign-error').textContent = e.message;
+    if (form.isConnected) {
+      const alert = form.querySelector('#campaign-error');
+      alert.textContent = e.message;
+      if (
+        e.feedback?.code === 'CAMPAIGN_REVIEW_REQUIRED' &&
+        submitWasFocused &&
+        [document.body, submit].includes(document.activeElement)
+      ) {
+        alert.tabIndex = -1;
+        alert.focus();
+      }
+    }
   } finally {
     submit.disabled = false;
   }

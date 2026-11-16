@@ -14,6 +14,16 @@ test('approval, changed evidence, limits, accounts and setup have distinct next 
     ['Protected batch admission is required', 'AGENT_APPROVAL_NEEDED', /owner/],
     ['Agent grant is revoked or expired', 'ACCESS_ENDED', /cannot renew/],
     ['Post content changed since review', 'REVIEW_CHANGED', /current version/],
+    [
+      'Scheduled post is outside campaign approval',
+      'CAMPAIGN_REVIEW_REQUIRED',
+      /review the exact post and its rights/,
+    ],
+    [
+      'Post content or rights attestation is outside the approved scope',
+      'CAMPAIGN_REVIEW_REQUIRED',
+      /review the exact post and its rights/,
+    ],
     ['Agent grant call ceiling is exhausted', 'APPROVED_LIMIT_REACHED', /new allowance/],
     ['Facebook connection expired', 'ACCOUNT_RECONNECT_NEEDED', /Connections/],
     ['Campaign approval is OFF or expired', 'APPROVAL_ENDED', /does not renew/],

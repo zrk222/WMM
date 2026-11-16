@@ -3,12 +3,13 @@
 import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
+
 from mission_control.campaign_execution import CampaignExecutionService
 from mission_control.common import canonical, digest, now
 from mission_control.db import connection
-from mission_control.operator_client import OperatorClient, ClientError
-from tests.test_campaign_execution import FakeTransport, FakePaidTransport
+from mission_control.operator_client import ClientError, OperatorClient
 from tests import test_agent_grants as grant_fixture
+from tests.test_campaign_execution import FakePaidTransport, FakeTransport
 
 
 class CampaignGatewayTests(unittest.TestCase):
@@ -155,6 +156,42 @@ class CampaignGatewayTests(unittest.TestCase):
         with self.assertRaises(ClientError):
             agent.call(envelope)
         self.assertEqual(self.wire.posts, 1)
+
+    def test_changed_draft_recommends_owner_review_without_scheduling_or_publishing(self) -> None:
+        scope_id = self.activate()["scope_id"]
+        agent = self.agent(["campaign.publish"])
+        due = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+        original = self.owner_call("status", {"scope_id": scope_id})["scope"]
+        text = "A revised synthetic app post"
+        variants = (
+            dict(self.post, message=text, content_hash=digest({"message": text, "link": None})),
+            dict(self.post, rights_hash="c" * 64),
+        )
+        for request in variants:
+            with self.assertRaises(ClientError) as schedule:
+                self.owner_call(
+                    "schedule-prepare", {"scope_id": scope_id, "items": [{"due_at": due, "request": request}]}
+                )
+            with self.assertRaises(ClientError) as publish:
+                agent.call(
+                    dict(
+                        app_id="sample-one",
+                        operation="campaign.publish",
+                        input={"scope_id": scope_id, "request": request},
+                    )
+                )
+            for rejected in (schedule.exception, publish.exception):
+                self.assertEqual((rejected.status, rejected.code), (403, "CAMPAIGN_REVIEW_REQUIRED"))
+                self.assertIn("app owner to review the exact post and its rights", str(rejected))
+                self.assertNotIn(request["message"], str(rejected))
+        self.assertEqual(self.owner_call("schedule-history", {})["batches"], [])
+        self.assertEqual(self.owner_call("status", {"scope_id": scope_id}), {"scope": original, "intents": []})
+        self.assertEqual(self.wire.posts, 0)
+        valid = self.owner_call(
+            "schedule-prepare", {"scope_id": scope_id, "items": [{"due_at": due, "request": self.post}]}
+        )
+        self.assertEqual(valid["summary"]["items"][0]["request"]["content_hash"], self.content)
+        self.assertEqual(self.wire.posts, 0)
 
     def test_tracked_receipts_match_exact_link_and_do_not_widen_grant_access(self):
         link = "https://example.com/?utm_campaign=study-a"

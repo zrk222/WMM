@@ -140,6 +140,7 @@ tests/test_automation_proposals.py
 tests/test_automation_rule_report_integration.py
 tests/test_automation_rules_browser.py
 tests/test_batch_authority.py
+tests/test_campaign_access.py
 tests/test_campaign_execution.py
 tests/test_campaign_monitor.py
 tests/test_campaign_monitor_polish.py
