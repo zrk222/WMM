@@ -287,7 +287,7 @@ def ad_data(body: object) -> AdRequest:
     return cast(AdRequest, result)
 
 
-def row_intent(row: Row | None) -> dict[str, object]:
+def row_intent(row: Row | None) -> dict[str, Any]:
     if row is None:
         raise Invalid("Campaign intent was not found")
     return {
