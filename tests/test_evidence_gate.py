@@ -26,6 +26,7 @@ from mission_control.evidence_gate import (
     plan_providers,
     provider_set,
 )
+from mission_control.first_party_receipts import require_first_party_plan
 from mission_control.operator_client import OperatorClient
 from mission_control.store import Store
 from mission_control.worker import campaign_job_preview
@@ -65,6 +66,8 @@ class EvidenceGateTests(unittest.TestCase):
         self.assertEqual(saved["measurement_source"], APPLE_MEASUREMENT)
         self.assertEqual(measurement_plan(saved, retained=True), saved)
         self.assertNotIn("utm_campaign", saved)
+        with self.assertRaisesRegex(Invalid, "product and billing imports"):
+            require_first_party_plan(saved)
         with self.assertRaisesRegex(Invalid, "match the tag"):
             measurement_plan(dict(approved, campaign_tag="other"))
         with self.assertRaisesRegex(Invalid, "first-time downloads"):

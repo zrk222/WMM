@@ -363,8 +363,6 @@ class CampaignExecutionService:
         return scope, secret, token
 
     def activate_scope(self, app_id, owner, scope_id, approval_hash):
-        from .evidence_gate import assert_fresh_campaign_tag
-
         scope = self.get_scope(app_id, scope_id)
         if scope["status"] != "DRAFT" or scope["approval_hash"] != approval_hash:
             raise Invalid("Campaign review changed; prepare the exact scope again")

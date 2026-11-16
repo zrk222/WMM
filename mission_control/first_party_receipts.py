@@ -7,6 +7,7 @@ from sqlite3 import Connection
 
 from .common import Invalid, canonical, digest, iso_time, now
 from .db import connection
+from .evidence_gate import is_apple_plan
 from .first_party_outcomes import HASH, OutcomeBatch, join
 
 ACTION = "outcomes.first_party.retained"
@@ -85,11 +86,11 @@ def for_campaign(
     receipt_hash: str,
 ) -> dict[str, object]:
     """Attach only the explicitly selected receipt for the frozen tag and observation window."""
+    approved_plan = require_first_party_plan(approved_plan)
     receipt = read_in_snapshot(db, app_id, receipt_hash)
     report = receipt["report"]
     if (
-        not isinstance(approved_plan, dict)
-        or not isinstance(report, dict)
+        not isinstance(report, dict)
         or receipt["app_version"] != app_version
         or report.get("environment") != "production"
         or report.get("campaign") != approved_plan.get("campaign_tag")
@@ -99,6 +100,17 @@ def for_campaign(
     ):
         raise Invalid("Outcome receipt does not match the approved campaign and measurement window")
     return receipt
+
+
+def require_first_party_plan(plan: object) -> dict:
+    """Keep imported product and billing evidence separate from Apple download counts."""
+    if not isinstance(plan, dict):
+        raise Invalid("Approve a measurement plan before importing campaign outcomes")
+    if is_apple_plan(plan):
+        raise Invalid(
+            "Use Apple analytics for this download plan; product and billing imports cannot supply its counts"
+        )
+    return plan
 
 
 def primary_outcome(approved_plan: object, report: object) -> dict[str, object]:
