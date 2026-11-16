@@ -2,15 +2,18 @@
 
 import hashlib
 import json
-from pathlib import Path
 import re
 import shutil
 import time
+from pathlib import Path
+from typing import Any
+
 from .agent_process import capture
 from .common import Invalid
-from .hypit_authoring import FPS, project, scene_contract
+from .hypit_authoring import FPS, AuthoringReceipt, project, scene_contract
 from .hypit_media import MAX_BYTES, validate_video
-from .media_native import capability
+from .media_native import SHAPES, capability
+from .video_download_qr import DownloadQR, download_qr_insets, stamp_download_qr
 
 COMMAND_TIMEOUT = 180
 FOLLOW_WAIT_MS = 45000
@@ -40,7 +43,10 @@ def invoke(runtime, folder, arguments, alive=lambda: None):
     if result["code"]:
         raise Invalid("Hypit command failed; inspect the retained project diagnostics before retrying")
     try:
-        value = json.loads(result["stdout"])
+        output = result["stdout"]
+        if not isinstance(output, (str, bytes, bytearray)):
+            raise ValueError()
+        value = json.loads(output)
         if not isinstance(value, dict):
             raise ValueError()
     except (ValueError, TypeError):
@@ -50,22 +56,25 @@ def invoke(runtime, folder, arguments, alive=lambda: None):
     return value
 
 
-def stage(folder, scene, sources=None, alive=lambda: None):
+def stage(folder, scene, sources=None, alive=lambda: None, *, qr_insets: tuple[int, int] = (0, 0)):
     """Exclusive fixed files in an empty caller-owned job directory; font is host-selected."""
     folder = Path(folder)
     if folder.is_symlink() or not folder.is_dir() or any(folder.iterdir()):
         raise Invalid("Hypit needs an exclusive empty job directory; inspect existing work before retrying")
     scene = scene_contract(scene)
-    authored = project(scene)
+    authored = project(scene, qr_insets=qr_insets)
     font = capability().get("font")
-    if not font:
+    if not isinstance(font, str) or not font:
         raise Invalid("Prepare a verified local font before Hypit rendering")
     for name, text in authored["files"].items():
         with (folder / name).open("xb") as destination:
             destination.write(text.encode())
     with (folder / "font.ttf").open("xb") as destination:
         destination.write(Path(font).read_bytes())
-    receipt = dict(authored["receipt"], font_sha256=hashlib.sha256((folder / "font.ttf").read_bytes()).hexdigest())
+    receipt: AuthoringReceipt = {
+        **authored["receipt"],
+        "font_sha256": hashlib.sha256((folder / "font.ttf").read_bytes()).hexdigest(),
+    }
     selected = {i: item for i, item in enumerate(scene["scenes"]) if "media" in item}
     if not selected:
         if sources:
@@ -75,7 +84,8 @@ def stage(folder, scene, sources=None, alive=lambda: None):
         raise Invalid("Every footage scene requires its exact managed snapshot")
     assets = folder / "assets"
     assets.mkdir(mode=0o700)
-    receipt["media_hashes"] = {}
+    media_hashes: dict[str, str] = {}
+    receipt["media_hashes"] = media_hashes
     for index, item in selected.items():
         raw = sources[index]
         if (
@@ -89,16 +99,16 @@ def stage(folder, scene, sources=None, alive=lambda: None):
             destination.write(raw)
         clip = assets / f"scene{index}.mp4"
         cut_footage(source, clip, item, alive)
-        receipt["media_hashes"][f"assets/source{index}.mp4"] = item["media"]["sha256"]
-        receipt["media_hashes"][f"assets/scene{index}.mp4"] = hashlib.sha256(clip.read_bytes()).hexdigest()
+        media_hashes[f"assets/source{index}.mp4"] = item["media"]["sha256"]
+        media_hashes[f"assets/scene{index}.mp4"] = hashlib.sha256(clip.read_bytes()).hexdigest()
     return receipt
 
 
 def cut_footage(source, target, item, alive):
     """Normalize to 24 fps, then trim exact normalized frame offsets without audio."""
     tools = capability().get("tools", {})
-    ffmpeg = tools.get("ffmpeg")
-    if not ffmpeg:
+    ffmpeg = tools.get("ffmpeg") if isinstance(tools, dict) else None
+    if not isinstance(ffmpeg, str) or not ffmpeg:
         raise Invalid("FFmpeg is required for managed footage")
     first = item["media"]["in_frame"]
     frames = item["seconds"] * FPS
@@ -253,10 +263,20 @@ def cleanup(runtime, folder, key, unfinished):
     return dict(worker="STOPPED", cancellation="REQUESTED" if key and unfinished else "NOT_NEEDED")
 
 
-def render(folder, scene, alive=lambda: None, submitted=lambda key: None, sources=None):
+def render(
+    folder,
+    scene,
+    alive=lambda: None,
+    submitted=lambda key: None,
+    sources=None,
+    *,
+    download_qr: DownloadQR | None = None,
+) -> dict[str, Any]:
     """Submit once, retain source/build history and return only actually decoded output."""
+    scene = scene_contract(scene)
     runtime = identity()
-    receipt = stage(folder, scene, sources=sources, alive=alive)
+    insets = download_qr_insets(SHAPES[scene["shape"]], download_qr) if download_qr else (0, 0)
+    receipt = stage(folder, scene, sources=sources, alive=alive, qr_insets=insets)
     folder = Path(folder).resolve()
     key = None
     complete = False
@@ -287,6 +307,8 @@ def render(folder, scene, alive=lambda: None, submitted=lambda key: None, source
         complete = True
         invoke(runtime, folder, ["get", key, "--output", "final.video", "--to", "video.mp4"], alive)
         alive()
+        if download_qr is not None:
+            stamp_download_qr(folder, SHAPES[scene["shape"]], download_qr, alive)
         artifact = validate_video(folder / "video.mp4", scene["shape"], receipt["duration_seconds"])
         source_current(folder, receipt)
     finally:
@@ -302,6 +324,7 @@ def render(folder, scene, alive=lambda: None, submitted=lambda key: None, source
         authoring_mode="VALIDATED_DECLARATIVE_SCENE",
         publication="NOT_RUN",
         visual_review="REQUIRED",
+        **({"download_qr": download_qr} if download_qr else {}),
     )
 
 

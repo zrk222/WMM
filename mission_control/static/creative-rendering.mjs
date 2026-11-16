@@ -164,6 +164,19 @@ async function reviewCreativeBatch(form) {
   };
 }
 
+function downloadQrNote(data) {
+  if (data.renderer !== 'HYPIT_LOCAL') return '';
+  const url = data.receipt?.download_qr?.url;
+  if (
+    typeof url !== 'string' ||
+    !/^https:\/\/(?:apps\.apple\.com\/app\/id[0-9]+|play\.google\.com\/store\/apps\/details\?id=[A-Za-z][A-Za-z0-9_.]+)$/.test(
+      url,
+    )
+  )
+    return '<p>Draft video. Before publishing, add this app’s store ID in App setup if needed and render a new video with a download QR code.</p>';
+  return `<p>The video’s download QR code opens <a href="${esc(url)}" target="_blank" rel="noopener noreferrer">this app’s store listing</a>.</p>`;
+}
+
 function renderForm(hypitBriefIds = null) {
   const briefs = (state.workspace.briefs || []).filter(
     (b) =>
@@ -211,7 +224,7 @@ function openRender(id) {
     base = `/api/apps/${encodeURIComponent(state.app)}/${renderEndpoint(d.renderer)}/${encodeURIComponent(id)}`;
   modal(
     'Review rendered video',
-    `<div class="modal-content">${notice('Check every screen, caption, language and final CTA. This local artifact has not been published or visually approved.')}${row.status !== 'CURRENT' ? notice('Source proof or media changed. Repair the current brief and render a fresh version before publication.', 'warning') : ''}<video class="render-preview" controls playsinline preload="metadata" src="${base}/preview" aria-label="Original captioned marketing video"></video><p id="video-error" class="field-error" role="alert"></p><h3>Exact original captions</h3>${request.captions.map((t) => `<p>${esc(t).replaceAll('\n', '<br>')}</p>`).join('')}<details><summary>Source binding and decoded video receipt</summary><pre>${json(row)}</pre></details><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><a class="button" download href="${base}/download">Download MP4</a>${button('Download render receipt', 'render-receipt', `data-id="${esc(id)}"`)}</div>`,
+    `<div class="modal-content">${notice('Check every screen, caption, language and final CTA. This local artifact has not been published or visually approved.')}${row.status !== 'CURRENT' ? notice('Source proof or media changed. Repair the current brief and render a fresh version before publication.', 'warning') : ''}<video class="render-preview" controls playsinline preload="metadata" src="${base}/preview" aria-label="Original captioned marketing video"></video>${downloadQrNote(row.data)}<p id="video-error" class="field-error" role="alert"></p><h3>Exact original captions</h3>${request.captions.map((t) => `<p>${esc(t).replaceAll('\n', '<br>')}</p>`).join('')}<details><summary>Source binding and decoded video receipt</summary><pre>${json(row)}</pre></details><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><a class="button" download href="${base}/download">Download MP4</a>${button('Download render receipt', 'render-receipt', `data-id="${esc(id)}"`)}</div>`,
   );
   $('#modal video').addEventListener('error', () => {
     $('#video-error').textContent =

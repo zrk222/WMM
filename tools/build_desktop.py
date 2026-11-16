@@ -63,6 +63,8 @@ def command():
         "tzdata",
         "--copy-metadata",
         "mcp",
+        "--copy-metadata",
+        "qrcodegen",
         "--collect-submodules",
         "mcp.server",
         "--collect-submodules",

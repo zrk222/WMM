@@ -1,8 +1,9 @@
 """Separate owner policy and durable admission for local organic video output."""
 
-from datetime import datetime, timedelta, timezone
 import json
 import re
+from datetime import datetime, timezone
+from typing import Any
 
 from .agent_grants import app_scope
 from .campaign_contract import exact, hashes, numeric, whole
@@ -110,7 +111,7 @@ def _policy_templates(value):
         _policy_template(template, seen, claim_ids)
 
 
-def validate_policy(body) -> object:
+def validate_policy(body: object) -> dict[str, Any]:
     """Validate a bounded proposal. Durable authority is established by Policies."""
     if not isinstance(body, dict):
         raise Invalid("Use an organic video policy object")
@@ -210,14 +211,15 @@ def _schema(db):
     for table, matching in replacements.items():
         db.execute(f"""CREATE TRIGGER IF NOT EXISTS {table}_no_replace BEFORE INSERT ON {table}
             WHEN EXISTS(SELECT 1 FROM {table} WHERE {matching} OR rowid=NEW.rowid)
-            BEGIN SELECT RAISE(ABORT,'Organic video history is immutable'); END""")
+            BEGIN SELECT RAISE(ABORT,'Organic video history is immutable'); END""")  # noqa: S608 - fixed schema names and predicates
 
 
 def _authority(db, store, app_id, operation, body, owner_only=False):
     context = PROTECTED.get()
     if not context or context.get("store") != store_identity(store):
         raise PermissionError("An exact protected organic policy operation is required")
-    if json.loads(context["envelope"]) != dict(app_id=app_id, operation=operation, input=body):
+    envelope = context.get("envelope")
+    if not isinstance(envelope, str) or json.loads(envelope) != dict(app_id=app_id, operation=operation, input=body):
         raise PermissionError("Organic policy operation differs from its protected admission")
     if owner_only and "grant_id" in context:
         raise PermissionError("This organic video action requires the app owner")
@@ -379,10 +381,13 @@ def _generation_matches(job, reservation, reservation_row, artifact, output):
 
 
 def _admission_artifact(db, store, app_id, output, reservation, reservation_row):
-    from .hypit_jobs import artifact_file, current_inputs, saved as hypit_saved
+    from .hypit_jobs import artifact_file, current_inputs
+    from .hypit_jobs import saved as hypit_saved
     from .hypit_runtime import local_graph, source_current
+    from .video_download_qr import require_download_qr
 
     _, artifact = artifact_file(store, app_id, output["artifact_id"])
+    require_download_qr(db, app_id, artifact)
     receipt = artifact.get("receipt", {})
     plan = receipt.get("local_plan")
     if (
@@ -446,6 +451,7 @@ class Policies:
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
             context = _authority(db, self.store, app_id, "organic-video.policy-create", body, True)
+            taste_grant = None
             if "taste_auto_review" in proposal:
                 from .organic_video_taste_review import selected_grant
 
@@ -465,7 +471,7 @@ class Policies:
                 page=page,
                 proofs=_proofs(db, self.store, app_id, proposal),
             )
-            if "taste_auto_review" in proposal:
+            if taste_grant is not None:
                 data["taste_reviewer"] = dict(
                     id=taste_grant["id"],
                     version=taste_grant["version"],
@@ -575,8 +581,8 @@ class Policies:
         exact(body, ("policy_id", "policy_hash", "request_id", "template_id", "render_input"))
         reference(body["request_id"])
         reference(body["template_id"])
-        from .hypit_jobs import resolve_inputs
         from .hypit_authoring import project
+        from .hypit_jobs import resolve_inputs
 
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")

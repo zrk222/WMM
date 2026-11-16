@@ -1,27 +1,30 @@
 """Fixed owned runtime lifecycle, endpoint admission and uncertain-build boundaries."""
 
-from pathlib import Path
 import hashlib
 import os
 import shutil
 import subprocess
 import tempfile
 import unittest
+from pathlib import Path
+from typing import Any
 from unittest.mock import patch
+
 from mission_control.common import Invalid
 from mission_control.hypit_runtime import (
-    identity,
-    stage,
-    local_graph,
     build_identity,
-    invoke,
-    render,
-    observe,
     cleanup,
-    source_current,
-    submit,
+    identity,
+    invoke,
+    local_graph,
+    observe,
     recover_build,
+    render,
+    source_current,
+    stage,
+    submit,
 )
+from mission_control.video_download_qr import DownloadQR
 from tests.test_hypit_authoring import scene
 
 KEY = "bld_20261024_TEST1234"
@@ -42,7 +45,7 @@ def plan():
     )
 
 
-def status():
+def status() -> dict[str, Any]:
     return dict(build=dict(id=KEY, work=dict(state="done", outcome="complete"), result=dict(state="complete")))
 
 
@@ -50,7 +53,8 @@ class RuntimeTests(unittest.TestCase):
     @unittest.skipUnless(os.environ.get("WMM_HYPIT_NATIVE_TEST") == "1", "explicit local Hypit runtime proof")
     def test_actual_hypit_compiles_and_renders_managed_video(self):
         ffmpeg = shutil.which("ffmpeg")
-        self.assertTrue(ffmpeg and shutil.which("ffprobe") and shutil.which("hypit"))
+        hypit = shutil.which("hypit")
+        assert ffmpeg and hypit and shutil.which("ffprobe")
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             original = root / "original.mp4"
@@ -100,12 +104,17 @@ class RuntimeTests(unittest.TestCase):
                 scenes=[dict(text="Demo", seconds=1, media=media)],
             )
             try:
-                receipt = render(folder, value, sources={0: raw})
+                target: DownloadQR = {
+                    "schema": "wmm.video-download-qr.v1",
+                    "url": "https://apps.apple.com/app/id123456789",
+                }
+                receipt = render(folder, value, sources={0: raw}, download_qr=target)
+                self.assertEqual(receipt["download_qr"], target)
             except Exception:
                 # Preserve the original failure while attempting to stop only this test's runtime.
                 if (folder / ".hypit/runtimes/local/runtime.sqlite").is_file():
                     subprocess.run(
-                        [shutil.which("hypit"), "runtime", "down", "--runtime", "runtime.json", "--json"],
+                        [hypit, "runtime", "down", "--runtime", "runtime.json", "--json"],
                         cwd=folder,
                         capture_output=True,
                         timeout=60,

@@ -1,19 +1,19 @@
 """App-scoped organic publication artifact binding and byte-integrity tests."""
 
 import hashlib
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
-from mission_control.common import Invalid, digest, uid
+from mission_control.common import Invalid, canonical, digest, uid
 from mission_control.db import connection
 from mission_control.hypit_jobs import HypitRenders, private_path
 from mission_control.publication_artifacts import describe, load, verify
 from mission_control.store import Store
 from mission_control.worker import run_once
 from tests.test_creative_rendering import prepared_render
-
 
 APP = "render-test"
 RAW = b"synthetic publication artifact bytes"
@@ -34,7 +34,7 @@ class PublicationArtifactTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.store = Store(Path(self.tmp.name) / "state.sqlite")
-        _, self.request = prepared_render(self.store)
+        _, self.request = prepared_render(self.store, store_app_id="123456789")
         self.renders = HypitRenders(self.store)
         self.brief_hash = self.request["brief_hash"]
         with patch(
@@ -42,7 +42,7 @@ class PublicationArtifactTests(unittest.TestCase):
         ):
             self.job = self.renders.queue(APP, {"data": self.request, "request_key": "publication-fixture"})
 
-        def render(folder, scene, alive, submitted, sources=None):
+        def render(folder, scene, alive, submitted, sources=None, *, download_qr):
             alive()
             submitted("bld_20261024_TEST1234")
             (folder / "video.mp4").write_bytes(RAW)
@@ -52,13 +52,14 @@ class PublicationArtifactTests(unittest.TestCase):
                 cleanup=dict(worker="STOPPED"),
                 publication="NOT_RUN",
                 visual_review="REQUIRED",
+                download_qr=download_qr,
             )
 
         with patch("mission_control.hypit_jobs.render", side_effect=render):
             self.assertTrue(run_once(self.store))
         self.render_id = self.renders.list(APP)["items"][0]["id"]
 
-    def draft(self, metadata=None):
+    def draft(self, metadata=None) -> dict[str, Any]:
         from mission_control.publication_artifacts import describe
 
         info = describe(self.store, APP, self.render_id)
@@ -103,6 +104,26 @@ class PublicationArtifactTests(unittest.TestCase):
         with self.assertRaises(Invalid):
             describe(self.store, "sample-two", self.render_id)
 
+    def test_legacy_video_can_be_read_back_but_cannot_start_a_new_upload(self) -> None:
+        draft = self.draft()
+        data = self.renders.list(APP)["items"][0]["data"]
+        data["inputs"].pop("download_qr")
+        data["receipt"].pop("download_qr")
+        with connection(self.store.path, write=True) as db:
+            db.execute(
+                "UPDATE hypit_renders SET data=?,hash=? WHERE app_id=? AND id=?",
+                (canonical(data), digest(data), APP, self.render_id),
+            )
+        with connection(self.store.path) as db:
+            self.assertEqual(
+                verify(self.store, db, APP, draft, verify_bytes=False)["artifact_sha256"], draft["artifact"]["sha256"]
+            )
+            with self.assertRaisesRegex(Invalid, "download QR code"):
+                verify(self.store, db, APP, draft)
+        with self.assertRaisesRegex(Invalid, "download QR code"):
+            load(self.store, APP, draft)
+        self.assertEqual(private_path(self.store, APP, "artifacts", self.render_id + ".mp4").read_bytes(), RAW)
+
     def test_changed_artifact_and_forged_hash_fail_closed(self):
         draft = self.draft()
         path = private_path(self.store, APP, "artifacts", self.render_id + ".mp4")
@@ -116,10 +137,10 @@ class PublicationArtifactTests(unittest.TestCase):
             verify(self.store, db, APP, draft, verify_bytes=False)
 
     def test_text_copy_binding_is_exact_and_requires_separate_owner_confirmation(self):
-        from mission_control.publication_contract import validate_draft
         from mission_control.publication_artifacts import verify
+        from mission_control.publication_contract import validate_draft
 
-        text = dict(
+        text: dict[str, Any] = dict(
             schema="wmm.organic-publication.v1",
             request_id=uid(),
             app_id=APP,
@@ -198,7 +219,7 @@ class PublicationArtifactTests(unittest.TestCase):
                 APP, {"data": dict(self.request, footage=[footage]), "request_key": "publication-managed"}
             )
 
-        def render(folder, scene, alive, submitted, sources):
+        def render(folder, scene, alive, submitted, sources, *, download_qr):
             alive()
             submitted("bld_20261024_TEST1234")
             self.assertEqual(sources[0], source_raw)
@@ -209,6 +230,7 @@ class PublicationArtifactTests(unittest.TestCase):
                 cleanup=dict(worker="STOPPED"),
                 publication="NOT_RUN",
                 visual_review="REQUIRED",
+                download_qr=download_qr,
             )
 
         with patch("mission_control.hypit_jobs.render", side_effect=render):

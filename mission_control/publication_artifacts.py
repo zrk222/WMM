@@ -7,6 +7,7 @@ import re
 from .common import Invalid, digest
 from .db import connection
 from .publication_contract import validate_draft
+from .video_download_qr import require_download_qr
 
 
 def _hashes(db, store, app_id, data):
@@ -23,7 +24,7 @@ def _hashes(db, store, app_id, data):
             latest = source.get("latest_review")
             if (
                 not source.get("reuse_available")
-                or not latest
+                or not isinstance(latest, dict)
                 or latest.get("status") != "ALLOWED"
                 or latest.get("version") != item.get("review_version")
                 or latest.get("manifest_version") != item.get("manifest_version")
@@ -68,7 +69,7 @@ def _text_binding(draft):
     )
 
 
-def _resolve(store, app_id, draft, *, verify_bytes):
+def _resolve(store, app_id, draft, *, verify_bytes, require_qr: bool = False):
     from .hypit_jobs import current_inputs, private_path, saved
     from .hypit_media import MAX_BYTES
 
@@ -85,6 +86,8 @@ def _resolve(store, app_id, draft, *, verify_bytes):
         current_inputs(db, store, app_id, data["inputs"])
         if _app_version(db, app_id) != draft["manifest_version"]:
             raise Invalid("Publication workspace revision changed")
+        if require_qr:
+            require_download_qr(db, app_id, data)
         rights, sources = _hashes(db, store, app_id, data)
     if data.get("renderer") != "HYPIT_LOCAL" or data.get("publication") != "NOT_RUN":
         raise Invalid("Saved video is not an eligible unpublished Hypit render")
@@ -155,12 +158,14 @@ def describe(store, app_id, artifact_id):
         from .hypit_jobs import current_inputs
 
         current_inputs(db, store, app_id, data["inputs"])
+        download_qr = require_download_qr(db, app_id, data)
         rights, sources = _hashes(db, store, app_id, data)
     metadata = data.get("artifact", {}).get("metadata")
     if not isinstance(metadata, dict):
         raise Invalid("Saved Hypit artifact metadata is incomplete")
     return dict(
         id=artifact_id,
+        download_qr=download_qr,
         sha256=data["artifact"]["sha256"],
         bytes=data["artifact"]["bytes"],
         content_type="video/mp4",
@@ -187,7 +192,7 @@ def verify(store, db, app_id, draft, verify_bytes=True):
         if _app_version(db, app_id) != value["manifest_version"]:
             raise Invalid("Publication workspace revision changed")
         return _text_binding(value)
-    _, _, snapshot = _resolve(store, app_id, value, verify_bytes=verify_bytes)
+    _, _, snapshot = _resolve(store, app_id, value, verify_bytes=verify_bytes, require_qr=verify_bytes)
     return snapshot
 
 
@@ -196,7 +201,7 @@ def load(store, app_id, draft):
     value = validate_draft(draft)
     if value["app_id"] != app_id or value["kind"] == "linkedin_text":
         raise Invalid("A video publication draft for this app is required")
-    path, data, snapshot = _resolve(store, app_id, value, verify_bytes=False)
+    path, data, snapshot = _resolve(store, app_id, value, verify_bytes=False, require_qr=True)
     try:
         raw = path.read_bytes()
     except OSError:
@@ -204,7 +209,8 @@ def load(store, app_id, draft):
     actual_hash = hashlib.sha256(raw).hexdigest()
     if len(raw) != snapshot["bytes"] or actual_hash != snapshot["artifact_sha256"]:
         raise Invalid("Hypit artifact changed during publication load")
-    from .hypit_media import metadata as inspect_metadata, probe
+    from .hypit_media import metadata as inspect_metadata
+    from .hypit_media import probe
 
     decoded = inspect_metadata(
         probe(path.resolve()), data["inputs"]["request"]["shape"], data["inputs"]["request"]["duration_seconds"]
@@ -213,7 +219,11 @@ def load(store, app_id, draft):
     if decoded != saved_metadata:
         raise Invalid("Hypit decoded metadata changed")
     try:
-        fps = float(decoded["frame_rate"].split("/")[0]) / float(decoded["frame_rate"].split("/")[1])
+        frame_rate = decoded["frame_rate"]
+        if not isinstance(frame_rate, str):
+            raise ValueError()
+        numerator, denominator = frame_rate.split("/")
+        fps = float(numerator) / float(denominator)
     except (AttributeError, ValueError, ZeroDivisionError, TypeError):
         raise Invalid("Hypit frame rate metadata is malformed") from None
     if not math.isfinite(fps) or fps <= 0:

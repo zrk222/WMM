@@ -2,50 +2,46 @@
 
 import base64
 import copy
-import hashlib
-from pathlib import Path
 import struct
 import tempfile
 import threading
 import unittest
-from unittest.mock import patch
 import zlib
+from pathlib import Path
+from typing import Any, cast
+from unittest.mock import patch
+
 from mission_control.common import Invalid, digest
-from mission_control.store import Store
-from mission_control.service import Service
-from mission_control.db import connection
 from mission_control.creative_briefs import Briefs
 from mission_control.creative_rendering import (
     Renders,
-    render_request,
-    current_request,
-    owned,
-    folder_for,
-    render_rows,
-    heartbeat,
     artifact_file,
+    current_request,
+    folder_for,
+    heartbeat,
+    render_request,
+    render_rows,
 )
+from mission_control.db import connection
 from mission_control.media_native import (
     capability,
     caption_lines,
-    supported,
     filters,
-    render_native,
+    invoke,
+    supported,
     validate_video,
     video_metadata,
-    invoke,
 )
 from mission_control.media_portable import (
     export_media,
     media_envelope,
-    media_row,
-    source_request,
+    media_payload,
     portable_bytes,
     restore_media,
-    validate_bytes,
-    media_payload,
 )
-from mission_control.worker import run_once, claim, jobs
+from mission_control.service import Service
+from mission_control.store import Store
+from mission_control.worker import claim, jobs, run_once
 from tests.test_creative_production import ready_production
 
 APP = "render-test"
@@ -67,9 +63,9 @@ def synthetic_png():
     )
 
 
-def prepared_render(store, app_id=APP):
+def prepared_render(store, app_id=APP, *, store_app_id: str | None = None):
     """Bind an explicitly synthetic valid image to isolated passing fixture proof."""
-    _, _, _, definition = ready_production(store, app_id)
+    _, _, _, definition = ready_production(store, app_id, store_app_id=store_app_id)
     service = Service(store)
     upload = service.upload(app_id, "synthetic-grid.png", synthetic_png())
     asset = service.evidence(
@@ -107,7 +103,7 @@ class RenderingTests(unittest.TestCase):
         job = jobs(self.store, APP)[0]
         self.assertEqual(job["status"], "SUCCEEDED", job["result"])
         self.assertEqual(job["attempts"], 1)
-        rows = self.renders.list(APP)["items"]
+        rows = cast(list[dict[str, Any]], self.renders.list(APP)["items"])
         self.assertEqual(len(rows), 1)
         row = rows[0]
         path, data = artifact_file(self.store, APP, row["id"])
@@ -157,7 +153,8 @@ class RenderingTests(unittest.TestCase):
         path.write_bytes(b"modified")
         with self.assertRaisesRegex(Invalid, "changed"):
             artifact_file(self.store, APP, row["id"])
-        self.assertEqual(self.renders.list(APP)["items"][0]["status"], "STALE_OR_UNAVAILABLE")
+        listed = cast(list[dict[str, Any]], self.renders.list(APP)["items"])
+        self.assertEqual(listed[0]["status"], "STALE_OR_UNAVAILABLE")
         path.write_bytes(raw)
 
     def test_contract_missing_tools_source_shape_and_caption_readability(self):
@@ -182,13 +179,15 @@ class RenderingTests(unittest.TestCase):
         for changes in ({"shape": "SQUARE"}, {"brief_hash": "wrong"}, {"brief_id": "foreign"}):
             with self.subTest(changes=changes), self.assertRaises(Invalid):
                 self.renders.queue(APP, dict(data=dict(self.request, **changes), request_key="bad"))
-        with patch(
-            "mission_control.creative_rendering.capability",
-            return_value=dict(status="UNAVAILABLE", repair="Install native tools"),
+        with (
+            patch(
+                "mission_control.creative_rendering.capability",
+                return_value=dict(status="UNAVAILABLE", repair="Install native tools"),
+            ),
+            self.assertRaisesRegex(Invalid, "Install native"),
         ):
-            with self.assertRaisesRegex(Invalid, "Install native"):
-                self.queue()
-        for script in ("", "word " * 100, "日本語", "control\x01"):
+            self.queue()
+        for script in ("", "word " * 100, "Ã¦â€”Â¥Ã¦Å“Â¬Ã¨ÂªÅ¾", "control\x01"):
             with self.subTest(script=script), self.assertRaises(Invalid):
                 caption_lines(script, 7.5, "PORTRAIT")
         self.assertEqual(
@@ -206,6 +205,7 @@ class RenderingTests(unittest.TestCase):
     def test_cancel_stop_and_superseded_lease_never_commit(self):
         queued = self.queue()
         job = claim(self.store)
+        assert job is not None
         self.assertEqual(job["attempts"], 1)
         heartbeat(self.store, job)
         with connection(self.store.path) as db:
@@ -251,7 +251,8 @@ class RenderingTests(unittest.TestCase):
         target = Store(Path(self.tmp.name) / "legacy/state.sqlite")
         target.restore(snapshot)
         self.assertEqual(Renders(target).list(APP)["items"], [])
-        import sys, time
+        import sys
+        import time
 
         def cancelled():
             raise Invalid("Cancelled fixture process")

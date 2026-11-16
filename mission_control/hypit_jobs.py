@@ -3,7 +3,7 @@
 import hashlib
 import json
 import re
-from typing import NotRequired, TypedDict, cast
+from typing import Any, NotRequired, TypedDict, cast
 
 from .common import Invalid, canonical, digest, now, uid
 from .creative_rendering import current_request, heartbeat, owned, render_request
@@ -11,6 +11,7 @@ from .db import connection
 from .hypit_authoring import FOOTAGE_SCHEMA, FPS, scene_contract
 from .hypit_media import MAX_BYTES
 from .hypit_runtime import build_identity, identity, render
+from .video_download_qr import download_target
 
 
 class _SceneItem(TypedDict):
@@ -60,8 +61,10 @@ def resolve_inputs(db, store, app_id, body, capture=False):
         raise Invalid("Use guided brief fields and optional managed footage")
     request = render_request(db, store, app_id, {k: body[k] for k in ("brief_id", "brief_hash", "shape")})
     scene = cast(_Scene, brief_scene(request))
+    target = download_target(db, app_id)
+    download = {"download_qr": target} if target else {}
     if "footage" not in body:
-        return dict(request=request, scene=scene), {}
+        return dict(request=request, scene=scene, **download), {}
     footage = body["footage"]
     if not isinstance(footage, list) or not 1 <= len(footage) <= len(scene["scenes"]):
         raise Invalid("Choose at least one distinct footage scene")
@@ -98,15 +101,23 @@ def resolve_inputs(db, store, app_id, body, capture=False):
             sources[index] = raw
     scene["schema"] = FOOTAGE_SCHEMA
     return dict(
-        request=request, scene=scene_contract(scene), media_bindings=sorted(bindings, key=lambda x: x["scene_index"])
+        request=request,
+        scene=scene_contract(scene),
+        media_bindings=sorted(bindings, key=lambda x: x["scene_index"]),
+        **download,
     ), sources
 
 
 def current_inputs(db, store, app_id, data):
     """Worker data is checked against current proof, exact scripts and scene schema."""
-    if not isinstance(data, dict) or set(data) not in ({"request", "scene"}, {"request", "scene", "media_bindings"}):
+    if not isinstance(data, dict) or set(data) - {"download_qr"} not in (
+        {"request", "scene"},
+        {"request", "scene", "media_bindings"},
+    ):
         raise Invalid("Hypit job has unsupported frozen inputs")
     current_request(db, store, app_id, data["request"])
+    if "download_qr" in data and (not data["download_qr"] or download_target(db, app_id) != data["download_qr"]):
+        raise Invalid("App download destination changed; render again before publishing video")
     if "media_bindings" not in data:
         if brief_scene(data["request"]) != data["scene"]:
             raise Invalid("Hypit scene differs from the approved brief")
@@ -116,6 +127,8 @@ def current_inputs(db, store, app_id, data):
         dict(scene_index=i, **item["media"]) for i, item in enumerate(data["scene"]["scenes"]) if "media" in item
     ]
     current, _ = resolve_inputs(db, store, app_id, body)
+    if "download_qr" not in data:
+        current.pop("download_qr", None)
     if current != data:
         raise Invalid("Hypit footage or approved source review changed")
 
@@ -210,7 +223,7 @@ class HypitRenders:
                 reserved_job_guard(db, self.store, app_id, body["request_key"], data, result["id"])
             return result
 
-    def list(self, app_id):
+    def list(self, app_id: str) -> dict[str, Any]:
         """Show immutable outputs, source freshness and retained unfinished history."""
         self.store.app(app_id)
         with connection(self.store.path) as db:
@@ -313,6 +326,7 @@ class HypitRenders:
                         reserved_job_guard(db, self.store, job["app_id"], job["request_key"], job["data"], job["id"])
                         current_inputs(db, self.store, job["app_id"], job["data"])
 
+            download = {"download_qr": job["data"]["download_qr"]} if "download_qr" in job["data"] else {}
             if "media_bindings" in job["data"]:
                 body = {key: job["data"]["request"][key] for key in ("brief_id", "brief_hash", "shape")}
                 body["footage"] = [
@@ -322,6 +336,8 @@ class HypitRenders:
                 ]
                 with connection(self.store.path) as db:
                     captured, sources = resolve_inputs(db, self.store, job["app_id"], body, capture=True)
+                if not download:
+                    captured.pop("download_qr", None)
                 if captured != job["data"]:
                     raise Invalid("Managed footage changed before snapshot")
                 result = render(
@@ -330,10 +346,15 @@ class HypitRenders:
                     alive=alive,
                     submitted=lambda key: self.submitted(job, key),
                     sources=sources,
+                    **download,
                 )
             else:
                 result = render(
-                    folder, job["data"]["scene"], alive=alive, submitted=lambda key: self.submitted(job, key)
+                    folder,
+                    job["data"]["scene"],
+                    alive=alive,
+                    submitted=lambda key: self.submitted(job, key),
+                    **download,
                 )
             alive()
             return self.commit(job, folder, result)
@@ -350,6 +371,8 @@ class HypitRenders:
         output = folder / "video.mp4"
         if output.is_symlink() or not 0 < output.stat().st_size <= MAX_BYTES:
             raise Invalid("Hypit output is unavailable or exceeds its bound")
+        if result.get("download_qr") != job["data"].get("download_qr"):
+            raise Invalid("Rendered download QR does not match the frozen app destination")
         content = output.read_bytes()
         if hashlib.sha256(content).hexdigest() != result["artifact"]["sha256"]:
             raise Invalid("Hypit output changed before commit")

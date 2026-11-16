@@ -2,61 +2,32 @@
 
 import base64
 import copy
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
+from typing import Any
+
 from mission_control.common import Invalid, digest, now
-from mission_control.db import connection
-from mission_control.store import Store
-from mission_control.service import Service
-from mission_control.creative_library import Library
 from mission_control.creative_analysis import (
     Analyses,
     analysis_data,
-    observations_data,
     observation,
-    observation_timing,
+    observations_data,
     timing_number,
-    latest,
-    append,
-    capacity,
-    saved_items,
 )
 from mission_control.creative_briefs import (
     Briefs,
-    definition,
-    evidence_ids,
-    bound_record,
     checked,
     route_checked,
-    latest_proof,
-    critical_findings,
-    bind,
-    bind_proofs,
-    asset_checked,
-    compose,
-    channel_copy,
-    scene_beats,
-    stale_findings,
-    proof_identity,
 )
-from mission_control.creative_portable import (
-    export_production,
-    history_rows,
-    history_item,
-    validate_row,
-    captured_source,
-    restore_analysis,
-    brief_data,
-    frozen_records,
-    insert,
-    restore_production,
-)
-from tests.test_creative_library import reference
+from mission_control.creative_library import Library
+from mission_control.service import Service
+from mission_control.store import Store
 from tests.journey_fixtures import covered, failed
+from tests.test_creative_library import reference
 
 
-def inspection(source, **changes):
+def inspection(source, **changes) -> dict[str, Any]:
     row = dict(
         role="HOOK",
         basis="OBSERVED",
@@ -82,7 +53,7 @@ def inspection(source, **changes):
     )
 
 
-def ready_production(store, app_id="production-test"):
+def ready_production(store, app_id="production-test", *, store_app_id: str | None = None):
     """Create explicit synthetic evidence in an isolated app for proof-bound workflows."""
     if app_id not in [a["id"] for a in store.apps()]:
         store.save_app(
@@ -96,6 +67,7 @@ def ready_production(store, app_id="production-test"):
                 locale="en-US",
                 currency="USD",
                 website="https://example.com",
+                **({"store_app_id": store_app_id} if store_app_id else {}),
             ),
         )
     service = Service(store)
