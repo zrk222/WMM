@@ -10,6 +10,7 @@ from .weekly_exception_card import exception_card as _card
 from .weekly_plan_status import owned_job, plan_issue
 from .weekly_plan_status import saved as _saved
 from .weekly_rule_exception import rule_schedule_exception
+from .weekly_store_growth import store_growth_exception
 
 EXPIRY_HORIZON = timedelta(days=7)
 
@@ -355,6 +356,10 @@ def operation_exceptions(store, app, user):
         cards = _agent_review_cards(db, app, principal, role, tables)
         if role != "OWNER":
             return cards
+        if "growth_review_entries" in tables:
+            growth_issue = store_growth_exception(db, app, principal)
+            if growth_issue is not None:
+                cards.append(growth_issue)
         if "automation_rule_schedules" in tables:
             rule_issue = rule_schedule_exception(db, app, principal, membership["version"])
             if rule_issue is not None:

@@ -111,6 +111,7 @@ mission_control/weekly_exception_card.py
 mission_control/weekly_inbox.py
 mission_control/weekly_plan_status.py
 mission_control/weekly_rule_exception.py
+mission_control/weekly_store_growth.py
 mission_control/worker.py
 tests/campaign_paid_schedule_browser.py
 tests/dashboard_fixture.py
@@ -222,6 +223,7 @@ tests/test_verify_release_assets.py
 tests/test_video_editor_http.py
 tests/test_weekly_operation_exceptions.py
 tests/test_weekly_rule_exception.py
+tests/test_weekly_store_growth.py
 tests/test_workflow_telemetry.py
 tools/benchmark_http.py
 tools/branch_hygiene.py

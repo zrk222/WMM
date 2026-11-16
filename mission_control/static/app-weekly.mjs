@@ -28,6 +28,10 @@ function visibleWeeklyExceptions(value, principal) {
 function recoveryLabel(card) {
   if (card.category === 'scheduled_campaign') return 'Open schedule';
   if (card.category === 'rule_schedule') return 'Review scheduled rules';
+  if (card.category === 'store_growth')
+    return card.resolution_route === 'connections'
+      ? 'Open Apple analytics setup'
+      : 'Open Growth Review';
   if (card.resolution_route === 'agent_review')
     return card.state === 'SOURCE_UNAVAILABLE' ? 'Open review queue' : 'Open exact request';
   return 'Open recovery';
@@ -113,6 +117,7 @@ async function weeklyAction(node) {
       'agent_review',
       'activity',
       'agents',
+      'connections',
     ]);
     if (!allowed.has(tool) || !state.boot.apps.some((a) => a.id === app))
       throw new Error('Refresh this review before opening recovery.');
@@ -130,6 +135,19 @@ async function weeklyAction(node) {
         : null;
     if (scheduleRecovery && !scheduleCard)
       throw new Error('Refresh this review before opening the schedule.');
+    const growthRecovery = node.dataset.category === 'store_growth';
+    const growthCard = growthRecovery
+      ? visibleWeeklyExceptions(state.weeklyReview, principal).find(
+          (c) =>
+            c.app_id === app &&
+            c.category === 'store_growth' &&
+            c.resolution_route === tool &&
+            c.action?.resource_id === node.dataset.resource,
+        )
+      : null;
+    if (growthRecovery && !growthCard) {
+      throw new Error('Refresh the weekly review before opening this App Store growth decision.');
+    }
     const ruleRecovery = node.dataset.category === 'rule_schedule';
     if (
       ruleRecovery &&
@@ -165,6 +183,22 @@ async function weeklyAction(node) {
       currentWorkspace() &&
       state.workspace.identity?.principal === principal;
     if (!current()) return;
+    if (growthCard) {
+      if (
+        growthCard.source_receipt?.manifest_version !== state.workspace.app.version ||
+        !state.workspace.access?.members?.some(
+          (member) =>
+            member.principal === principal && member.status === 'ACTIVE' && member.role === 'OWNER',
+        )
+      ) {
+        throw new Error(
+          'The app setup or owner access changed. Refresh the App Store growth decision.',
+        );
+      }
+      return tool === 'connections'
+        ? guidedNavigate('connections', '[aria-label="Apple analytics"]')
+        : guidedNavigate('results', '#growth-review-panel');
+    }
     if (ruleRecovery) return guidedOpenRuleReviews();
     if (tool === 'agent_review') {
       return WMMAgentControl.action(
