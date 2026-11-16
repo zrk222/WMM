@@ -144,7 +144,7 @@ test('shows truthful inventory, schedule and PDF evidence without private fields
     assert.ok(f.html.includes(text), text);
   assert.match(
     f.html,
-    /<label for="apple-analytics-report">Report<\/label><select id="apple-analytics-report"/,
+    /<label for="apple-analytics-report">What should WMM check\?<\/label><select id="apple-analytics-report"/,
   );
   assert.match(
     f.html,
@@ -297,6 +297,27 @@ test('save uses exact owner-visible version and prevents duplicate concurrent wr
   await saving;
   assert.match(f.node.fields['#apple-analytics-error'].textContent, /No request was repeated/);
   assert.equal(calls.filter((c) => c.path.endsWith('/schedule')).length, 1);
+});
+test('a new source can schedule just report availability with no report ID', async () => {
+  const f = fixture();
+  f.data.reports = [];
+  f.data.inventory = null;
+  const calls = [];
+  f.d.api = async (path, body) => {
+    if (path.endsWith('/view')) return f.data;
+    calls.push(body);
+    f.data.schedule = { enabled: true, mode: 'inventory', version: 1, status: 'ENABLED' };
+    return f.data.schedule;
+  };
+  await apple.open(f.d);
+  assert.match(f.html, /What should WMM check\?[^]*Report availability/);
+  assert.match(f.html, /does not collect download counts/);
+  await apple.submit(form({ report_id: '@inventory', interval_hours: '24' }), f.d);
+  assert.deepEqual(calls, [
+    { manifest_version: 2, enabled: true, interval_hours: 24, mode: 'inventory', version: null },
+  ]);
+  assert.match(f.html, /On · Report availability/);
+  assert.match(f.html, /Pause refresh/);
 });
 test('invalid interval or foreign report cannot write and stale session stops post-response repaint', async () => {
   const f = fixture(),

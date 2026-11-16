@@ -77,15 +77,25 @@ def journey(browser: Any, width: int, height: int) -> dict[str, Any]:
         root = page.locator("#apple-analytics-root")
         expect(root).to_contain_text("No saved refresh schedule")
         expect(root).to_contain_text("No current report inventory")
-        root.get_by_role("button", name="Read Apple inventory", exact=True).click()
-        expect(root.locator("#apple-analytics-status")).to_contain_text("Inventory queued")
+        form = root.locator("#apple-analytics-form")
+        choose_purpose = form.get_by_label("What should WMM check?", exact=True)
+        expect(choose_purpose).to_have_value("@inventory")
+        expect(form).to_contain_text("does not collect download counts")
+        form.get_by_role("button", name="Enable refresh", exact=True).click()
+        expect(root).to_contain_text("On · Report availability")
+        schedules = AppleMetricsSchedules(fixture.store)
+        assert schedules.tick() == 1
         result = dict(
             provider="app_store",
             operation="analytics_reports",
             app_id="sample-one",
             store_app_id="123",
-            status="WAITING_FOR_REPORTS",
+            status="METRIC_DOWNLOAD_REQUIRED",
             coverage="COMPLETE",
+            request={"operation": "analytics_reports"},
+            external_writes=False,
+            metric_observations=None,
+            source_hash=digest({"fixture": "scheduled-inventory"}),
             observed_at=now(),
             reports=[
                 dict(id="report-1", name="App Downloads Standard", coverage="COMPLETE", instances=[]),
@@ -132,13 +142,16 @@ def journey(browser: Any, width: int, height: int) -> dict[str, Any]:
         assert impressions[0]["result"]["status"] == "WAITING_FOR_REPORTS"
         assert impressions[0]["result"]["metric_observations"] is None
         form = root.locator("#apple-analytics-form")
-        expect(form.get_by_label("Report", exact=True)).to_have_value("report-1")
-        form.get_by_label("Report", exact=True).focus()
+        expect(choose_purpose).to_have_value("@inventory")
+        choose_purpose.select_option("report-1")
+        choose_purpose.focus()
         page.keyboard.press("Tab")
         expect(form.get_by_label("Refresh every (hours)", exact=True)).to_be_focused()
         form.get_by_label("Refresh every (hours)", exact=True).fill("48")
-        form.get_by_role("button", name="Enable refresh", exact=True).click()
+        form.get_by_role("button", name="Save refresh settings", exact=True).click()
         expect(root).to_contain_text("ENABLED")
+        expect(root).not_to_contain_text("On · Report availability")
+        expect(choose_purpose).to_have_value("report-1")
         saved = AppleMetricsSchedules(fixture.store).get("sample-one")
         assert saved is not None and saved["enabled"] and saved["interval_hours"] == 48
         assert saved["last_success"] is None
@@ -187,6 +200,7 @@ def journey(browser: Any, width: int, height: int) -> dict[str, Any]:
             keyboard="VERIFIED",
             inventory="SYNTHETIC_HTTP_VERIFIED",
             schedule_save_pause="VERIFIED",
+            availability_watch="OWNER_OPT_IN_THEN_SCHEDULED_INVENTORY",
             impressions="OWNER_QUEUE_AND_UNKNOWN_IF_NO_DAILY_REPORT",
             apple_campaign_downloads="OWNER_READ_AND_UNKNOWN_WITHOUT_MATCHING_ROWS",
             pdf_report="PRINTABLE_REPORT_VERIFIED",
