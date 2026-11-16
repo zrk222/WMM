@@ -103,3 +103,53 @@ test('covered economics response cannot cross an app or refreshed workspace boun
     assert.equal(c.state.workspace.ledger[0].private, 'other-app');
   }
 });
+
+test('Results distinguishes stale, confirmed and missing checks and points to live Watch', () => {
+  const results = fs.readFileSync('mission_control/static/app-results.mjs', 'utf8');
+  const observedAt = '2026-11-15T12:00:00Z';
+  const c = {
+    WMMTelemetry: require('../mission_control/static/workflow-telemetry.js'),
+    state: { workspace: {} },
+    button: () => '',
+    empty: () => '',
+    esc: (value) => String(value).replaceAll('<', '&lt;'),
+    notice: (value) => String(value).replaceAll('<', '&lt;'),
+    savedWhen: (value) => value || 'Not recorded',
+  };
+  vm.createContext(c);
+  vm.runInContext(
+    results.slice(
+      results.indexOf('function experimentWorkerSnapshot('),
+      results.indexOf('function experimentSelect('),
+    ),
+    c,
+  );
+  const fresh = {
+    observed_at: observedAt,
+    status: 'RUNNING',
+    last_success: '2026-11-15T11:58:00Z',
+  };
+  const stale = {
+    observed_at: observedAt,
+    status: 'RUNNING',
+    last_success: '2026-11-15T11:57:59Z',
+  };
+  const future = {
+    observed_at: observedAt,
+    status: 'RUNNING',
+    last_success: '2026-11-15T12:01:00Z',
+  };
+  assert.match(c.experimentWorkerSnapshot(fresh), /reported healthy when WMM saved/);
+  assert.match(c.experimentWorkerSnapshot(future), /activity is unconfirmed/);
+  assert.match(c.experimentWorkerSnapshot(undefined), /Last healthy check: Not recorded/);
+  assert.match(
+    c.experimentWorkerSnapshot({ status: fresh.status, last_success: fresh.last_success }),
+    /activity is unconfirmed/,
+  );
+  c.state.workspace.worker = stale;
+  const html = c.experimentResults();
+  assert.match(html, /Saved local worker check/);
+  assert.match(html, /has not confirmed a healthy check in the last two minutes/);
+  assert.match(html, /data-view="activity">Check live worker status<\/button>/);
+  assert.doesNotMatch(html, /reported healthy|Local analysis worker: Running/);
+});

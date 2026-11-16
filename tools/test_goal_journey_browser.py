@@ -193,6 +193,17 @@ def run(browser, width, out):
         (out / f"worker-mode-{width}.html").write_text(page.content(), encoding="utf-8")
         nav.get_by_role("button", name="Review results", exact=True).click()
         expect(page.locator("#main .page-heading")).to_be_visible()
+        health = server.runner.supervision
+        with health.lock:
+            health.status = "RUNNING"
+            health.last_success = "2025-01-01T00:00:00+00:00"
+        page.reload()
+        expect(page.get_by_role("heading", name="Set your goal", exact=True)).to_be_visible()
+        nav.get_by_role("button", name="Review results", exact=True).click()
+        expect(page.get_by_text("Saved local worker check", exact=True)).to_be_visible()
+        expect(page.get_by_text("The worker has not confirmed a healthy check", exact=False)).to_be_visible()
+        page.get_by_role("button", name="Check live worker status", exact=True).press("Enter")
+        expect(worker).to_contain_text("The worker has not confirmed a healthy check")
         assert not jobs(fixture.store, "sample-one")
         assert not writes, writes
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
@@ -208,6 +219,7 @@ def run(browser, width, out):
             app_isolation=True,
             reload_retains_choice=True,
             pdf_preview=True,
+            stale_worker_snapshot_with_live_route=True,
             no_mutations=True,
             javascript_errors=errors,
         )

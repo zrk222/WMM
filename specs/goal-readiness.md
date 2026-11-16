@@ -41,3 +41,6 @@ Scenario: read_only
 - Envelope status is success or warning, with summary, next_actions, artifacts and authority_issued false. The additive credential_repairs map names only selected Facebook account IDs and closed repair states. A missing field asks for reconnect; an unavailable store asks for protected storage to be unlocked or checked. This observation cannot authorize provider work or change the saved inventory digest.
 - Preserve inventory, inventory_sha256 and observed_at returned by Readiness.report without recomputing its contents.
 - HTTP authentication is tested with a synthetic GitHub adapter; no live provider acceptance is claimed.
+
+### Guided repair
+- When the selected creative workflow requires local video tool verification, show a primary route to the existing video rendering controls and focus their heading. Keep the blocker and technical details visible; navigation alone shall not verify tools, run a render or grant authority.

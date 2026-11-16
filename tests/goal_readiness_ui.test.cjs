@@ -444,6 +444,54 @@ test('missing Facebook credential replaces the historical verified label with a 
   );
 });
 
+test('creative readiness opens the local video tools with focus and does not start work', () => {
+  const h = fixture();
+  const markup = h.w.markup({
+    inventory: {
+      scope_status: 'BLOCKED',
+      workflows: [
+        {
+          id: 'hypit_caption_render',
+          name: 'Local Hypit caption composition',
+          status: 'BLOCKED',
+          blockers: ['LOCAL_MEDIA_RUNTIME_VERIFICATION_REQUIRED'],
+        },
+      ],
+      inference: { status: 'TESTED_FRESH' },
+      accounts: [],
+    },
+    observed_at: 'now',
+    inventory_sha256: 'hash',
+  });
+  assert.match(
+    markup,
+    /class="primary" data-action="goal-repair" data-tool="video-tools">Review local video tools/,
+  );
+  assert.match(markup, /Verify the local video tools before rendering/);
+  assert.match(markup, /Technical details.*LOCAL_MEDIA_RUNTIME_VERIFICATION_REQUIRED/s);
+  const rendering = fs.readFileSync(
+    require('node:path').join(__dirname, '../mission_control/static/creative-rendering.mjs'),
+    'utf8',
+  );
+  assert.match(rendering, /<h2 id="creative-rendering-heading" tabindex="-1">/);
+  let anchor = '';
+  const navigation = [];
+  h.dialog.close = () => navigation.push('close');
+  h.c.$ = (selector) => (selector === '#modal' ? h.dialog : { replaceChildren() {} });
+  h.c.render = () => navigation.push(h.state.view);
+  h.c.document.querySelector = (selector) => {
+    anchor = selector;
+    return {
+      scrollIntoView: () => navigation.push('scroll'),
+      focus: () => navigation.push('focus'),
+    };
+  };
+  h.w.repair('video-tools');
+  assert.equal(anchor, '#creative-rendering-heading');
+  assert.deepEqual(navigation, ['close', 'research', 'scroll', 'focus']);
+  assert.deepEqual(h.calls, []);
+});
+
 test('next scheduled check remains visible without a prior observation', () => {
   const h = fixture();
   const html = h.g.panel([{ state: 'WAITING_FOR_REPORTS', next_due: '2026-11-14T10:00:00Z' }]);
