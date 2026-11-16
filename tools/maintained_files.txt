@@ -237,6 +237,7 @@ tests/test_video_editor_http.py
 tests/test_weekly_operation_exceptions.py
 tests/test_weekly_rule_exception.py
 tests/test_weekly_store_growth.py
+tests/test_windows_lifecycle_diagnostics.py
 tests/test_workflow_telemetry.py
 tools/benchmark_http.py
 tools/branch_hygiene.py

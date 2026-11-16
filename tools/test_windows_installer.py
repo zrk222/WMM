@@ -12,6 +12,7 @@ import tempfile
 import time
 import uuid
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALL_TIMEOUT_SECONDS = 180
@@ -48,20 +49,66 @@ def compiler(environ):
     return path
 
 
+def _window_failure(error: subprocess.CalledProcessError | subprocess.TimeoutExpired) -> str:
+    """Classify known verifier failures without exposing arbitrary process output."""
+    if isinstance(error, subprocess.TimeoutExpired):
+        return "VERIFIER_DEADLINE"
+    stderr = error.stderr or ""
+    known = {
+        "Mission Control exited before opening its window": "EXITED_BEFORE_WINDOW",
+        "Mission Control opened more than one primary window": "MULTIPLE_WINDOWS",
+        "Mission Control native window or disposable workspace was unavailable": "WINDOW_OR_WORKSPACE_TIMEOUT",
+        "Native window did not use its disposable workspace": "WORKSPACE_NOT_CREATED",
+    }
+    for line in stderr.splitlines():
+        if line.startswith("RuntimeError: "):
+            reason = line.removeprefix("RuntimeError: ")
+            if reason in known:
+                return known[reason]
+            if re.fullmatch(r"Mission Control returned -?[0-9]+ after its native window closed", reason):
+                return "SHUTDOWN_EXIT_NONZERO"
+        if line.startswith("subprocess.TimeoutExpired: "):
+            return "NATIVE_CHILD_DEADLINE"
+        if re.match(r"^OSError: \[WinError [0-9]+\]", line):
+            return "WINDOW_API_ERROR"
+    return "VERIFIER_EXIT_NONZERO"
+
+
+def _verify_window(
+    verifier: Path, app_dir: Path, folder: Path, env: dict[str, str], label: str, pair: dict[str, Any]
+) -> dict[str, Any]:
+    evidence = ROOT / ".factory/packaged-native-window" / label
+    evidence.mkdir(parents=True, exist_ok=True)
+    record = evidence / "evidence.json"
+    try:
+        completed = run([sys.executable, verifier, app_dir, "--windows-window"], folder, env, 90)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+        cause = _window_failure(error)
+        record.write_text(
+            json.dumps(
+                dict(
+                    source_sha=env.get("GITHUB_SHA"),
+                    pair=pair,
+                    window=dict(status="FAIL", phase=label, failure=cause),
+                )
+            ),
+            encoding="utf-8",
+        )
+        raise AssertionError(f"Native window verification failed during {label}: {cause}") from None
+    window = json.loads(completed.stdout)
+    if pair.get("status") != "PASS" or window.get("status") != "PASS" or window.get("exit_code") != 0:
+        raise AssertionError("Installed native window verification failed")
+    record.write_text(json.dumps(dict(source_sha=env.get("GITHUB_SHA"), pair=pair, window=window)), encoding="utf-8")
+    return window
+
+
 def verify_binary(binary, folder, env, label):
     shell = binary.parent / "WMM-Mission-Control.exe"
     if not shell.is_file():
         raise AssertionError("Installed native Mission Control window is missing")
     verifier = ROOT / "tools/test_native_desktop_bundle.py"
     pair = json.loads(run([sys.executable, verifier, binary.parent], folder, env, 90).stdout)
-    window = json.loads(run([sys.executable, verifier, binary.parent, "--windows-window"], folder, env, 90).stdout)
-    if pair.get("status") != "PASS" or window.get("status") != "PASS" or window.get("exit_code") != 0:
-        raise AssertionError("Installed native window verification failed")
-    evidence = ROOT / ".factory/packaged-native-window" / label
-    evidence.mkdir(parents=True, exist_ok=True)
-    (evidence / "evidence.json").write_text(
-        json.dumps(dict(source_sha=env.get("GITHUB_SHA"), pair=pair, window=window)), encoding="utf-8"
-    )
+    _verify_window(verifier, binary.parent, folder, env, label, pair)
     for args in (["--check"], ["--self-test"], ["--vault-self-test"], ["--agent-cli", "catalog"]):
         value = json.loads(run([binary, *args], folder, env, 90).stdout)
         if (
