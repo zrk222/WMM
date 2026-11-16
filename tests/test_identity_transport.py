@@ -1,26 +1,25 @@
 """Offline transport boundaries for fixed GitHub identity reads."""
 
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 import base64
 import json
 import ssl
 import sys
-from types import SimpleNamespace
 import tempfile
-import threading
 import textwrap
+import threading
+import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPSHandler, ProxyHandler, Request, build_opener
-import unittest
-from unittest.mock import Mock, patch
 
 from mission_control import operator_identity
 from mission_control.common import Invalid
 from mission_control.providers import NoRedirect
 
-
-SYNTHETIC_TOKEN = "synthetic_GITHUB_token_1234567890"
+SYNTHETIC_TOKEN = "synthetic_GITHUB_token_1234567890"  # noqa: S105 - fake identity transport fixture
 # Test-only synthetic self-signed loopback fixture; these DER bytes are not an
 # application credential or a key for any account or service.
 UNTRUSTED_EC_KEY_DER_BASE64 = """MHcCAQEEIAgqO7GDcAHl9Ket3y0RYiFvrorQ8lXVreeXUsXrUPycoAoGCCqGSM49
@@ -113,31 +112,87 @@ class IdentityTransportTests(unittest.TestCase):
 
     def test_failed_identity_transport_does_not_admit_session(self):
         identities = operator_identity.Identities()
-        with patch.object(operator_identity, "github_read", side_effect=Invalid("synthetic transport failure")):
-            with self.assertRaisesRegex(Invalid, "synthetic transport failure"):
-                identities.login("synthetic-session", {"token": SYNTHETIC_TOKEN})
+        with (
+            patch.object(operator_identity, "github_read", side_effect=Invalid("synthetic transport failure")),
+            self.assertRaisesRegex(Invalid, "synthetic transport failure"),
+        ):
+            identities.login("synthetic-session", {"token": SYNTHETIC_TOKEN})
         self.assertEqual(identities.sessions, {})
 
     def test_status_and_oversize_responses_are_closed(self):
         error = HTTPError("https://api.github.com/user", 401, "unauthorized", {}, None)
         opener = FakeOpener(error)
-        with patch.object(operator_identity, "build_opener", return_value=opener):
-            with self.assertRaisesRegex(Invalid, "HTTP 401"):
-                operator_identity.github_read("/user", SYNTHETIC_TOKEN)
+        with (
+            patch.object(operator_identity, "build_opener", return_value=opener),
+            self.assertRaisesRegex(Invalid, "HTTP 401"),
+        ):
+            operator_identity.github_read("/user", SYNTHETIC_TOKEN)
 
         opener = FakeOpener(URLError(SYNTHETIC_TOKEN))
-        with patch.object(operator_identity, "build_opener", return_value=opener):
-            with self.assertRaisesRegex(Invalid, "verification is unavailable") as caught:
-                operator_identity.github_read("/user", SYNTHETIC_TOKEN)
+        with (
+            patch.object(operator_identity, "build_opener", return_value=opener),
+            self.assertRaisesRegex(Invalid, "verification is unavailable") as caught,
+        ):
+            operator_identity.github_read("/user", SYNTHETIC_TOKEN)
         self.assertNotIn(SYNTHETIC_TOKEN, str(caught.exception))
 
         oversized = b"x" * 65537
         response = Response(oversized)
         opener = FakeOpener(response)
-        with patch.object(operator_identity, "build_opener", return_value=opener):
-            with self.assertRaisesRegex(Invalid, "response exceeds"):
-                operator_identity.github_read("/user", SYNTHETIC_TOKEN)
+        with (
+            patch.object(operator_identity, "build_opener", return_value=opener),
+            self.assertRaisesRegex(Invalid, "response exceeds"),
+        ):
+            operator_identity.github_read("/user", SYNTHETIC_TOKEN)
         self.assertEqual(response.read_sizes, [65537])
+
+    def test_temporary_identity_read_failure_preserves_existing_session_without_extending_it(self) -> None:
+        service = operator_identity.Identities()
+        reader = FakeOpener(Response(b'{"type":"User","id":314159,"login":"synthetic-owner"}'))
+        session = "synthetic-session"
+        with patch.object(operator_identity, "build_opener", return_value=reader):
+            original = service.login(session, {"token": SYNTHETIC_TOKEN})
+            generation = service.local(session, original["principal"])["session_generation"]
+            for failure in (
+                TimeoutError(),
+                URLError("offline"),
+                HTTPError("https://api.github.com/user", 429, "rate limited", {}, None),
+                HTTPError("https://api.github.com/user", 503, "unavailable", {}, None),
+            ):
+                reader.result = failure
+                with self.subTest(failure=failure), self.assertRaises(operator_identity.IdentityTemporarilyUnavailable):
+                    service.fresh(session)
+                self.assertEqual(service.public(session), original)
+                self.assertEqual(service.local(session, original["principal"])["session_generation"], generation)
+
+            reader.result = Response(b'{"type":"User","id":314159,"login":"synthetic-owner"}')
+            self.assertEqual(service.fresh(session)["principal"], original["principal"])
+            self.assertEqual(service.public(session)["expires_at_epoch"], original["expires_at_epoch"])
+
+            reader.result = TimeoutError()
+            with patch.object(operator_identity.time, "time", return_value=original["expires_at_epoch"]):
+                with self.assertRaises(PermissionError):
+                    service.fresh(session)
+                self.assertEqual(service.public(session), {"status": "SIGNED_OUT"})
+
+    def test_rejected_identity_and_tls_error_still_remove_the_session(self) -> None:
+        failures = (
+            HTTPError("https://api.github.com/user", 401, "unauthorized", {}, None),
+            URLError(ssl.SSLCertVerificationError("untrusted transport")),
+            Response(b'{"type":"User","id":271828,"login":"different-user"}'),
+            Response(b'{"type":"Bot","id":314159,"login":"synthetic-owner"}'),
+        )
+        for failure in failures:
+            with self.subTest(failure=failure):
+                service = operator_identity.Identities()
+                reader = FakeOpener(Response(b'{"type":"User","id":314159,"login":"synthetic-owner"}'))
+                with patch.object(operator_identity, "build_opener", return_value=reader):
+                    service.login("synthetic-session", {"token": SYNTHETIC_TOKEN})
+                    reader.result = failure
+                    with self.assertRaises((Invalid, PermissionError)) as caught:
+                        service.fresh("synthetic-session")
+                    self.assertNotIsInstance(caught.exception, operator_identity.IdentityTemporarilyUnavailable)
+                    self.assertEqual(service.public("synthetic-session"), {"status": "SIGNED_OUT"})
 
     def test_existing_tls_trust_rejects_untrusted_loopback_certificate(self):
         class Handler(BaseHTTPRequestHandler):
@@ -222,9 +277,9 @@ class IdentityTransportTests(unittest.TestCase):
             patch.dict(sys.modules, {"truststore": None}),
             patch.object(operator_identity.ssl, "create_default_context") as default,
             patch.object(operator_identity, "build_opener") as builder,
+            self.assertRaisesRegex(Invalid, "requires the bundled native trust provider"),
         ):
-            with self.assertRaisesRegex(Invalid, "requires the bundled native trust provider"):
-                operator_identity.github_read("/user", SYNTHETIC_TOKEN)
+            operator_identity.github_read("/user", SYNTHETIC_TOKEN)
         default.assert_not_called()
         builder.assert_not_called()
 
@@ -246,9 +301,9 @@ class IdentityTransportTests(unittest.TestCase):
                 with (
                     patch.object(operator_identity, "build_opener", return_value=opener) as builder,
                     patch.object(operator_identity.ssl, "create_default_context") as fallback,
+                    self.assertRaises(Invalid) as caught,
                 ):
-                    with self.assertRaises(Invalid) as caught:
-                        operator_identity.github_read("/user", SYNTHETIC_TOKEN)
+                    operator_identity.github_read("/user", SYNTHETIC_TOKEN)
                 self.assertEqual(builder.call_count, 1)
                 self.assertEqual(len(opener.calls), 1)
                 if sys.platform == "win32":

@@ -171,6 +171,7 @@ tests/test_guided_workflow.py
 tests/test_host_service_contract.py
 tests/test_http.py
 tests/test_http_benchmark.py
+tests/test_identity_transport.py
 tests/test_install_attribution.py
 tests/test_integrity_drill.py
 tests/test_ip_inventory.py

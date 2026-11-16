@@ -8,6 +8,7 @@ from mission_control.campaign_execution import CampaignExecutionService
 from mission_control.common import canonical, digest, now
 from mission_control.db import connection
 from mission_control.operator_client import ClientError, OperatorClient
+from mission_control.operator_identity import IdentityTemporarilyUnavailable
 from mission_control.store import Store
 from tests import test_agent_grants as grant_fixture
 from tests.test_campaign_execution import FakePaidTransport, FakeTransport
@@ -141,6 +142,19 @@ class CampaignGatewayTests(unittest.TestCase):
         with self.assertRaises(ClientError):
             self.owner_call("activate", {"scope_id": saved["scope_id"], "approval_hash": "0" * 64})
         self.assertEqual(self.owner_call("history", {})["scopes"][0]["status"], "DRAFT")
+        self.assertEqual(self.wire.posts, 0)
+
+    def test_owner_activation_stays_draft_during_github_outage_and_can_retry_without_sign_in(self) -> None:
+        draft = self.owner_call("prepare", {"scope": self.scope})
+        activation = {"scope_id": draft["scope_id"], "approval_hash": draft["approval_hash"]}
+        with patch("mission_control.operator_identity.github_read", side_effect=IdentityTemporarilyUnavailable()):
+            with self.assertRaises(ClientError) as caught:
+                self.owner_call("activate", activation)
+            self.assertEqual(caught.exception.status, 400)
+            self.assertEqual(self.owner_call("history", {})["scopes"][0]["status"], "DRAFT")
+            self.assertEqual(self.wire.posts, 0)
+
+        self.assertEqual(self.owner_call("activate", activation)["status"], "ACTIVE")
         self.assertEqual(self.wire.posts, 0)
 
     def test_scoped_agent_publishes_once_then_reads_verified_delivery(self):
