@@ -468,3 +468,59 @@ test('empty campaign destinations offer the exact social setup and combined revi
     false,
   );
 });
+
+test('current campaign packet opens only a matched upstream input and leaves saved views read-only', () => {
+  const h = fixture();
+  const diagnostics = [
+    [3, 'measurement', 'Add current measurement evidence'],
+    [4, 'cohort', 'Add current cohort evidence', [3]],
+    [7, 'distribution', null, [4]],
+  ];
+  h.state.workspace.workflow = {
+    steps: diagnostics.map(([id, tool, need, dependencies]) => ({
+      id,
+      title: tool,
+      local_status: 'NEEDS_INPUT',
+      direct_needs: need ? [need] : [],
+      dependency_needs: (dependencies || []).map((parent) => 'Finish stage ' + parent + ': input'),
+      critical_findings: [],
+      primary: { id: tool, title: tool },
+    })),
+  };
+  h.state.workspace.preparation = {
+    source_hash: 'exact',
+    outputs: [{ stage: 7, status: 'BLOCKED', packet: { title: 'Campaign' }, missing: [] }],
+  };
+  h.c.notice = h.c.esc;
+  h.c.json = (v) => h.c.esc(JSON.stringify(v));
+  h.c.document.addEventListener = () => {};
+  const preparation = fs.readFileSync('mission_control/static/automatic-preparation.mjs', 'utf8');
+  vm.runInContext(preparation, h.c);
+  h.c.guidedOpenTool = (id) => h.calls.push(id);
+  const packet = vm.runInContext('WMMGoalPacket', h.c);
+  const model = packet.model();
+  assert.doesNotMatch(packet.view(model), /automatic-goal-repair/);
+  const current = packet.view(model, true);
+  assert.match(current, /What needs attention first/);
+  assert.match(current, /Connect measurement/);
+  assert.match(current, /Other inputs to review/);
+  const node = {
+    dataset: {
+      app: 'one',
+      version: '1',
+      goal: 'campaign',
+      sourceHash: 'exact',
+      action: 'automatic-goal-repair',
+      stage: '3',
+      tool: 'measurement',
+    },
+  };
+  packet.action(node);
+  assert.deepEqual(h.calls, ['measurement']);
+  node.dataset.tool = 'experiment';
+  assert.throws(() => packet.action(node), /inputs changed/i);
+  node.dataset.tool = 'measurement';
+  node.dataset.sourceHash = 'old';
+  assert.throws(() => packet.action(node), /evidence changed/i);
+  assert.deepEqual(h.calls, ['measurement']);
+});

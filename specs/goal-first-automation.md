@@ -11,6 +11,7 @@ Adopt the full goal-first setup and exception-driven campaign roadmap. Deliver t
 - When an owner chooses research, creative, campaign or measurement, the system shall store only the selected fixed goal identifier under the selected app through `goal_preference`.
 - If browser storage is unavailable or contains an unknown goal, the system shall return an empty choice through `storage_recovery`.
 - The system shall show one next action and relevant setup links from current saved source facts through `goal_guidance`.
+- A current blocked goal packet shall show the first missing input and link to its existing workflow tool. More upstream repairs may be expanded. Reject navigation when the app, goal, source or selected repair no longer matches. Historical packets remain read-only.
 - The system shall display connected accounts as setup observations rather than publication or spending authority through `authority_boundary`.
 - When an app changes, the system shall render only the selected app goal and source facts through `app_isolation`.
 - The system shall start no provider call, approval, job or campaign when choosing a goal through `no_effect`.

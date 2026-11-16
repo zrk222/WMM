@@ -1,5 +1,5 @@
 import { $, api, button, esc, json, label, notice, refresh, state, toast } from './app.mjs';
-import { WMMGoalJourney, goalAction, guidedButton } from './guided-workflow.mjs';
+import { WMMGoalJourney, goalAction, guidedButton, guidedOpenTool } from './guided-workflow.mjs';
 import { appendSetupReviewLinks } from './setup-discovery.mjs';
 import { automationPanel } from './workflow-automation.mjs';
 import { download, field, modal, openStage } from './app-ui.mjs';
@@ -140,14 +140,61 @@ const WMMGoalPacket = (() => {
       throw new Error('App, goal or evidence changed. Reopen your first packet.');
     return m;
   }
-  function view(m) {
+  function repairSteps(m) {
+    if (!m.source_hash) return [];
+    const workflow = new Map(
+      (state.workspace.workflow?.steps || []).map((step) => [step.id, step]),
+    );
+    const visited = new Set();
+    const repairs = [];
+    function visit(id) {
+      const step = workflow.get(id);
+      if (!step || visited.has(id) || step.local_status !== 'NEEDS_INPUT') return;
+      visited.add(id);
+      for (const dependency of step.dependency_needs || [])
+        visit(Number(dependency.match(/^Finish stage (\d+): /)?.[1]));
+      const need = step.direct_needs?.[0] || step.critical_findings?.[0];
+      if (need && step.primary?.id && step.primary?.title) repairs.push({ step, need });
+    }
+    for (const { stage, output } of m.outputs) if (output?.status === 'BLOCKED') visit(stage);
+    return repairs;
+  }
+  function repairSection(m) {
+    const repairs = repairSteps(m);
+    if (!repairs.length) return '';
+    const a = attributes(m);
+    const row = ({ step, need }) =>
+      '<li><p><strong>' +
+      esc(step.title) +
+      '</strong> — ' +
+      esc(packetNeed(need)) +
+      '</p>' +
+      button(
+        step.primary.title,
+        'automatic-goal-repair',
+        a + ' data-stage="' + esc(step.id) + '" data-tool="' + esc(step.primary.id) + '"',
+      ) +
+      '</li>';
+    return (
+      '<section aria-label="Missing inputs"><h3>What needs attention first</h3><ol>' +
+      row(repairs[0]) +
+      '</ol>' +
+      (repairs.length > 1
+        ? '<details><summary>Other inputs to review</summary><ol start="2">' +
+          repairs.slice(1).map(row).join('') +
+          '</ol></details>'
+        : '') +
+      '</section>'
+    );
+  }
+  function view(m, showRepairs = false) {
     const tracking =
       m.goal === 'campaign'
         ? notice(
             'The full campaign plan below keeps its evidence requirements. For one organic post, set up the tagged link and measurement source before requesting publication approval.',
           ) + button('Plan a tracked organic post', 'observational-campaign-open')
         : '';
-    return `<p>${esc(m.purpose)}</p>${notice('Local evidence drafts only. Missing measurements remain unknown. This packet grants no approval and proves no delivery or business outcome.')}${tracking}${m.goal ? m.outputs.map(({ stage, output: o }) => `<section class="panel" data-goal-packet-stage="${esc(stage)}"><h3>${esc(o?.packet?.title || `Step ${stage}`)}</h3><p>${esc(o?.status || 'UNKNOWN — no current output')}</p>${(o?.missing || []).length ? `<ul>${o.missing.map((v) => `<li>${esc(packetNeed(v))}</li>`).join('')}</ul>` : '<p>Review the underlying evidence; local preparation does not establish measured results.</p>'}<details><summary>Stage tasks and evidence</summary><ol>${(o?.packet?.operations?.tasks || []).map((v) => `<li>${esc(v)}</li>`).join('')}</ol><pre>${json(o?.packet || null)}</pre></details></section>`).join('') : '<p>Choose a goal on the home page, then open your first packet.</p>'}<details><summary>Packet source</summary><p>${esc(m.app_id)} · version ${esc(m.manifest_version)} · ${esc(m.source_hash)}</p></details>`;
+    return `<p>${esc(m.purpose)}</p>${notice('Local evidence drafts only. Missing measurements remain unknown. This packet grants no approval and proves no delivery or business outcome.')}${showRepairs ? repairSection(m) : ''}${tracking}${m.goal ? m.outputs.map(({ stage, output: o }) => `<section class="panel" data-goal-packet-stage="${esc(stage)}"><h3>${esc(o?.packet?.title || `Step ${stage}`)}</h3><p>${esc(o?.status || 'UNKNOWN — no current output')}</p>${(o?.missing || []).length ? `<ul>${o.missing.map((v) => `<li>${esc(packetNeed(v))}</li>`).join('')}</ul>` : '<p>Review the underlying evidence; local preparation does not establish measured results.</p>'}<details><summary>Stage tasks and evidence</summary><ol>${(o?.packet?.operations?.tasks || []).map((v) => `<li>${esc(v)}</li>`).join('')}</ol><pre>${json(o?.packet || null)}</pre></details></section>`).join('') : '<p>Choose a goal on the home page, then open your first packet.</p>'}<details><summary>Packet source</summary><p>${esc(m.app_id)} · version ${esc(m.manifest_version)} · ${esc(m.source_hash)}</p></details>`;
   }
   function history(m) {
     return (state.workspace.jobs || [])
@@ -295,7 +342,7 @@ const WMMGoalPacket = (() => {
       a = attributes(m);
     modal(
       m.title + ' — evidence packet',
-      `<div class="modal-content">${view(m)}${m.goal ? historyView(m) : ''}</div><div class="modal-actions">${m.goal ? button(WMMGoalJourney.choices[m.goal].next, 'automatic-goal-next', a) + (m.source_hash && m.outputs.some((x) => x.output) ? button('Save packet in this workspace', 'automatic-goal-save', a) + button('Download goal packet', 'automatic-goal-download', a) : '') : ''}${button('See all twelve stages', 'automatic-open')}${button('Close', 'close')}</div>`,
+      `<div class="modal-content">${view(m, true)}${m.goal ? historyView(m) : ''}</div><div class="modal-actions">${m.goal ? button(WMMGoalJourney.choices[m.goal].next, 'automatic-goal-next', a) + (m.source_hash && m.outputs.some((x) => x.output) ? button('Save packet in this workspace', 'automatic-goal-save', a) + button('Download goal packet', 'automatic-goal-download', a) : '') : ''}${button('See all twelve stages', 'automatic-open')}${button('Close', 'close')}</div>`,
       'SELECTED GOAL / LOCAL DRAFT',
     );
   }
@@ -304,6 +351,12 @@ const WMMGoalPacket = (() => {
       mode = node.dataset.action;
     if (mode === 'automatic-goal-open') return open(node);
     if (!m.goal) throw new Error('Choose a goal first.');
+    if (mode === 'automatic-goal-repair') {
+      const target = repairSteps(m).find(({ step }) => step.id === Number(node.dataset.stage));
+      if (!target || target.step.primary.id !== node.dataset.tool)
+        throw new Error('Missing inputs changed. Reopen your first packet.');
+      return guidedOpenTool(target.step.primary.id);
+    }
     if (
       ['automatic-goal-download', 'automatic-goal-save'].includes(mode) &&
       (!m.source_hash || !m.outputs.some((x) => x.output))

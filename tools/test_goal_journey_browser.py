@@ -87,6 +87,11 @@ def run(browser, width, out):
             assert [row["stage"] for row in value["outputs"]] == stages, value
             page.screenshot(path=str(out / f"goal-packet-{goal}-{width}.png"), full_page=True)
             (out / f"goal-packet-{goal}-{width}.html").write_text(page.content(), encoding="utf-8")
+            if goal == "campaign":
+                repairs = packet.get_by_role("region", name="Missing inputs")
+                expect(repairs.get_by_text("What needs attention first")).to_be_visible()
+                repairs.get_by_role("button", name="Measurement and consent", exact=True).press("Enter")
+                expect(packet.locator('#evidence-form[data-kind="measurement"]')).to_be_visible()
             if goal == "measurement":
                 packet.get_by_role("button", name="See all twelve stages", exact=True).click()
                 expect(packet).to_contain_text("Your prepared workflow")
@@ -205,6 +210,7 @@ def run(browser, width, out):
             goal_packets=["research", "creative", "campaign", "measurement"],
             scoped_downloads=True,
             advanced_twelve_stages=True,
+            campaign_missing_input_opens_exact_form=True,
             app_isolation=True,
             reload_retains_choice=True,
             pdf_preview=True,
