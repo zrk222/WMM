@@ -169,7 +169,7 @@ class GuidedWorkflowTests(unittest.TestCase):
         stage = evaluate(self.app, [])[3]
         self.assertEqual(primary(stage, ["Reconcile the latest event cohort"], [])["id"], "results")
 
-    def test_primary_tool_keeps_the_exact_diagnostic_when_gaps_coexist(self):
+    def test_primary_tool_keeps_the_exact_diagnostic_when_gaps_coexist(self) -> None:
         stage = dict(id=5, inputs=["claim", "asset"])
         asset = "Add current asset evidence: screenshot"
         claim = "Add current claim evidence: proof"
