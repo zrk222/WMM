@@ -268,8 +268,18 @@ class ReleaseTests(unittest.TestCase):
         with patch.dict(os.environ, WMM_UNSIGNED_WINDOWS_PREVIEW11="true"):
             self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11"))
             self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11.1"))
-            for tag in ("v0.1.0-preview.10", "v0.1.0-preview.11.2", "v0.1.0-preview.12", "v0.1.0"):
-                with self.subTest(tag=tag), self.assertRaisesRegex(ValueError, "limited to Preview 11"):
+            self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11.1.1"))
+            for tag in (
+                "v0.1.0-preview.10",
+                "v0.1.0-preview.11.1.2",
+                "v0.1.0-preview.11.2",
+                "v0.1.0-preview.12",
+                "v0.1.0",
+            ):
+                with (
+                    self.subTest(tag=tag),
+                    self.assertRaisesRegex(ValueError, "limited to the explicitly listed Preview 11"),
+                ):
                     release.windows_release_notice(self.folder, tag)
             self.mark_signed_fixture()
             with self.assertRaisesRegex(ValueError, "unsigned Windows lifecycle receipt"):

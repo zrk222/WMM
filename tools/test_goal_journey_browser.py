@@ -5,10 +5,25 @@ import sys
 import threading
 from pathlib import Path
 
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import Page, expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+
+def rendered_page(page: Page) -> str:
+    return page.evaluate(r"""() => {
+            const styles = Array.from(document.styleSheets).flatMap(sheet => {
+                try { return Array.from(sheet.cssRules).map(rule => rule.cssText); }
+                catch { return []; }
+            }).join(String.fromCharCode(10));
+            const html = document.documentElement.cloneNode(true);
+            html.querySelectorAll('script,link[rel="stylesheet"]').forEach(node => node.remove());
+            const style = document.createElement('style');
+            style.textContent = styles;
+            html.querySelector('head').append(style);
+            return '<!doctype html>' + html.outerHTML;
+        }""")
 
 
 def run(browser, width, out):
@@ -110,21 +125,42 @@ def run(browser, width, out):
         expect(analytics.get_by_role("button", name="Add cohort evidence", exact=True).first).to_be_visible()
         expect(packet).to_be_hidden()
         assert not writes, writes
-        snapshot = page.evaluate(r"""() => {
-            const styles = Array.from(document.styleSheets).flatMap(sheet => {
-                try { return Array.from(sheet.cssRules).map(rule => rule.cssText); }
-                catch { return []; }
-            }).join(String.fromCharCode(10));
-            const html = document.documentElement.cloneNode(true);
-            html.querySelectorAll('script,link[rel="stylesheet"]').forEach(node => node.remove());
-            const style = document.createElement('style');
-            style.textContent = styles;
-            html.querySelector('head').append(style);
-            return '<!doctype html>' + html.outerHTML;
-        }""")
-        (out / f"measurement-readiness-{width}.html").write_text(snapshot, encoding="utf-8")
+        (out / f"measurement-readiness-{width}.html").write_text(rendered_page(page), encoding="utf-8")
         page.screenshot(path=str(out / f"measurement-readiness-{width}.png"))
         nav.get_by_role("button", name="Set your goal", exact=True).click()
+        for goal, check, heading, next_action, label in (
+            (
+                "Find a useful marketing angle",
+                "Check your research sources",
+                "Creative source library",
+                "Add a reference",
+                "research",
+            ),
+            (
+                "Produce or revise a video",
+                "Check video tools",
+                "Render an original video",
+                "Render a video",
+                "creative",
+            ),
+        ):
+            page.get_by_role("button", name=goal, exact=True).click()
+            page.get_by_role("button", name=check, exact=True).press("Enter")
+            expect(page.get_by_role("heading", name=heading, exact=True)).to_be_focused()
+            expect(page.get_by_role("button", name=next_action, exact=True)).to_be_visible()
+            expect(packet).to_be_hidden()
+            assert not writes, writes
+            assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
+            (out / f"{label}-readiness-{width}.html").write_text(rendered_page(page), encoding="utf-8")
+            page.screenshot(path=str(out / f"{label}-readiness-{width}.png"))
+            nav.get_by_role("button", name="Set your goal", exact=True).click()
+
+        page.get_by_text("Advanced readiness options", exact=True).click()
+        page.get_by_role("button", name="Check managed automation", exact=True).press("Enter")
+        expect(packet).to_contain_text("Sign in and establish this app’s owner")
+        page.keyboard.press("Escape")
+        expect(packet).to_be_hidden()
+        assert not writes, writes
         expect(nav.get_by_role("button", name="Watch the work", exact=True)).to_be_visible()
         advanced = nav.locator("details")
         summary = advanced.locator("summary")
@@ -251,6 +287,8 @@ def run(browser, width, out):
             pdf_preview=True,
             stale_worker_snapshot_with_live_route=True,
             measurement_readiness_without_agent_setup=True,
+            research_and_video_readiness_without_agent_setup=True,
+            advanced_managed_readiness_still_requires_current_owner=True,
             no_mutations=True,
             javascript_errors=errors,
         )

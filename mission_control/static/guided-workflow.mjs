@@ -360,6 +360,11 @@ const WMMGoalJourney = (() => {
       next: 'Add a research reference',
       view: 'research',
       need: 'Research references and authentic app facts',
+      readiness: {
+        label: 'Check your research sources',
+        view: 'evidence',
+        anchor: '#creative-source-library-heading',
+      },
     },
     creative: {
       title: 'Produce or revise a video',
@@ -369,6 +374,11 @@ const WMMGoalJourney = (() => {
       next: 'Open creative production',
       view: 'research',
       need: 'Approved brief, cleared media and production tools',
+      readiness: {
+        label: 'Check video tools',
+        view: 'research',
+        anchor: '#creative-rendering-heading',
+      },
     },
     campaign: {
       title: 'Run an approved campaign',
@@ -386,6 +396,11 @@ const WMMGoalJourney = (() => {
       next: 'Review measurement evidence',
       view: 'results',
       need: 'Your analytics connection or an actual results import',
+      readiness: {
+        label: 'Check what you can measure',
+        view: 'results',
+        anchor: '#analytics-overview-heading',
+      },
     },
   });
   const key = (app) => 'wmm-goal-choice:' + app;
@@ -472,7 +487,7 @@ const WMMGoalJourney = (() => {
         ? '<p>For one organic post, set up measurement before you publish. Your app website, tagged link and measurement source belong to this app.</p><button type="button" class="button outline" data-action="observational-campaign-open">Plan a tracked organic post</button>'
         : '';
     const next = g
-      ? `<section class="panel" aria-label="Your selected goal"><h2>${html(g.title)}</h2><p>${html(g.description)}</p><p><strong>Bring:</strong> ${html(g.need)}.</p>${accounts}<p>Account setup is not execution approval. Existing workflow and campaign checks still apply.</p><div class="toolbar"><button type="button" class="button" data-action="goal-next" data-goal="${g.id}" data-app="${html(m.app_id)}" data-version="${m.version}">${html(g.next)}</button><button type="button" class="button outline" data-action="goal-readiness">${g.id === 'measurement' ? 'Check what you can measure' : 'Check connections for this goal'}</button><button type="button" class="button outline" data-view="agents">Connect your agent</button></div>${tracking}</section>`
+      ? `<section class="panel" aria-label="Your selected goal"><h2>${html(g.title)}</h2><p>${html(g.description)}</p><p><strong>Bring:</strong> ${html(g.need)}.</p>${accounts}<p>Account setup is not execution approval. Existing workflow and campaign checks still apply.</p><div class="toolbar"><button type="button" class="button" data-action="goal-next" data-goal="${g.id}" data-app="${html(m.app_id)}" data-version="${m.version}">${html(g.next)}</button><button type="button" class="button outline" data-action="goal-readiness">${html(g.readiness?.label || 'Check connections for this goal')}</button><button type="button" class="button outline" data-view="agents">Connect your agent</button></div>${g.readiness ? '<details><summary>Advanced readiness options</summary><p>Check specific agent permissions and connections only if you want WMM to manage the work.</p><button type="button" class="button outline" data-action="goal-readiness" data-mode="managed">Check managed automation</button></details>' : ''}${tracking}</section>`
       : '<p>Choose one goal to see the relevant tools. This selection starts no work and grants no permission.</p>';
     return `<section class="panel" aria-label="Choose your marketing goal" id="goal-journey"><h2>What would you like to accomplish?</h2><p>Start with one useful result. Your agent and you use the same saved app facts, tools and approval checks.</p><p><strong>Your app purpose:</strong> ${html(m.objective || 'Add the problem your app solves in App setup.')}</p><div class="goal-choice-grid" role="group" aria-label="Marketing goals">${cards}</div><p id="goal-message" role="status" aria-live="polite"></p></section>${next}`;
   }
@@ -649,7 +664,7 @@ function goalOverview() {
 
 function goalAction(node) {
   if (node.dataset.action === 'goal-agreement') return WMMAgreement.open();
-  if (node.dataset.action === 'goal-readiness') return WMMGoalReadiness.open();
+  if (node.dataset.action === 'goal-readiness') return WMMGoalReadiness.open(node.dataset.mode);
   if (node.dataset.action === 'goal-repair') return WMMGoalReadiness.repair(node.dataset.tool);
   if (
     node.dataset.app !== state.app ||
@@ -944,13 +959,13 @@ const WMMGoalReadiness = (() => {
       '</p></details>'
     );
   }
-  function open() {
+  function open(mode = 'goal') {
     if (!state.app || state.workspace?.app?.id !== state.app)
       throw new Error('Wait for the selected app to finish loading, then check again.');
     const saved = snapshot();
     if (!presets[saved.goal]) throw new Error('Choose a goal first.');
-    if (saved.goal === 'measurement')
-      return guidedNavigate('results', '#analytics-overview-heading');
+    const route = WMMGoalJourney.choices[saved.goal].readiness;
+    if (route && mode !== 'managed') return guidedNavigate(route.view, route.anchor);
     if (!owner()) {
       modal(
         'Connect your accounts',

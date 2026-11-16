@@ -155,8 +155,8 @@ def require_windows_signature(folder, expected_thumbprint):
 
 
 def validate_unsigned_preview(tag: str) -> None:
-    if tag not in {"v0.1.0-preview.11", "v0.1.0-preview.11.1"}:
-        raise ValueError("Unsigned Windows publication is limited to Preview 11 and its review patch")
+    if tag not in {"v0.1.0-preview.11", "v0.1.0-preview.11.1", "v0.1.0-preview.11.1.1"}:
+        raise ValueError("Unsigned Windows publication is limited to the explicitly listed Preview 11 tags")
 
 
 def windows_release_notice(folder, tag):
