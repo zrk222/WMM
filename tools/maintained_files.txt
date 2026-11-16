@@ -156,6 +156,7 @@ tests/test_http.py
 tests/test_http_benchmark.py
 tests/test_install_attribution.py
 tests/test_integrity_drill.py
+tests/test_ip_inventory.py
 tests/test_kpi_data_gaps.py
 tests/test_kpi_gaps.py
 tests/test_ledger_grouping.py
