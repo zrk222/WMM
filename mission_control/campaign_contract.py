@@ -184,9 +184,12 @@ def scope_data(body: object) -> CampaignScope:
     result["approved_rights_hashes"] = hashes(body["approved_rights_hashes"], True)
     result["approved_targeting_hashes"] = hashes(body["approved_targeting_hashes"], paid)
     if "measurement_plan" in body:
-        from .evidence_gate import measurement_plan
+        from .evidence_gate import is_apple_plan, measurement_plan
 
-        result["measurement_plan"] = measurement_plan(body["measurement_plan"])
+        plan = measurement_plan(body["measurement_plan"])
+        if is_apple_plan(plan) and (paid or body["max_posts"] != 1):
+            raise Invalid("Apple download measurement requires exactly one organic post and zero media spend")
+        result["measurement_plan"] = plan
     return cast(CampaignScope, result)
 
 

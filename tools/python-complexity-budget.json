@@ -10,7 +10,7 @@
     "mission_control/weekly_inbox.py:_agent_review_cards": 26
   },
   "modules": {
-    "mission_control/campaign_execution.py": 1217,
+    "mission_control/campaign_execution.py": 1216,
     "mission_control/onesignal_setup.py": 1003,
     "mission_control/server.py": 1821
   }

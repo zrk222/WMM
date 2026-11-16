@@ -14,7 +14,7 @@ from .db import connection
 from .evidence_gate import has_campaign_tag
 from .experiments import lookup as lookup_experiment
 from .first_party_outcomes import normalized_batch
-from .first_party_receipts import HASH, for_campaign, primary_outcome, retain
+from .first_party_receipts import HASH, for_campaign, primary_outcome, require_first_party_plan, retain
 from .ios_reports import snapshot
 from .metrics import KPI_GAPS
 from .operation_authority import bound_owner, protected, store_identity
@@ -594,9 +594,7 @@ class Reports:
                 raise Invalid("Report summary ownership changed")
             if scope["status"] != "ACTIVE":
                 raise Invalid("Approve a measurement plan before importing campaign outcomes")
-            plan = summary.get("measurement_plan")
-            if not isinstance(plan, dict):
-                raise Invalid("Approve a measurement plan before importing campaign outcomes")
+            plan = require_first_party_plan(summary.get("measurement_plan"))
         return retain(
             self.store.path,
             app_id=app_id,

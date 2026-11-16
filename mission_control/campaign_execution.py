@@ -221,8 +221,6 @@ class CampaignExecutionService:
         self.policy_checker(app_id, actor, scope, action)
 
     def prepare_scope(self, app_id, owner, body):
-        from .evidence_gate import assert_fresh_campaign_tag
-
         proposal = scope_data(body)
         app = self.store.app(app_id)
         selected = self.connections.get(app_id, proposal["connection_id"])
@@ -234,7 +232,10 @@ class CampaignExecutionService:
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
             role = member(db, app_id, principal, "OWNER")
-            assert_fresh_campaign_tag(db, app_id, proposal.get("measurement_plan", {}).get("campaign_tag"))
+            plan = proposal.get("measurement_plan")
+            if plan:
+                scoped_tracking_tag(db, app_id, plan["link"])
+                assert_fresh_campaign_tag(db, app_id, plan["campaign_tag"])
             summary = dict(
                 proposal,
                 app_id=app_id,
@@ -362,8 +363,6 @@ class CampaignExecutionService:
         return scope, secret, token
 
     def activate_scope(self, app_id, owner, scope_id, approval_hash):
-        from .evidence_gate import assert_fresh_campaign_tag
-
         scope = self.get_scope(app_id, scope_id)
         if scope["status"] != "DRAFT" or scope["approval_hash"] != approval_hash:
             raise Invalid("Campaign review changed; prepare the exact scope again")
