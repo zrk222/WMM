@@ -1,5 +1,6 @@
 """Prove missing signatures and incorrect generated-row assignments fail."""
 
+import ast
 import importlib.util
 import json
 import subprocess
@@ -69,6 +70,19 @@ class DangerZoneTypesTests(unittest.TestCase):
         self.assertIn("mission_control/agent_context.py", strict)
         self.assertIn("mission_control/agent_contract.py", strict)
         self.assertIn("mission_control/agent_registry.py", strict)
+
+    def test_server_entry_surface_is_fully_annotated(self) -> None:
+        tree = ast.parse((ROOT / "mission_control/server.py").read_text(encoding="utf-8"))
+        missing: list[str] = []
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for argument in node.args.args:
+                if argument.arg not in ("self", "cls") and argument.annotation is None:
+                    missing.append(f"{node.name}.{argument.arg}")
+            if node.returns is None:
+                missing.append(f"{node.name}.return")
+        self.assertEqual(missing, [])
 
     def test_agent_task_boundary_names_remain_patchable(self) -> None:
         from mission_control import (
