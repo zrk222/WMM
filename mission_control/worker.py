@@ -631,11 +631,20 @@ def persist_job_result(store, job, result, status, retry_delay):
             result, status = _persist_prepared_apple_metrics(db, store, job, result)
             if status is None:
                 return
-        if (
-            status == "SUCCEEDED"
-            and job["action"] == "sync"
-            and job["data"].get("options", {}).get("operation") == "launch_versions"
-        ):
+        read_operation = (
+            job["data"].get("options", {}).get("operation")
+            if status == "SUCCEEDED" and job["action"] == "sync"
+            else None
+        )
+        if status == "SUCCEEDED" and read_operation == "analytics_reports" and "analytics_schedule_id" in job["data"]:
+            from .apple_metrics_schedule import guard_inventory_persistence
+
+            try:
+                if guard_inventory_persistence(db, job, result) is None:
+                    return
+            except Invalid as error:
+                result, status, retry_delay = failed_result(job, error)
+        if status == "SUCCEEDED" and read_operation == "launch_versions":
             from .app_launch_history import retain_job_result
 
             db.execute("BEGIN IMMEDIATE")

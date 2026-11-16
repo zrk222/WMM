@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 from .aeo_transport import public_url
 from .apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, DOWNLOADS, REPORTS, identity
 from .apple_campaign_links import campaign_parts
-from .apple_metrics_schedule import AppleMetricsSchedules, public_row
+from .apple_metrics_schedule import INVENTORY_MODE, AppleMetricsSchedules, public_row
 from .apple_metrics_store import read_in_snapshot
 from .common import Invalid, digest, identifier, uid
 from .connection_setup import Connections
@@ -496,14 +496,13 @@ def dispatch(service, app_id, action, body):
     if action == "schedule":
         if type(body.get("enabled")) is not bool:
             raise Invalid("Choose whether Apple analytics refresh is enabled")
-        expected = (
-            {"manifest_version", "enabled", "interval_hours", "report_id", "version"}
-            if body["enabled"]
-            else {"manifest_version", "enabled", "version"}
-        )
+        expected = {"manifest_version", "enabled", "version"}
+        availability = body.get("mode") == INVENTORY_MODE
+        if body["enabled"]:
+            expected |= {"interval_hours", "mode" if availability else "report_id"}
         if set(body) != expected:
             raise Invalid("Use the exact Apple analytics schedule fields")
-        report_id = identity(body["report_id"]) if body["enabled"] else None
+        report_id = identity(body["report_id"]) if body["enabled"] and not availability else None
         if report_id is not None and report_id != body["report_id"]:
             raise Invalid("Select the exact Apple analytics report identity")
         with connection(service.store.path) as db:

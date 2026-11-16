@@ -3,6 +3,8 @@
 import json
 import re
 import time
+from sqlite3 import Connection, Row
+from typing import Any
 
 from .apple_analytics import identity as analytics_identity
 from .common import Invalid, canonical, digest, iso_time, now, safe_data, uid
@@ -12,6 +14,15 @@ MIN_INTERVAL_HOURS = 24
 MAX_INTERVAL_HOURS = 168
 MAX_FAILURES = 3
 MAX_SCHEDULES_PER_TICK = 100
+INVENTORY_MODE = "inventory"
+INVENTORY_SELECTION = "@inventory"  # Not a valid Apple report ID.
+
+
+def schedule_options(row: Row) -> dict[str, str]:
+    """Give availability watches no authority to collect metric files."""
+    if row["report_id"] == INVENTORY_SELECTION:
+        return {"operation": "analytics_reports"}
+    return {"operation": "analytics_metrics_latest", "report_id": row["report_id"]}
 
 
 def configuration(body):
@@ -20,14 +31,16 @@ def configuration(body):
     if not isinstance(body, dict) or type(body.get("enabled")) is not bool:
         raise Invalid("Choose whether Apple analytics refresh is enabled")
     if body["enabled"]:
-        if set(body) != {"enabled", "interval_hours", "report_id", "version"}:
-            raise Invalid("Choose the report, refresh interval and current schedule version")
+        common = {"enabled", "interval_hours", "version"}
+        if set(body) == common | {"report_id"}:
+            analytics_identity(body["report_id"])
+        elif set(body) != common | {"mode"} or body["mode"] != INVENTORY_MODE:
+            raise Invalid("Choose report availability or a downloads report, and the current refresh settings")
         if (
             type(body["interval_hours"]) is not int
             or not MIN_INTERVAL_HOURS <= body["interval_hours"] <= MAX_INTERVAL_HOURS
         ):
             raise Invalid("Choose a refresh interval from 24 to 168 hours")
-        analytics_identity(body["report_id"])
     elif set(body) != {"enabled", "version"}:
         raise Invalid("Pausing a schedule accepts only its current version")
     if body.get("version") is not None and type(body["version"]) is not int:
@@ -142,6 +155,7 @@ class AppleMetricsSchedules:
                 schedule_id = old["id"] if old else uid()
                 version = (expected or 0) + 1
                 due = time.time()
+                selection = INVENTORY_SELECTION if body.get("mode") == INVENTORY_MODE else body["report_id"]
                 db.execute(
                     """INSERT INTO apple_metrics_schedules
                     (app_id,id,connection_id,connection_version,connection_hash,app_version,report_id,
@@ -161,7 +175,7 @@ class AppleMetricsSchedules:
                         record["version"],
                         record["hash"],
                         app["version"],
-                        body["report_id"],
+                        selection,
                         body["interval_hours"],
                         version,
                         due,
@@ -175,7 +189,8 @@ class AppleMetricsSchedules:
                     {
                         "schedule_id": schedule_id,
                         "version": version,
-                        "report_id": body["report_id"],
+                        "report_id": selection if selection != INVENTORY_SELECTION else None,
+                        "mode": INVENTORY_MODE if selection == INVENTORY_SELECTION else "downloads",
                         "interval_hours": body["interval_hours"],
                     },
                 )
@@ -231,6 +246,8 @@ def public_row(db, row):
         )
     }
     result["enabled"] = bool(row["enabled"])
+    if result["report_id"] == INVENTORY_SELECTION:
+        result.update(mode=INVENTORY_MODE, report_id=None)
     job = (
         db.execute("SELECT status FROM jobs WHERE app_id=? AND id=?", (row["app_id"], row["last_job"])).fetchone()
         if row["last_job"]
@@ -353,6 +370,58 @@ def valid_numeric(db, row, job, result):
         return False
 
 
+def valid_inventory(
+    db: Connection, row: Row, job: dict[str, Any], result: object, *, schedule_checked: bool = False
+) -> bool:
+    """Recognize current app availability evidence without crediting a metric read."""
+    if not isinstance(result, dict):
+        return False
+    try:
+        if not schedule_checked:
+            check_scheduled_db(db, job)
+        app = db.execute("SELECT data FROM apps WHERE id=?", (row["app_id"],)).fetchone()
+        return (
+            app is not None
+            and result.get("operation") == "analytics_reports"
+            and result.get("provider") == "app_store"
+            and result.get("app_id") == row["app_id"]
+            and result.get("store_app_id") == json.loads(app["data"]).get("store_app_id")
+            and result.get("request") == schedule_options(row)
+            and result.get("status") in {"REPORT_SETUP_REQUIRED", "WAITING_FOR_REPORTS", "METRIC_DOWNLOAD_REQUIRED"}
+            and result.get("coverage") == "COMPLETE"
+            and "metric_observations" in result
+            and result["metric_observations"] is None
+            and result.get("external_writes") is False
+            and isinstance(result.get("reports"), list)
+            and isinstance(result.get("source_hash"), str)
+            and re.fullmatch(r"[0-9a-f]{64}", result["source_hash"]) is not None
+            and isinstance(result.get("observed_at"), str)
+            and iso_time(result["observed_at"]) is not None
+        )
+    except (Invalid, TypeError, ValueError, KeyError):
+        return False
+
+
+def guard_inventory_persistence(db: Connection, job: dict[str, Any], result: object) -> bool | None:
+    """Validate current lease, schedule and metadata within the job write transaction."""
+    db.execute("BEGIN IMMEDIATE")
+    lease = db.execute(
+        "SELECT action,data FROM jobs WHERE id=? AND app_id=? AND status='RUNNING' AND attempts=? AND lease>=?",
+        (job["id"], job["app_id"], job["attempts"], time.time()),
+    ).fetchone()
+    if lease is None:
+        return None
+    row = check_scheduled_db(db, job)
+    if (
+        lease["action"] != "sync"
+        or json.loads(lease["data"]) != job["data"]
+        or row is None
+        or not valid_inventory(db, row, job, result, schedule_checked=True)
+    ):
+        raise Invalid("Scheduled Apple availability could not be verified against the current app")
+    return True
+
+
 def reconcile(db, row):
     """Apply each terminal job result once and stop after three consecutive failures."""
     if not row["last_job"]:
@@ -372,9 +441,11 @@ def reconcile(db, row):
         result, job_input = {}, {}
     job_data = dict(job)
     job_data["data"] = job_input
-    success = job["status"] == "SUCCEEDED" and (
-        valid_waiting(db, row, job_data, result) if waiting_marker(result) else valid_numeric(db, row, job_data, result)
-    )
+    if row["report_id"] == INVENTORY_SELECTION:
+        valid_result = valid_inventory
+    else:
+        valid_result = valid_waiting if waiting_marker(result) else valid_numeric
+    success = job["status"] == "SUCCEEDED" and valid_result(db, row, job_data, result)
     failures = 0 if success else row["failures"] + 1
     last_error = None if success else safe_failure(result)
     status = "ENABLED" if failures < MAX_FAILURES else "BLOCKED"
@@ -407,8 +478,10 @@ def dispatch(db, row, current):
         "analytics_schedule_id": row["id"],
         "analytics_schedule_version": row["version"],
         "analytics_schedule_due": row["next_due"],
-        "options": {"operation": "analytics_metrics_latest", "report_id": row["report_id"]},
+        "options": schedule_options(row),
     }
+    if row["report_id"] == INVENTORY_SELECTION:
+        data["connection_hash"] = row["connection_hash"]
     request_key = "apple-metrics-schedule-" + digest(
         {"app_id": row["app_id"], "schedule_id": row["id"], "schedule_version": row["version"], "due": row["next_due"]}
     )
@@ -453,7 +526,8 @@ def check_scheduled_db(db, job):
         or row["connection_version"] != data.get("connection_version")
         or row["app_version"] != data.get("manifest_version")
         or not isinstance(options, dict)
-        or options != {"operation": "analytics_metrics_latest", "report_id": row["report_id"]}
+        or options != schedule_options(row)
+        or (row["report_id"] == INVENTORY_SELECTION and data.get("connection_hash") != row["connection_hash"])
     ):
         raise Invalid("Apple analytics schedule changed; owner review is required before retrying")
     valid, reason = source_state(db, row)
@@ -486,6 +560,14 @@ def complete_job(db, job, result, status):
     if not row["enabled"]:
         return
     if status == "SUCCEEDED":
+        if row["report_id"] == INVENTORY_SELECTION:
+            db.execute(
+                "UPDATE apple_metrics_schedules SET failures=0,reconciled_job=?,last_error=NULL,"
+                "status='ENABLED',updated=? WHERE app_id=?",
+                (job["id"], now(), job["app_id"]),
+            )
+            schedule_audit(db, job["app_id"], "inventory_checked", {"job_id": job["id"], "status": result["status"]})
+            return
         if waiting_marker(result):
             if valid_waiting(db, row, job, result):
                 db.execute(

@@ -13,6 +13,7 @@
   const button = (text, action, extra = '') =>
     `<button type="button" class="button outline" data-action="apple-analytics-${action}" ${extra}>${esc(text)}</button>`;
   let active = null;
+  const inventoryOption = '@inventory';
   function scope(state) {
     const w = state.workspace || {},
       app = w.app || {},
@@ -163,7 +164,7 @@
           '<p>Read the latest daily Apple discovery file. Activity shows the counts Apple supplied for each report row. Unique counts can overlap across rows.</p>'
         : '';
     const state = s
-      ? `<p><strong>Refresh:</strong> ${esc(friendly(s.status))} · ${s.enabled ? 'On' : 'Off'}<br>Last job: ${esc(s.last_job || 'Not recorded')} · ${esc(s.last_job_status ? friendly(s.last_job_status) : 'No status')} · Failures: ${esc(s.failures)}<br>Last metrics collected: ${esc(time(s.last_success))} · Next due: ${s.enabled ? esc(time(s.next_due, true)) : 'Not scheduled'}</p>${['BLOCKED', 'FAILED'].includes(s.last_job_status) ? '<p>Inspect the latest refresh and repair the reported issue before trying again.</p>' : ''}${s.last_job ? button('Inspect latest refresh', 'job') : ''}`
+      ? `<p><strong>Refresh:</strong> ${esc(friendly(s.status))} · ${s.enabled ? 'On' : 'Off'}${s.mode === 'inventory' ? ' · Report availability' : ''}<br>Last job: ${esc(s.last_job || 'Not recorded')} · ${esc(s.last_job_status ? friendly(s.last_job_status) : 'No status')} · Failures: ${esc(s.failures)}<br>Last metrics collected: ${esc(time(s.last_success))} · Next due: ${s.enabled ? esc(time(s.next_due, true)) : 'Not scheduled'}</p>${['BLOCKED', 'FAILED'].includes(s.last_job_status) ? '<p>Inspect the latest refresh and repair the reported issue before trying again.</p>' : ''}${s.last_job ? button('Inspect latest refresh', 'job') : ''}`
       : '<p>No saved refresh schedule.</p>';
     const rows = reports
       .map(
@@ -171,15 +172,14 @@
           `<li>${esc(r.name)}: ${esc(r.instance_count)} report instances · ${esc(friendly(r.coverage))}</li>`,
       )
       .join('');
-    const selects = options
-      .map(
+    const selects = [
+      ...options.map(
         (r) =>
           `<option value="${esc(r.id)}" ${s?.report_id === r.id ? 'selected' : ''}>${esc(r.name)}</option>`,
-      )
-      .join('');
-    const form = options.length
-      ? `<form id="apple-analytics-form"><div class="field"><label for="apple-analytics-report">Report</label><select id="apple-analytics-report" name="report_id" required>${selects}</select></div><div class="field"><label for="apple-analytics-interval">Refresh every (hours)</label><input id="apple-analytics-interval" type="number" name="interval_hours" min="24" max="168" step="1" value="${esc(s?.interval_hours || 24)}" required></div><button class="button" type="submit">${s?.enabled ? 'Save refresh settings' : 'Enable refresh'}</button></form>`
-      : '<p>Read the current inventory to choose the App Downloads Standard report.</p>';
+      ),
+      `<option value="${inventoryOption}" ${s?.mode === 'inventory' ? 'selected' : ''}>Report availability</option>`,
+    ].join('');
+    const form = `<form id="apple-analytics-form"><div class="field"><label for="apple-analytics-report">What should WMM check?</label><select id="apple-analytics-report" name="report_id" aria-describedby="apple-refresh-purpose" required>${selects}</select></div><p id="apple-refresh-purpose">Report availability checks whether Apple has files for this app. It does not collect download counts.</p><div class="field"><label for="apple-analytics-interval">Refresh every (hours)</label><input id="apple-analytics-interval" type="number" name="interval_hours" min="24" max="168" step="1" value="${esc(s?.interval_hours || 24)}" required></div><button class="button" type="submit">${s?.enabled ? 'Save refresh settings' : 'Enable refresh'}</button></form>`;
     const source = data.connection
       ? data.inventory
         ? 'Saved for this app. The successful inventory below records access at that time, not a guarantee of current access.'
@@ -431,16 +431,22 @@
       !Number.isSafeInteger(hours) ||
       hours < 24 ||
       hours > 168 ||
-      !t.data.reports.some((r) => r.id === reportId && r.name === 'App Downloads Standard')
+      (reportId !== inventoryOption &&
+        !t.data.reports.some((r) => r.id === reportId && r.name === 'App Downloads Standard'))
     ) {
-      fail(t, Error('Choose the displayed downloads report and an interval from 24 to 168 hours.'));
+      fail(
+        t,
+        Error(
+          'Choose report availability or a downloads report, and an interval from 24 to 168 hours.',
+        ),
+      );
       return;
     }
     const body = {
       manifest_version: t.scope.version,
       enabled: true,
       interval_hours: hours,
-      report_id: reportId,
+      ...(reportId === inventoryOption ? { mode: 'inventory' } : { report_id: reportId }),
       version: t.data.schedule?.version ?? null,
     };
     busy(t, true);
