@@ -991,11 +991,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def post_app(self, parts: list[str], data: JsonObject) -> object:
         """Dispatch only registered app-scoped write actions."""
-        service = self.server.service
+        server, service = self.server, self.server.service
         if parts[3] == "social-access":
             from .social_http import post as social_post
 
-            return self.send(200, social_post(service.store, parts[2], parts[4:], data, self.server.server_port))
+            return self.send(200, social_post(service.store, parts[2:], data, server.server_port, server.runtime_mode))
         if parts[3] == "agent-access":
             return self.send(200, self.agent_access(parts[2], parts[4:], data))
         app_id, action = parts[2:4]

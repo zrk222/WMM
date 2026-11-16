@@ -16,7 +16,7 @@ def serve(source, output):
     if not re.fullmatch(rb"[a-f0-9]{64}\n", nonce):
         raise SystemExit("Native desktop launch requires a valid private startup frame.")
 
-    runtime = DesktopRuntime(preferred_port=0, fixed_port=True)
+    runtime = DesktopRuntime()
     try:
         packaged = bool(getattr(sys, "frozen", False))
         frame = canonical(

@@ -111,6 +111,7 @@ tests/organic_research_ui.test.cjs
 tests/page_reporting.test.cjs
 tests/process_status_ui.test.cjs
 tests/publication_ui.test.cjs
+tests/social_access_ui.test.cjs
 tests/weekly_operation_ui.test.cjs
 tests/wmm_hero_vendor.test.mjs
 tests/workflow_telemetry.test.cjs

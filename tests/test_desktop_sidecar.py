@@ -4,19 +4,20 @@ import hashlib
 import hmac
 import json
 import os
-from pathlib import Path
-from queue import Queue
+import socket
 import subprocess
 import sys
 import tempfile
-from threading import Thread
 import time
 import unittest
+from contextlib import nullcontext
+from pathlib import Path
+from queue import Queue
+from threading import Thread
 from urllib.error import HTTPError
 from urllib.request import ProxyHandler, Request, build_opener
 
 from mission_control.desktop import DesktopRuntime
-
 
 NONCE = b"42" * 32
 CHALLENGE = "35" * 32
@@ -33,10 +34,15 @@ class DesktopSidecarTests(unittest.TestCase):
             for activate in (False, True):
                 with self.subTest(activate=activate), self.start_child(folder) as child:
                     try:
-                        child.stdin.write(NONCE + b"\n")
-                        child.stdin.flush()
+                        stdin, stdout = child.stdin, child.stdout
+                        assert stdin is not None and stdout is not None
+                        stdin.write(NONCE + b"\n")
+                        stdin.flush()
                         ready = Queue(maxsize=1)
-                        reader = Thread(target=lambda: ready.put(child.stdout.readline(512)), daemon=True)
+                        reader = Thread(
+                            target=lambda queue=ready, pipe=stdout: queue.put(pipe.readline(512)),
+                            daemon=True,
+                        )
                         reader.start()
                         line = ready.get(timeout=15)
                         self.assertTrue(line.endswith(b"\n"), line)
@@ -70,15 +76,15 @@ class DesktopSidecarTests(unittest.TestCase):
                             error.exception.close()
                         telemetry = origin + "/api/apps/sample-one/workflow-telemetry"
 
-                        def last_poll():
+                        def last_poll(client=client, telemetry=telemetry):
                             with client.open(telemetry, timeout=5) as response:
                                 return json.load(response)["worker"]["last_success"]
 
                         self.assertIsNone(last_poll())
                         if activate:
-                            child.stdin.write(b"START\n")
-                            child.stdin.flush()
-                            for attempt in range(50):
+                            stdin.write(b"START\n")
+                            stdin.flush()
+                            for _ in range(50):
                                 try:
                                     with client.open(Request(route, headers=headers), timeout=2):
                                         time.sleep(0.05)
@@ -88,18 +94,33 @@ class DesktopSidecarTests(unittest.TestCase):
                                     break
                             else:
                                 self.fail("Proof remained available after activation")
-                            for attempt in range(50):
+                            for _ in range(50):
                                 if last_poll() is not None:
                                     break
                                 time.sleep(0.05)
                             else:
                                 self.fail("The existing worker never reported a successful poll")
-                        child.stdin.close()
+                        stdin.close()
                         self.assertEqual(child.wait(timeout=15), 0)
-                        self.assertEqual(child.stdout.read(), b"")
+                        self.assertEqual(stdout.read(), b"")
                     finally:
                         if child.poll() is None:
                             child.kill()
+
+    def test_sidecar_uses_the_relay_port_or_a_working_private_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            for occupied in (True, False):
+                blocker = socket.create_server(("127.0.0.1", 8765)) if occupied else nullcontext()
+                with self.subTest(occupied=occupied), blocker:
+                    with self.start_child(folder) as child:
+                        frame_line, stderr = child.communicate(NONCE + b"\n", timeout=15)
+                    self.assertEqual(child.returncode, 0, stderr)
+                    frame = json.loads(frame_line)
+                    self.assertEqual(frame["pid"], child.pid)
+                    if occupied:
+                        self.assertNotEqual(frame["port"], 8765)
+                    else:
+                        self.assertEqual(frame["port"], 8765)
 
     def test_malformed_pipe_frame_creates_no_workspace(self):
         with tempfile.TemporaryDirectory() as folder, self.start_child(folder) as child:
