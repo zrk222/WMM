@@ -11,7 +11,7 @@ from .campaign_monitor import actor, last_observation, whole
 from .campaign_report_pause import pause_guidance
 from .common import Invalid, canonical, digest, identifier, iso_time, now, uid
 from .db import connection
-from .evidence_gate import has_campaign_tag
+from .evidence_gate import has_campaign_tag, is_apple_plan
 from .experiments import lookup as lookup_experiment
 from .first_party_outcomes import normalized_batch
 from .first_party_receipts import HASH, for_campaign, primary_outcome, retain
@@ -372,6 +372,10 @@ def build(db, store, app_id, owner, chosen):
         scope = owned_resource(db, "campaign_scopes", app_id, owner, chosen["scope_id"])
         approved = object_data(scope["summary"])
         plan = approved.get("measurement_plan")
+        if is_apple_plan(plan):
+            raise Invalid(
+                "Review this Apple's first-time downloads in Apple analytics, not a first-open or billing receipt"
+            )
         value["first_party_outcomes"] = for_campaign(
             db,
             app_id,
@@ -597,6 +601,10 @@ class Reports:
             plan = summary.get("measurement_plan")
             if not isinstance(plan, dict):
                 raise Invalid("Approve a measurement plan before importing campaign outcomes")
+            if is_apple_plan(plan):
+                raise Invalid(
+                    "Use Apple analytics for this download plan; product and billing imports cannot supply its counts"
+                )
         return retain(
             self.store.path,
             app_id=app_id,

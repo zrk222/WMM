@@ -95,7 +95,7 @@ async function campaignOpen(source = null, study = null, reuse = null) {
     );
   modal(
     'Campaign automation',
-    `<form id="campaign-scope-form" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}" data-principal="${esc(principal || '')}"><p>Choose the work once, review its exact limits, then let your agent operate within them. Account permissions are checked separately before execution.</p><label class="field">Facebook Page connection<select name="connection_id" required><option value="">Choose a connected Page</option>${accounts.map((r) => `<option value="${esc(r.id)}">${esc(r.data.destination.name)} · ${esc(r.data.destination.id)}</option>`).join('')}</select></label>${accounts.length ? '' : notice('Connect a Facebook Page first. Select publishing or ad access during setup, complete official login, then return here.', 'warning')}<label class="field">Approved post copy<textarea name="posts" rows="6" maxlength="50000" required placeholder="Write one post. Separate additional posts with a line containing ---"></textarea></label><p>Up to 20 exact posts per review. The workflow uses your approved words; it does not invent product claims.</p><label class="field">App or landing-page link<input name="link" type="url" placeholder="https://your-app.example" maxlength="2048"></label><label class="field">Rights and claims evidence<textarea name="rights" maxlength="2000" required placeholder="Explain your authority to use this copy and media, and where its app claims are substantiated."></textarea></label><label class="field">Maximum Meta requests<input name="max_calls" type="number" min="1" max="500" value="500" required></label><p>Includes account checks, publication and verification. Your agent has a separate WMM call limit.</p><label class="field">Authority expires in hours<input name="hours" type="number" min="1" max="24" value="1" required></label><details><summary>Optional paid Meta campaign</summary><p>Leave the ad account empty for free organic publishing. Media limits exclude taxes, fees and currency conversion; provider reports may lag. A campaign's maximum approved media budget is reserved before activation.</p><label class="field">Numeric ad-account ID<input name="ad_account_id" inputmode="numeric" pattern="[0-9]+" maxlength="40"></label><label class="field">Currency<input name="currency" pattern="[A-Z]{3}" maxlength="3" value="${esc(state.workspace.app.data.currency || 'USD')}" required></label><label class="field">Maximum media budget in minor units<input name="budget" type="number" min="0" max="100000000" value="0" step="1"></label><label class="field">Audience country codes<input name="countries" value="CA" maxlength="100" placeholder="CA, US"></label><label class="check-row"><input name="billing" type="checkbox"> I approve this media commitment and understand separate provider taxes, fees and billing delays.</label><label class="check-row"><input name="ordinary" type="checkbox"> I confirm this is outside Meta special ad categories (including housing, employment, financial products and political or social-issue advertising).</label></details><details><summary>Optional measurement plan (enforced before launch)</summary><p>Complete this plan to require connected acquisition and outcome sources, a tagged link and a frozen measurement window before any post or paid campaign dispatches. Leave it empty only for an unscoped legacy workflow.</p><label class="field">Primary metric<input name="measurement_metric" maxlength="2000" placeholder="paid_conversion"></label><label class="field">Denominator<input name="measurement_denominator" maxlength="2000" placeholder="installs"></label><label class="field">Campaign tag<input name="measurement_tag" maxlength="64" placeholder="launch-a"></label><label class="field">Measurement starts<input name="measurement_starts" type="datetime-local"></label><label class="field">Measurement ends<input name="measurement_ends" type="datetime-local"></label><label class="field">Frozen hypothesis<textarea name="measurement_hypothesis" maxlength="2000"></textarea></label><label class="field">Decision rule<textarea name="measurement_rule" maxlength="2000"></textarea></label></details><p id="campaign-error" role="alert"></p><div class="modal-actions"><button class="button primary" type="submit">Review exact automation scope</button>${button('Cancel', 'close')}</div></form><section class="modal-content"><h3>Saved scopes</h3>${history.scopes.length ? history.scopes.map((s) => `<p>${esc(s.page_id)} · ${esc(s.status)} · expires ${esc(s.permission_expires_at || s.expires_at)} ${button('Inspect saved scope', 'campaign-status', `data-id="${esc(s.scope_id)}"`)}</p>`).join('') : '<p>No saved scopes for this owner and app yet.</p>'}<h3>Saved schedules</h3>${(schedules.batches || []).map((b) => `<p>${esc(campaignScheduleCopy(b)[0])} · ${esc(b.items.length)} scheduled items ${button('Inspect scheduled batch', 'campaign-schedule-status', `data-batch="${esc(b.id)}"`)}</p>`).join('') || '<p>No saved scheduled batch yet.</p>'}</section>`,
+    `<form id="campaign-scope-form" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}" data-principal="${esc(principal || '')}"><p>Choose the work once, review its exact limits, then let your agent operate within them. Account permissions are checked separately before execution.</p><label class="field">Facebook Page connection<select name="connection_id" required><option value="">Choose a connected Page</option>${accounts.map((r) => `<option value="${esc(r.id)}">${esc(r.data.destination.name)} · ${esc(r.data.destination.id)}</option>`).join('')}</select></label>${accounts.length ? '' : notice('Connect a Facebook Page first. Select publishing or ad access during setup, complete official login, then return here.', 'warning')}<label class="field">Approved post copy<textarea name="posts" rows="6" maxlength="50000" required placeholder="Write one post. Separate additional posts with a line containing ---"></textarea></label><p>Up to 20 exact posts per review. The workflow uses your approved words; it does not invent product claims.</p><label class="field">App or landing-page link<input name="link" type="url" placeholder="https://your-app.example" maxlength="2048"></label><label class="field">Rights and claims evidence<textarea name="rights" maxlength="2000" required placeholder="Explain your authority to use this copy and media, and where its app claims are substantiated."></textarea></label><label class="field">Maximum Meta requests<input name="max_calls" type="number" min="1" max="500" value="500" required></label><p>Includes account checks, publication and verification. Your agent has a separate WMM call limit.</p><label class="field">Authority expires in hours<input name="hours" type="number" min="1" max="24" value="1" required></label><details><summary>Optional paid Meta campaign</summary><p>Leave the ad account empty for free organic publishing. Media limits exclude taxes, fees and currency conversion; provider reports may lag. A campaign's maximum approved media budget is reserved before activation.</p><label class="field">Numeric ad-account ID<input name="ad_account_id" inputmode="numeric" pattern="[0-9]+" maxlength="40"></label><label class="field">Currency<input name="currency" pattern="[A-Z]{3}" maxlength="3" value="${esc(state.workspace.app.data.currency || 'USD')}" required></label><label class="field">Maximum media budget in minor units<input name="budget" type="number" min="0" max="100000000" value="0" step="1"></label><label class="field">Audience country codes<input name="countries" value="CA" maxlength="100" placeholder="CA, US"></label><label class="check-row"><input name="billing" type="checkbox"> I approve this media commitment and understand separate provider taxes, fees and billing delays.</label><label class="check-row"><input name="ordinary" type="checkbox"> I confirm this is outside Meta special ad categories (including housing, employment, financial products and political or social-issue advertising).</label></details><details><summary>Optional measurement plan (enforced before launch)</summary><p>For an Apple campaign link, enter the measurement dates, hypothesis and decision rule. WMM reads first-time downloads for one organic post; leave the metric, denominator and tag blank. Website measurement still needs its tagged link and connected acquisition and outcome sources.</p><label class="field">Primary metric<input name="measurement_metric" maxlength="2000" placeholder="paid_conversion"></label><label class="field">Denominator<input name="measurement_denominator" maxlength="2000" placeholder="installs"></label><label class="field">Campaign tag<input name="measurement_tag" maxlength="64" placeholder="launch-a"></label><label class="field">Measurement starts<input name="measurement_starts" type="datetime-local"></label><label class="field">Measurement ends<input name="measurement_ends" type="datetime-local"></label><label class="field">Frozen hypothesis<textarea name="measurement_hypothesis" maxlength="2000"></textarea></label><label class="field">Decision rule<textarea name="measurement_rule" maxlength="2000"></textarea></label></details><p id="campaign-error" role="alert"></p><div class="modal-actions"><button class="button primary" type="submit">Review exact automation scope</button>${button('Cancel', 'close')}</div></form><section class="modal-content"><h3>Saved scopes</h3>${history.scopes.length ? history.scopes.map((s) => `<p>${esc(s.page_id)} · ${esc(s.status)} · expires ${esc(s.permission_expires_at || s.expires_at)} ${button('Inspect saved scope', 'campaign-status', `data-id="${esc(s.scope_id)}"`)}</p>`).join('') : '<p>No saved scopes for this owner and app yet.</p>'}<h3>Saved schedules</h3>${(schedules.batches || []).map((b) => `<p>${esc(campaignScheduleCopy(b)[0])} · ${esc(b.items.length)} scheduled items ${button('Inspect scheduled batch', 'campaign-schedule-status', `data-batch="${esc(b.id)}"`)}</p>`).join('') || '<p>No saved scheduled batch yet.</p>'}</section>`,
   );
   $('#campaign-scope-form').dataset.principal = principal || '';
   const scopeForm = $('#campaign-scope-form');
@@ -182,7 +182,7 @@ function campaignReviewMarkup(scope, preview, posts, rights, targeting, pageName
       ? [
           row(
             'Measurement plan',
-            `${scope.measurement_plan.primary_metric} / ${scope.measurement_plan.denominator}; ${scope.measurement_plan.starts_at} to ${scope.measurement_plan.ends_at}`,
+            `${scope.measurement_plan.measurement_source === 'APPLE_APP_DOWNLOADS' ? 'Apple first-time downloads (count)' : `${scope.measurement_plan.primary_metric} / ${scope.measurement_plan.denominator}`}; ${scope.measurement_plan.starts_at} to ${scope.measurement_plan.ends_at}`,
           ),
         ]
       : []),
@@ -297,12 +297,6 @@ async function campaignSubmit(form) {
     }
     let measurementPlan = null;
     if (anyPlan) {
-      if (
-        Object.values(planValues).some((value) => !String(value || '').trim()) ||
-        !values.measurement_starts ||
-        !values.measurement_ends
-      )
-        throw new Error('Complete every measurement plan field or leave the plan empty.');
       if (!link) throw new Error('Add the approved tagged link before the measurement plan.');
       let parsed;
       try {
@@ -310,11 +304,39 @@ async function campaignSubmit(form) {
       } catch {
         throw new Error('Use a valid HTTPS measurement link.');
       }
-      if (
-        parsed.protocol !== 'https:' ||
-        parsed.searchParams.get('utm_campaign') !== planValues.tag
-      )
+      if (parsed.protocol !== 'https:') throw new Error('Use a valid HTTPS measurement link.');
+      const apple = parsed.hostname === 'apps.apple.com' && parsed.searchParams.has('pt');
+      if (apple) {
+        if (paid || messages.length !== 1)
+          throw new Error(
+            'Choose one organic post with no ad account for Apple download measurement.',
+          );
+        const tag = parsed.searchParams.get('ct');
+        if (
+          !tag ||
+          (planValues.tag?.trim() && planValues.tag.trim().toLowerCase() !== tag.toLowerCase())
+        )
+          throw new Error('Use the Apple campaign link with its matching campaign tag.');
+        if (
+          (planValues.metric?.trim() &&
+            planValues.metric.trim() !== 'apple_first_time_downloads') ||
+          (planValues.denominator?.trim() && planValues.denominator.trim() !== 'none')
+        )
+          throw new Error(
+            'Leave metric and denominator blank for an Apple first-time download count.',
+          );
+        planValues.metric = 'apple_first_time_downloads';
+        planValues.denominator = 'none';
+        planValues.tag = tag;
+      } else if (parsed.searchParams.get('utm_campaign') !== planValues.tag) {
         throw new Error('The measurement link must carry the same utm_campaign tag.');
+      }
+      if (
+        Object.values(planValues).some((value) => !String(value || '').trim()) ||
+        !values.measurement_starts ||
+        !values.measurement_ends
+      )
+        throw new Error('Complete the measurement window, hypothesis and decision rule.');
       const starts = new Date(values.measurement_starts),
         ends = new Date(values.measurement_ends);
       if (Number.isNaN(starts.getTime()) || Number.isNaN(ends.getTime()) || !(starts < ends))

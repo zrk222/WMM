@@ -1,6 +1,7 @@
 """Campaign launch gate refuses an incomplete measurement plan."""
 
 import json
+import os
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -15,11 +16,14 @@ from mission_control.campaign_transport import MetaTransport, Unconfirmed
 from mission_control.common import Invalid, canonical, digest, now
 from mission_control.db import connection
 from mission_control.evidence_gate import (
+    APPLE_MEASUREMENT,
+    APPLE_PRIMARY_METRIC,
     assert_ready,
     check_promotion_link,
     evaluate,
     latest,
     measurement_plan,
+    plan_providers,
     provider_set,
 )
 from mission_control.operator_client import OperatorClient
@@ -43,6 +47,67 @@ def plan():
 
 
 class EvidenceGateTests(unittest.TestCase):
+    def test_apple_plan_binds_one_organic_post_to_the_exact_listing_and_readiness(self) -> None:
+        from tests.test_apple_metrics_http_route import APP, AppleMetricsRouteTests
+
+        source = AppleMetricsRouteTests()
+        source.setUp()
+        self.addCleanup(source.doCleanups)
+        approved = dict(
+            plan(),
+            link="https://apps.apple.com/ca/app/example/id123?pt=456&ct=Early%20Launch&mt=8",
+            campaign_tag="Early Launch",
+            primary_metric=APPLE_PRIMARY_METRIC,
+            denominator="none",
+        )
+        saved = measurement_plan(approved)
+        self.assertEqual(saved["campaign_tag"], "early launch")
+        self.assertEqual(saved["measurement_source"], APPLE_MEASUREMENT)
+        self.assertEqual(measurement_plan(saved, retained=True), saved)
+        self.assertNotIn("utm_campaign", saved)
+        with self.assertRaisesRegex(Invalid, "match the tag"):
+            measurement_plan(dict(approved, campaign_tag="other"))
+        with self.assertRaisesRegex(Invalid, "first-time downloads"):
+            measurement_plan(dict(approved, primary_metric="paid_conversion"))
+
+        scope = dict(measurement_plan=saved, status="ACTIVE", ad_account_id=None)
+        post = dict(link=saved["link"])
+        self.assertEqual(evaluate(scope, {"posthog", "revenuecat"}, request=post)["status"], "BLOCKED")
+        self.assertEqual(evaluate(scope, {APPLE_MEASUREMENT}, request=post)["status"], "READY")
+        self.assertEqual(evaluate(dict(scope, ad_account_id="123"), {APPLE_MEASUREMENT})["status"], "BLOCKED")
+        self.assertEqual(
+            evaluate(scope, {APPLE_MEASUREMENT}, request=dict(link="https://example.test/"))["status"], "BLOCKED"
+        )
+        with patch.dict(os.environ, {"GROWTH_SAMPLE_ONE_SYNTHETIC": "fixture"}):
+            self.assertEqual(plan_providers(source.store, APP, saved), set())
+            inventory_id = source.campaign_inventory([])
+            self.assertEqual(assert_ready(source.store, APP, scope, post)["status"], "READY")
+            with self.assertRaisesRegex(Invalid, "this app's App Store listing"):
+                plan_providers(source.store, APP, dict(saved, link=saved["link"].replace("id123", "id999")))
+            with connection(source.store.path, write=True) as db:
+                db.execute("UPDATE jobs SET result=json_set(result,'$.coverage','PARTIAL') WHERE id=?", (inventory_id,))
+            self.assertEqual(plan_providers(source.store, APP, saved), set())
+            with connection(source.store.path, write=True) as db:
+                db.execute(
+                    "UPDATE jobs SET result=json_set(result,'$.coverage','COMPLETE','$.observed_at',?) WHERE id=?",
+                    ((datetime.now(timezone.utc) - timedelta(days=8)).isoformat(), inventory_id),
+                )
+            self.assertEqual(plan_providers(source.store, APP, saved), set())
+        self.assertEqual(plan_providers(source.store, APP, saved), set())
+
+        campaign: Any = test_campaign_execution.CampaignTests()
+        campaign.setUp()
+        self.addCleanup(campaign.doCleanups)
+        with self.assertRaisesRegex(Invalid, "exactly one organic post"):
+            scope_data(dict(campaign.body, measurement_plan=approved))
+        body = dict(campaign.body, max_posts=1, measurement_plan=approved)
+        with self.assertRaisesRegex(Invalid, "this app's App Store listing"):
+            campaign.service.prepare_scope("sample", "owner", body)
+        app = campaign.store.app("sample")
+        campaign.store.save_app("sample", dict(app["data"], store_app_id="123"), app["version"])
+        draft = campaign.service.prepare_scope("sample", "owner", body)
+        self.assertEqual(draft["measurement_plan"], saved)
+
     def test_transport_checks_write_permission_after_resolution_and_before_request(self):
         events = []
 

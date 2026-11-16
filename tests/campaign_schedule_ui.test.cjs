@@ -15,6 +15,7 @@ function fixture() {
     modals = [];
   const c = {
     Date,
+    URL,
     TextEncoder,
     Uint8Array,
     crypto: webcrypto,
@@ -59,6 +60,52 @@ test('unavailable reuse gives an action beside settled and unfinished receipts',
     /5,000 characters.*HTTPS link/,
   );
   assert.equal(c.campaignScheduleReuseHelp({ items: [] }, true), '');
+});
+test('Apple measurement prepares one organic scope with the original Apple link and count metric', async () => {
+  const { c, calls } = fixture();
+  c.state.workspace.social_access = {
+    accounts: [{ id: 'page-row', provider: 'facebook', data: { destination: { id: '123' } } }],
+  };
+  const error = { textContent: '' };
+  const button = { disabled: false };
+  const form = {
+    isConnected: true,
+    dataset: { app: 'one', version: '1', principal: 'owner' },
+    querySelector: (selector) => (selector === '#campaign-error' ? error : button),
+    values: {
+      connection_id: 'page-row',
+      posts: 'One synthetic Page update',
+      hours: '1',
+      ad_account_id: '',
+      budget: '0',
+      currency: 'CAD',
+      countries: 'CA',
+      link: 'https://apps.apple.com/ca/app/example/id123?pt=456&ct=Early%20Launch&mt=8',
+      rights: 'Synthetic fixture',
+      measurement_starts: '2026-11-16T12:00Z',
+      measurement_ends: '2026-11-19T12:00Z',
+      measurement_hypothesis: 'Measure App Store demand',
+      measurement_rule: 'Retain an honest unknown if Apple has no matching rows',
+    },
+  };
+  c.api = async (path, data) => {
+    calls.push([path, data]);
+    throw new Error('Terminate after capturing the synthetic prepare request');
+  };
+  await c.campaignSubmit(form);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], '/api/apps/one/campaigns/prepare');
+  const scope = calls[0][1].scope;
+  assert.equal(scope.max_posts, 1);
+  assert.equal(scope.max_total_minor, 0);
+  assert.equal(scope.measurement_plan.link, form.values.link);
+  assert.equal(scope.measurement_plan.campaign_tag, 'Early Launch');
+  assert.equal(scope.measurement_plan.primary_metric, 'apple_first_time_downloads');
+  assert.equal(scope.measurement_plan.denominator, 'none');
+  form.values.posts += '\n---\nAnother post';
+  await c.campaignSubmit(form);
+  assert.equal(calls.length, 1);
+  assert.match(error.textContent, /Choose one organic post/);
 });
 const scope = {
   scope_id: 'scope',

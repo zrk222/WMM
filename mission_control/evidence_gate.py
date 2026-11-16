@@ -1,6 +1,7 @@
 """Compose an approved campaign scope into an evidence-complete launch preflight."""
 
 import json
+import os
 import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -24,6 +25,8 @@ PLAN_FIELDS = (
 )
 ACQUISITION_SOURCES = {"posthog"}
 OUTCOME_SOURCES = {"revenuecat"}
+APPLE_MEASUREMENT = "APPLE_APP_DOWNLOADS"
+APPLE_PRIMARY_METRIC = "apple_first_time_downloads"
 REPORT_SCOPES = {
     "posthog": "PROJECT_ID_CHECKED",
     "revenuecat": "PROJECT_PATH_CHECKED_PROJECT_WIDE_METRICS",
@@ -33,28 +36,76 @@ REPORT_SCOPES = {
 def measurement_plan(value: Any, *, retained: bool = False) -> dict[str, Any]:
     """Validate the owner-approved measurement inputs before they enter a scope."""
     fields = set(value) if isinstance(value, dict) else set()
-    if fields != set(PLAN_FIELDS) and not (retained and fields == set(PLAN_FIELDS) | {"utm_campaign"}):
+    if fields != set(PLAN_FIELDS) and not (
+        retained and fields in (set(PLAN_FIELDS) | {"utm_campaign"}, set(PLAN_FIELDS) | {"measurement_source"})
+    ):
         raise Invalid("Use the exact measurement plan fields")
     for name in ("primary_metric", "denominator", "campaign_tag", "hypothesis", "decision_rule"):
         required(value[name], name, 2000)
-    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", value["campaign_tag"]):
-        raise Invalid("Use a lowercase campaign tag with letters, numbers, hyphens or underscores")
     link = value["link"]
     if not isinstance(link, str) or len(link) > 2048:
         raise Invalid("Use a bounded HTTPS measurement link")
     try:
         public_url(link, allow_tracking=True)
         parts = urlsplit(link)
+        apple = campaign_parts(parts)
     except (ReadError, ValueError):
         raise Invalid("Use a valid public HTTPS measurement link") from None
-    tags = parse_qs(parts.query, keep_blank_values=True).get("utm_campaign")
-    tag = value["campaign_tag"]
-    if tags != [tag] or ("utm_campaign" in value and value["utm_campaign"] != tag):
-        raise Invalid("The measurement link must carry the approved utm_campaign tag")
     starts, ends = iso_time(value["starts_at"]), iso_time(value["ends_at"])
     if not starts < ends:
         raise Invalid("Measurement start must precede its end")
-    return dict(value, starts_at=starts.isoformat(), ends_at=ends.isoformat(), utm_campaign=tag)
+    normalized = dict(value, starts_at=starts.isoformat(), ends_at=ends.isoformat())
+    tag = value["campaign_tag"]
+    if apple is not None:
+        if "utm_campaign" in value or value.get("measurement_source", APPLE_MEASUREMENT) != APPLE_MEASUREMENT:
+            raise Invalid("Saved Apple measurement source does not match its link")
+        if tag.casefold() != apple[1].casefold():
+            raise Invalid("The campaign tag must match the tag in the Apple campaign link")
+        if (value["primary_metric"], value["denominator"]) != (APPLE_PRIMARY_METRIC, "none"):
+            raise Invalid("For an Apple campaign link, use first-time downloads as a count with no denominator")
+        if ends - starts > timedelta(days=30):
+            raise Invalid("Choose up to 30 days for an Apple download measurement window")
+        return dict(normalized, campaign_tag=apple[1].casefold(), measurement_source=APPLE_MEASUREMENT)
+    if "measurement_source" in value or not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", tag):
+        raise Invalid("Use a lowercase campaign tag with letters, numbers, hyphens or underscores")
+    tags = parse_qs(parts.query, keep_blank_values=True).get("utm_campaign")
+    if tags != [tag] or ("utm_campaign" in value and value["utm_campaign"] != tag):
+        raise Invalid("The measurement link must carry the approved utm_campaign tag")
+    return dict(normalized, utm_campaign=tag)
+
+
+def is_apple_plan(plan: object) -> bool:
+    return isinstance(plan, dict) and plan.get("measurement_source") == APPLE_MEASUREMENT
+
+
+def plan_providers(store: Any, app_id: str, plan: object) -> set[str]:
+    """Check saved, current Apple access only for a native Apple download plan."""
+    if not is_apple_plan(plan):
+        return provider_set(store, app_id)
+    from .apple_analytics import CAMPAIGN_DOWNLOADS
+    from .apple_metrics_http import connection_status, inventory, source
+    from .db import connection
+
+    with connection(store.path) as db:
+        db.execute("BEGIN")
+        version, store_id, record = source(db, app_id)
+        if record is None or connection_status(store, app_id, record) != "CONFIGURED_UNVERIFIED":
+            return set()
+        credentials = json.loads(record["data"])
+        if not credentials.get("credential_ref") and not os.environ.get(credentials.get("env_ref", "")):
+            return set()
+        assert isinstance(plan, dict)
+        if scoped_tracking_tag(db, app_id, plan["link"]) is None:
+            return set()
+        current, reports = inventory(db, app_id, version, store_id, record)
+        if (
+            current is None
+            or current["coverage"] != "COMPLETE"
+            or not timedelta(0) <= datetime.now(timezone.utc) - iso_time(current["observed_at"]) <= timedelta(days=7)
+            or not any(report["name"] == CAMPAIGN_DOWNLOADS and report["coverage"] == "COMPLETE" for report in reports)
+        ):
+            return set()
+    return {APPLE_MEASUREMENT}
 
 
 def has_campaign_tag(url: object, campaign: str) -> bool:
@@ -256,19 +307,34 @@ def evaluate(
             "PASS" if plan["hypothesis"].strip() and plan["decision_rule"].strip() else "MISSING",
             "Hypothesis and decision rule are frozen in the approved scope.",
         )
-        acquisition = sorted(providers & ACQUISITION_SOURCES)
-        outcome = sorted(providers & OUTCOME_SOURCES)
+        apple = is_apple_plan(plan)
+        acquisition = sorted(providers & ({APPLE_MEASUREMENT} if apple else ACQUISITION_SOURCES))
+        outcome = sorted(providers & ({APPLE_MEASUREMENT} if apple else OUTCOME_SOURCES))
         check(
             "ACQUISITION_SOURCE",
             "PASS" if acquisition else "MISSING",
-            "Connected acquisition source: " + (", ".join(acquisition) or "none") + ".",
+            (
+                "Recent App Downloads Detailed inventory."
+                if acquisition
+                else "Read this app's complete App Downloads Detailed inventory before publishing."
+            )
+            if apple
+            else "Connected acquisition source: " + (", ".join(acquisition) or "none") + ".",
         )
         check(
             "OUTCOME_SOURCE",
             "PASS" if outcome else "MISSING",
-            "Connected outcome or cash source: " + (", ".join(outcome) or "none") + ".",
+            "Apple first-time download counts. No subscription or revenue attribution."
+            if apple
+            else "Connected outcome or cash source: " + (", ".join(outcome) or "none") + ".",
         )
         paid = isinstance(request, dict) and "end_time" in request and "post_id" in request
+        if apple:
+            check(
+                "ORGANIC_ONLY",
+                "BLOCKED" if paid or scope.get("ad_account_id") else "PASS",
+                "Apple download measurement is available for one organic post with no media budget.",
+            )
         link = request.get("link") if isinstance(request, dict) else None
         check(
             "TAGGED_LINK",
@@ -304,7 +370,8 @@ def evaluate(
 
 def assert_ready(store: Any, app_id: str, scope: dict[str, Any], request: Any = None) -> dict[str, Any]:
     """Enforce an explicitly approved measurement plan at the campaign effect boundary."""
-    gate = evaluate(scope, provider_set(store, app_id), request=request, scope_status=scope.get("status", "ACTIVE"))
+    providers = plan_providers(store, app_id, scope.get("measurement_plan"))
+    gate = evaluate(scope, providers, request=request, scope_status=scope.get("status", "ACTIVE"))
     plan = gate.get("measurement_plan")
     if (
         plan
@@ -346,7 +413,7 @@ def latest(store: Any, app_id: str) -> dict[str, Any]:
         scope = json.loads(row["summary"])
         if not isinstance(scope, dict) or digest(scope) != row["summary_hash"]:
             raise ValueError
-        gate = evaluate(scope, provider_set(store, app_id), scope_status=row["status"])
+        gate = evaluate(scope, plan_providers(store, app_id, scope.get("measurement_plan")), scope_status=row["status"])
         checks = [dict(name=item["name"], status=item["status"]) for item in gate["checks"]]
         return dict(
             status=gate["status"], checks=checks, blockers=[item for item in checks if item["status"] != "PASS"]

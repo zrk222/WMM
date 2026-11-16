@@ -145,7 +145,15 @@ def inventory(db, app_id, version, store_id, record):
                     if len({i["id"] for i in item["daily"]}) != len(item["daily"]):
                         return None, []
                 projected.append(item)
-            return dict(job_id=identity(row["id"]), status=result["status"], observed_at=timestamp), projected
+            return (
+                dict(
+                    job_id=identity(row["id"]),
+                    status=result["status"],
+                    observed_at=timestamp,
+                    coverage=result["coverage"],
+                ),
+                projected,
+            )
         except (ValueError, TypeError, AttributeError, KeyError):
             return None, []
     return None, []
