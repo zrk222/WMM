@@ -45,6 +45,7 @@ Scenario: privacy
 - Use fresh identity, bound_owner and protected transactions. No token grants owner access.
 - No provider call, credential access, spending, or external publishing occurs in these request handlers.
 - Inventory report instance count describes metadata only and is not a metric.
+- The owner view and saved report distinguish an absent Apple report stream, an incomplete inventory, and an active stream waiting for files. They identify the next action from the saved state, prioritize repair of an unavailable key, and never create a provider report stream or interpret missing files as zero downloads.
 
 ## Authorized parameters
 MAX_INVENTORY_JOBS = 1000

@@ -92,6 +92,7 @@ mission_control/static/workflow-telemetry.js
 tests/activity_timeline_ui.test.cjs
 tests/analytics_inventory.test.mjs
 tests/apple_ads_acquisition_ui.test.cjs
+tests/apple_analytics_ui.test.cjs
 tests/automation_agreement_ui.test.cjs
 tests/campaign_monitor_ui.test.cjs
 tests/campaign_owner_report_ui.test.cjs

@@ -88,6 +88,32 @@
   }
   const canRead = (data) => data?.connection?.status === 'CONFIGURED_UNVERIFIED';
   const detailedName = 'App Downloads Detailed';
+  function inventoryNextStep(data) {
+    if (data.connection?.status === 'RECONNECT_REQUIRED')
+      return 'Reconnect the App Store Connect key for this app, then read Apple inventory again.';
+    if (data.connection?.status === 'PROTECTED_STORAGE_UNAVAILABLE')
+      return 'Unlock protected storage on this host, then read Apple inventory again.';
+    if (!data.connection) return 'Connect App Store Connect for this app and read its inventory.';
+    switch (data.inventory?.status) {
+      case 'REPORT_SETUP_REQUIRED':
+        return 'Apple did not return an active report stream. Ask an App Store Connect Admin to start ongoing reporting for this app. Keep your existing Sales and Reports key in WMM, then read Apple inventory again.';
+      case 'REQUEST_INVENTORY_PARTIAL':
+        return 'Apple returned an incomplete list of report requests. Read Apple inventory again before deciding whether setup is needed.';
+      case 'WAITING_FOR_REPORTS':
+        return 'Apple showed an active report stream with no available files in the saved inventory. First reports usually take 24–48 hours after setup. Read Apple inventory later. No file means the download count is unknown.';
+      default:
+        return '';
+    }
+  }
+  function inventoryGuidance(data) {
+    const next = inventoryNextStep(data);
+    if (!next) return '';
+    const docs =
+      canRead(data) && data.inventory?.status === 'REPORT_SETUP_REQUIRED'
+        ? ' <a href="https://developer.apple.com/help/app-store-connect-analytics/overview/analytics-reports-api" target="_blank" rel="noopener noreferrer">Apple’s report setup instructions (opens in a new tab)</a>.'
+        : '';
+    return `<p><strong>Next step:</strong> ${esc(next)}${docs}</p>`;
+  }
   function campaignForm(data) {
     const report = data.reports?.find((r) => r.name === detailedName && r.coverage === 'COMPLETE');
     if (!report)
@@ -156,7 +182,7 @@
             data.connection ? 'Reconnect App Store Connect' : 'Set up App Store connection',
             'setup',
           );
-    return `<p>Apple source: ${esc(source)}</p><p>Inventory: ${esc(data.inventory ? friendly(data.inventory.status) : 'Not read')} · observed ${esc(time(data.inventory?.observed_at))}.</p>${rows ? `<ul>${rows}</ul>` : '<p>No current report inventory is available.</p>'}<p>Report instance counts describe available files, not downloads, revenue, retention or other metrics. Missing metrics remain unknown.</p>${state}${controls}${impressions}${button('Refresh saved status', 'refresh')}${canRead(data) ? form : ''}${campaignForm(data)}${s?.enabled ? button('Pause refresh', 'pause') : ''}${button('Report / Save PDF', 'report')}<p>Scheduled reads run only while the WMM worker is running. Pausing stops future scheduled reads; it does not remove saved evidence.</p>`;
+    return `<p>Apple source: ${esc(source)}</p><p>Inventory: ${esc(data.inventory ? friendly(data.inventory.status) : 'Not read')} · observed ${esc(time(data.inventory?.observed_at))}.</p>${inventoryGuidance(data)}${rows ? `<ul>${rows}</ul>` : '<p>No current report inventory is available.</p>'}<p>Report instance counts describe available files, not downloads, revenue, retention or other metrics. Missing metrics remain unknown.</p>${state}${controls}${impressions}${button('Refresh saved status', 'refresh')}${canRead(data) ? form : ''}${campaignForm(data)}${s?.enabled ? button('Pause refresh', 'pause') : ''}${button('Report / Save PDF', 'report')}<p>Scheduled reads run only while the WMM worker is running. Pausing stops future scheduled reads; it does not remove saved evidence.</p>`;
   }
   function validate(t, data) {
     if (
@@ -228,7 +254,8 @@
   }
   function report(data, state, pages) {
     const base = pages.model(state),
-      s = data.schedule;
+      s = data.schedule,
+      next = inventoryNextStep(data);
     return {
       ...base,
       title: 'Apple analytics inventory',
@@ -243,6 +270,7 @@
       notes: [
         'Inventory observed: ' + (data.inventory?.observed_at || 'Not recorded'),
         'Inventory state: ' + friendly(data.inventory?.status),
+        ...(next ? ['Next step: ' + next] : []),
         'Refresh state: ' + friendly(s?.status),
         'Latest job: ' + (s?.last_job || 'Not recorded') + ' · ' + friendly(s?.last_job_status),
         'Consecutive failures: ' + (s?.failures ?? 'Not recorded'),
