@@ -95,6 +95,21 @@ const WMMExceptionGuidance = (() => {
       action: 'Open the saved reviews to try again.',
       tool: 'rule-reviews',
     },
+    CAMPAIGN_SCHEDULE_NEEDS_RECONCILIATION: {
+      headline: 'Check whether scheduled work went live',
+    },
+    CAMPAIGN_SCHEDULE_APPROVAL_EXPIRED: {
+      headline: 'Schedule approval expired',
+    },
+    CAMPAIGN_SCHEDULE_APPROVAL_INACTIVE: {
+      headline: 'Schedule approval is off',
+    },
+    CAMPAIGN_SCHEDULE_NEEDS_REPAIR: {
+      headline: 'Saved schedule needs review',
+    },
+    CAMPAIGN_SCHEDULE_BLOCKED: {
+      headline: 'Scheduled work needs attention',
+    },
     WAITING_FOR_REPORTS: {
       headline: 'Report rows are not available yet',
       reason:
@@ -123,7 +138,13 @@ const WMMExceptionGuidance = (() => {
     'owner',
     'apple-analytics',
   ]);
-  function repairButton(tool) {
+  function repairButton(tool, batchId) {
+    if (batchId)
+      return button(
+        'Review this scheduled batch',
+        'campaign-schedule-status',
+        `data-batch="${esc(batchId)}"`,
+      );
     if (tool === 'apple-analytics') return button('Review Apple analytics', 'apple-analytics-open');
     if (tool === 'rule-reviews')
       return button('Review scheduled rules', 'goal-repair', 'data-tool="rule-reviews"');
@@ -132,11 +153,23 @@ const WMMExceptionGuidance = (() => {
   function normalize(row) {
     if (!row || typeof row !== 'object') return null;
     const status = String(row.state || row.status || '').toUpperCase();
-    const definition = definitions[status] || {
+    const batchId =
+      status.startsWith('CAMPAIGN_SCHEDULE_') &&
+      Object.hasOwn(definitions, status) &&
+      row.repair_route === 'campaign-schedule' &&
+      typeof row.batch_id === 'string' &&
+      /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(row.batch_id)
+        ? row.batch_id
+        : null;
+    const fallback = {
       headline: 'Work needs review',
       reason: 'WMM received a state it cannot safely classify.',
       action: 'Open the saved evidence and review the current scope.',
       tool: 'agreement',
+    };
+    const definition = {
+      ...fallback,
+      ...(Object.hasOwn(definitions, status) ? definitions[status] : {}),
     };
     const refs = Array.isArray(row.evidence_refs)
       ? row.evidence_refs.filter((v) => typeof v === 'string')
@@ -153,6 +186,7 @@ const WMMExceptionGuidance = (() => {
       reason: typeof row.reason === 'string' ? row.reason : definition.reason,
       action: typeof row.next_action === 'string' ? row.next_action : definition.action,
       tool,
+      batchId,
       evidence_refs: refs,
       source: typeof row.source === 'string' ? row.source : null,
       observed_at: typeof row.observed_at === 'string' ? row.observed_at : null,
@@ -163,7 +197,7 @@ const WMMExceptionGuidance = (() => {
     if (!Array.isArray(rows) || !rows.length) return '';
     const cards = rows.map(normalize).filter(Boolean);
     if (!cards.length) return '';
-    return `<section class="panel" aria-label="Workflow exceptions"><h2>Workflow updates</h2><p>See what WMM observed and what to do next.</p><div class="guided-exceptions">${cards.map((c) => `<article class="panel guided-exception" data-exception-state="${esc(c.status)}"><h3>${esc(c.headline)}</h3><p>${esc(c.reason)}</p><p><strong>Next:</strong> ${esc(c.action)}</p>${c.observed_at || c.next_due ? `<p><small>${c.observed_at ? `Observed: ${esc(c.observed_at)}` : ''}${c.next_due ? `${c.observed_at ? ' · ' : ''}next due ${esc(c.next_due)}` : ''}</small></p>` : ''}${c.evidence_refs.length ? `<p><small>Evidence: ${c.evidence_refs.map(esc).join(', ')}</small></p>` : ''}${c.source ? `<p><small>Source: ${esc(c.source)}</small></p>` : ''}${repairButton(c.tool)}</article>`).join('')}</div></section>`;
+    return `<section class="panel" aria-label="Workflow exceptions"><h2>Workflow updates</h2><p>See what WMM observed and what to do next.</p><div class="guided-exceptions">${cards.map((c) => `<article class="panel guided-exception" data-exception-state="${esc(c.status)}"><h3>${esc(c.headline)}</h3><p>${esc(c.reason)}</p><p><strong>Next:</strong> ${esc(c.action)}</p>${c.observed_at || c.next_due ? `<p><small>${c.observed_at ? `Observed: ${esc(c.observed_at)}` : ''}${c.next_due ? `${c.observed_at ? ' · ' : ''}next due ${esc(c.next_due)}` : ''}</small></p>` : ''}${c.evidence_refs.length ? `<p><small>Evidence: ${c.evidence_refs.map(esc).join(', ')}</small></p>` : ''}${c.source ? `<p><small>Source: ${esc(c.source)}</small></p>` : ''}${repairButton(c.tool, c.batchId)}</article>`).join('')}</div></section>`;
   }
   return { normalize, panel, definitions };
 })();

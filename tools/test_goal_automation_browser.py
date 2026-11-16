@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from playwright.sync_api import Browser, expect, sync_playwright
+from test_goal_journey_browser import rendered_page
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -300,6 +301,29 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         assert f.message not in report.locator("body").inner_text()
         assert OWNER_TOKEN not in report.locator("body").inner_text()
         report.close()
+        with connection(f.store.path) as db:
+            scheduled_batch = db.execute("SELECT id FROM campaign_schedule_batches").fetchone()[0]
+        page.locator("#close-modal").click()
+        before = len(posts)
+        with patch("mission_control.campaign_schedule.datetime", wraps=datetime) as clock:
+            clock.now.return_value = datetime.now(timezone.utc) + timedelta(days=2)
+            page.reload()
+            expect(page.get_by_role("heading", name="Set your goal", exact=True)).to_be_visible()
+            page.get_by_role("button", name="Watch the work", exact=True).press("Enter")
+            card = page.get_by_role("article").filter(has_text="Schedule approval expired")
+            expect(card).to_be_visible()
+            expect(card).to_contain_text("Review what finished")
+            assert f.message not in card.inner_text()
+            assert OWNER_TOKEN not in card.inner_text()
+            assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
+            page.screenshot(path=str(out / f"watch-schedule-exception-{width}.png"))
+            (out / f"watch-schedule-exception-{width}.html").write_text(rendered_page(page), encoding="utf-8")
+            with page.expect_request("**/api/apps/sample-one/campaigns/schedule-status") as exact_batch:
+                card.get_by_role("button", name="Review this scheduled batch").press("Enter")
+            assert exact_batch.value.post_data_json == {"batch_id": scheduled_batch}
+            expect(page.locator("#schedule-batch-state")).to_have_text("Approval expired")
+        assert not [url for url in posts[before:] if "/campaigns/" in url and not url.endswith("/schedule-status")]
+        assert f.wire.posts == 0 and not jobs(f.store, "sample-one")
         page.get_by_role("button", name="Turn scheduled batch OFF", exact=True).click()
         expect(page.locator("#campaign-schedule-progress")).to_contain_text("CANCELLED")
         page.locator("#close-modal").click()
@@ -429,6 +453,7 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
             exact_meta_request_ceiling=70,
             exact_schedule_review=True,
             exact_schedule_recovery_link=True,
+            expired_schedule_from_watch_keyboard_read_only=True,
             exact_monitor_conditions_and_report=True,
             exact_post_link_visible_in_private_review=True,
             no_effect_before_due=True,

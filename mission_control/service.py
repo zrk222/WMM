@@ -160,6 +160,7 @@ class Service:
     def _workflow_exceptions(self, app: AppView, viewer: str | None) -> list[dict]:
         """Project only exact current-source exceptions into guided workflow UI."""
         from .apple_readiness_report import summary as apple_readiness
+        from .campaign_schedule import watch_schedule_exceptions
         from .weekly_rule_exception import watch_rule_schedule_exception
 
         store_app_id = app.get("data", {}).get("store_app_id")
@@ -172,8 +173,9 @@ class Service:
             if revision is None or revision["version"] != app["version"]:
                 return []
             rule = watch_rule_schedule_exception(db, dict(app), viewer) if viewer else None
+            campaigns = watch_schedule_exceptions(db, app["id"], viewer) if viewer else []
             health = apple_readiness(db, app["id"], store_app_id, now()) if apple else None
-        exceptions = [rule] if rule is not None else []
+        exceptions = campaigns + ([rule] if rule is not None else [])
         if not isinstance(health, dict) or health.get("read") != "WAITING_FOR_REPORTS":
             return exceptions
         return [

@@ -440,20 +440,7 @@ class CampaignSchedules:
                     )
                     video = cast(VideoStatusLike, video_cls(self.store))
                     return video.status(app_id, batch_id)
-                rows = db.execute(
-                    "SELECT * FROM campaign_schedule_items WHERE batch_id=? ORDER BY due,id", (batch_id,)
-                ).fetchall()
-                items = [item_status(db, app_id, cast(str, row["scope_id"]), item) for item in rows]
-                try:
-                    validate_items(rows, summary, require_future=False)
-                except Invalid:
-                    progress = (
-                        "NEEDS_RECONCILIATION"
-                        if any(item["effective_status"] == "NEEDS_RECONCILIATION" for item in items)
-                        else "NEEDS_REPAIR"
-                    )
-                else:
-                    progress = batch_progress(db, row, summary, items, datetime.now(timezone.utc))
+                items, progress = saved_batch_progress(db, row, summary, datetime.now(timezone.utc))
             except (Invalid, KeyError, TypeError, ValueError, OverflowError, RecursionError):
                 return repair_view(row)
             return dict(
@@ -542,6 +529,96 @@ def repair_view(row: Row) -> dict[str, object]:
         evidence_unavailable=True,
         repair="Saved schedule evidence is unreadable. Check campaign receipts before retrying.",
     )
+
+
+def saved_batch_progress(
+    db: Connection, row: Row, summary: Mapping[str, object], observed: datetime
+) -> tuple[list[dict[str, object]], str]:
+    """Read the same bounded, validated evidence for the batch view and Watch."""
+    rows = db.execute(
+        "SELECT * FROM campaign_schedule_items WHERE batch_id=? ORDER BY due,id LIMIT 21", (row["id"],)
+    ).fetchall()
+    if len(rows) > 20:
+        raise Invalid("Retained schedule exceeds the approved batch size")
+    items = [item_status(db, row["app_id"], row["scope_id"], item) for item in rows]
+    try:
+        validate_items(rows, summary, require_future=False)
+    except Invalid:
+        progress = (
+            "NEEDS_RECONCILIATION"
+            if any(item["effective_status"] == "NEEDS_RECONCILIATION" for item in items)
+            else "NEEDS_REPAIR"
+        )
+    else:
+        progress = batch_progress(db, row, summary, items, observed)
+    return items, progress
+
+
+WATCH_SCHEDULE_REPAIRS = {
+    "NEEDS_RECONCILIATION": (
+        "Delivery is unconfirmed. Turning the schedule off does not confirm that an earlier action stopped.",
+        "Review the saved batch and check provider status before retrying.",
+    ),
+    "APPROVAL_EXPIRED": (
+        "Approval for the remaining scheduled work expired.",
+        "Review what finished, then prepare a new approval for work that should still run.",
+    ),
+    "APPROVAL_INACTIVE": (
+        "The approval for this schedule is no longer active.",
+        "Review the saved batch before deciding whether to prepare new work.",
+    ),
+    "NEEDS_REPAIR": (
+        "WMM cannot verify the saved schedule evidence.",
+        "Open the saved batch and check campaign receipts before retrying.",
+    ),
+    "BLOCKED": (
+        "A scheduled action stopped before WMM could confirm a result.",
+        "Open the saved batch to see which action needs attention.",
+    ),
+}
+
+
+def watch_schedule_exceptions(db: Connection, app_id: str, principal: str) -> list[dict[str, str]]:
+    """Surface recent approved Facebook/Meta batch exceptions without a provider read."""
+    try:
+        member(db, app_id, principal, "OWNER")
+    except PermissionError:
+        return []
+    if not schedule_table_exists(db):
+        return []
+    observed = datetime.now(timezone.utc)
+    cards: list[dict[str, str]] = []
+    batches = db.execute(
+        """SELECT * FROM campaign_schedule_batches
+           WHERE app_id=? AND owner=? AND status IN ('ACTIVE','OFF')
+           ORDER BY updated DESC,id DESC LIMIT 8""",
+        (app_id, principal),
+    )
+    for row in batches:
+        try:
+            summary = retained_object(row["summary"], row["summary_hash"])
+            if summary.get("kind") == "ADMITTED_ORGANIC_VIDEO_V1":
+                continue
+            _, progress = saved_batch_progress(db, row, summary, observed)
+        except (ValueError, KeyError, TypeError, OverflowError, RecursionError):
+            progress = "NEEDS_REPAIR"
+        repair = WATCH_SCHEDULE_REPAIRS.get(progress)
+        if repair is None or (row["status"] == "OFF" and progress != "NEEDS_RECONCILIATION"):
+            continue
+        reason, next_action = repair
+        cards.append(
+            dict(
+                state="CAMPAIGN_SCHEDULE_" + progress,
+                source="Saved Facebook and Meta schedules",
+                reason=reason,
+                next_action=next_action,
+                repair_route="campaign-schedule",
+                batch_id=row["id"],
+                observed_at=observed.isoformat(),
+            )
+        )
+    cards.sort(key=lambda card: card["state"] != "CAMPAIGN_SCHEDULE_NEEDS_RECONCILIATION")
+    return cards[:3]
 
 
 def batch_progress(

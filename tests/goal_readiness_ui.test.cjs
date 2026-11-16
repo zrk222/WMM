@@ -437,6 +437,31 @@ test('exception panel keeps evidence escaped and renders no panel for absent sta
   assert.match(html, /data-tool="connections"/);
 });
 
+test('campaign warning opens only the exact saved schedule for review', () => {
+  const { g } = fixture();
+  const batch = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const row = {
+    state: 'CAMPAIGN_SCHEDULE_NEEDS_RECONCILIATION',
+    repair_route: 'campaign-schedule',
+    batch_id: batch,
+    reason: 'Delivery is unconfirmed.',
+    next_action: 'Check provider status before retrying.',
+  };
+  const html = g.panel([row]);
+  assert.match(html, /Check whether scheduled work went live/);
+  assert.match(html, /Check provider status before retrying/);
+  assert.match(html, /data-action="campaign-schedule-status"/);
+  assert.match(html, new RegExp('data-batch="' + batch + '"'));
+  assert.doesNotMatch(html, /data-action="campaign-schedule-(activate|off)"/);
+  for (const wrong of [
+    { batch_id: '"><script>' },
+    { repair_route: 'unknown' },
+    { state: 'UNKNOWN' },
+  ]) {
+    assert.doesNotMatch(g.panel([{ ...row, ...wrong }]), /data-batch=|<script>/);
+  }
+});
+
 test('missing Facebook credential replaces the historical verified label with a repair', () => {
   const { w } = fixture();
   const data = {
