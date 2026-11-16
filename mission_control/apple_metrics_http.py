@@ -374,8 +374,10 @@ def apple_campaign_results(db: Any, key: dict, token: str, body: dict[str, Any])
     token_hash = digest(token)
     observations = []
     for offset in range((end - start).days + 1):
-        day = (start + timedelta(days=offset)).isoformat()
+        event_date = start + timedelta(days=offset)
+        day = event_date.isoformat()
         saved = read_in_snapshot(db, dict(key, event_date=day))
+        processing = saved["instance"]["processing_date"] if saved else None
         matches = (
             [
                 row["count"]
@@ -387,10 +389,20 @@ def apple_campaign_results(db: Any, key: dict, token: str, body: dict[str, Any])
             if saved
             else []
         )
+        if processing is None:
+            evidence_status = "NO_FILE"
+        elif not matches:
+            evidence_status = "NO_MATCH"
+        elif (date.fromisoformat(processing) - event_date).days < 2:
+            evidence_status = "PROVISIONAL"
+        else:
+            evidence_status = "READY_TO_REVIEW"
         observations.append(
             dict(
                 date=day,
                 first_time_downloads=sum(matches) if matches else None,
+                processing_date=processing,
+                evidence_status=evidence_status,
                 source_sha256=digest(saved["instance"]["sources"]) if saved else None,
             )
         )
@@ -402,7 +414,12 @@ def apple_campaign_results(db: Any, key: dict, token: str, body: dict[str, Any])
         status="APPLE_REPORTED_ROWS"
         if any(row["first_time_downloads"] is not None for row in observations)
         else "UNAVAILABLE_OR_SUPPRESSED",
-        next_action="Collect the Detailed files for missing dates or extend the window if Apple suppresses low-volume rows.",
+        next_action=(
+            "Apply your saved decision rule. Apple can still issue corrections."
+            if all(row["evidence_status"] == "READY_TO_REVIEW" for row in observations)
+            else "Check for newer Detailed files for these dates. Keep the existing review window; "
+            "missing or suppressed counts stay unknown."
+        ),
         external_writes=False,
     )
 
