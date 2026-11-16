@@ -1044,6 +1044,26 @@ function campaignScheduleReuseHelp(data, canReuse) {
   return 'These posts cannot be copied as a batch. Start a new campaign with up to 20 text posts, each at most 5,000 characters, and one shared HTTPS link or no link.';
 }
 
+function campaignScheduleReceiptScope(data) {
+  const scope = data.scope_id;
+  if (
+    data.evidence_unavailable ||
+    typeof scope !== 'string' ||
+    !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(scope) ||
+    data.summary?.scope_id !== scope ||
+    data.summary?.kind === 'ADMITTED_ORGANIC_VIDEO_V1' ||
+    ![
+      'NEEDS_RECONCILIATION',
+      'NEEDS_REPAIR',
+      'BLOCKED',
+      'APPROVAL_EXPIRED',
+      'APPROVAL_INACTIVE',
+    ].includes(data.progress)
+  )
+    return null;
+  return scope;
+}
+
 async function campaignScheduleStatus(batch, source = null, isCurrent = () => true) {
   const app = state.app,
     version = state.workspace.app.version,
@@ -1082,6 +1102,11 @@ async function campaignScheduleStatus(batch, source = null, isCurrent = () => tr
       '</p><div id="schedule-live-items">' +
       data.items.map((i) => campaignScheduleProgressItem(i, data)).join('') +
       '</div><p id="campaign-error" role="alert"></p>' +
+      '<div id="schedule-receipt-action"' +
+      (campaignScheduleReceiptScope(data) ? '' : ' hidden') +
+      '>' +
+      button('Open saved campaign receipts', 'campaign-schedule-receipts') +
+      '</div>' +
       button(
         'Refresh scheduled receipts',
         'campaign-schedule-status',
@@ -1150,6 +1175,8 @@ function campaignScheduleWatch(panel) {
           .map((i) => campaignScheduleProgressItem(i, data))
           .join('');
         panel.querySelector('#schedule-live-stage').textContent = data.repair || explanation;
+        const receipts = panel.querySelector('#schedule-receipt-action');
+        if (receipts) receipts.hidden = !campaignScheduleReceiptScope(data);
         const reuse = panel.querySelector('#schedule-reuse-action');
         const canReuse = !!WMMCampaignReuse.draft(data);
         if (reuse) reuse.hidden = !canReuse;
@@ -1308,6 +1335,11 @@ async function campaignScheduleAction(node) {
   try {
     const app = state.app,
       data = panel.campaign;
+    if (action === 'campaign-schedule-receipts') {
+      const scope = campaignScheduleReceiptScope(data);
+      if (!scope) throw new Error('This batch no longer has an available campaign receipt link.');
+      return await campaignStatus(scope, null, node);
+    }
     if (action === 'campaign-schedule-report')
       return WMMPageReports.openReport(campaignScheduleReport(data), window);
     if (action === 'campaign-schedule-reuse') {
