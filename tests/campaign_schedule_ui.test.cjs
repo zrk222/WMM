@@ -444,7 +444,7 @@ test('scope refresh retains pending approved posts only for the same unused acti
     await h.c.campaignAction({
       dataset: { action: 'campaign-status', id: 'scope' },
       isConnected: true,
-      closest: () => panel,
+      closest: (selector) => (selector === '#campaign-progress' ? panel : null),
     });
     assert.equal(h.calls.length, 1);
     assert.equal(h.calls[0].path, '/api/apps/one/campaigns/status');
@@ -607,6 +607,45 @@ test('schedule recovery reads only the current batch’s exact saved campaign', 
     assert.equal(h.calls.length, 1);
     assert.match(err.textContent, /no longer has an available campaign receipt link/);
   }
+});
+
+test('saved campaign lookup rejects a mismatched scope and ignores a closed origin dialog', async () => {
+  const h = fixture(),
+    dialog = { open: true },
+    source = { isConnected: true, closest: () => dialog };
+  let fulfill;
+  h.c.api = () => new Promise((resolve) => (fulfill = resolve));
+  const stale = h.c.campaignStatus('scope', null, source);
+  dialog.open = false;
+  fulfill({ scope: { scope_id: 'scope', status: 'OFF' }, intents: [] });
+  await stale;
+  assert.equal(h.modals.length, 0);
+  dialog.open = true;
+  h.c.api = async () => ({ scope: { scope_id: 'other', status: 'OFF' }, intents: [] });
+  await assert.rejects(
+    h.c.campaignStatus('scope', null, source),
+    /did not match the requested scope/,
+  );
+  assert.equal(h.modals.length, 0);
+});
+
+test('saved receipt recovery offers paid pause only for a paid intent', async () => {
+  const h = fixture();
+  h.panels['#campaign-progress'] = { dataset: {} };
+  h.c.api = async () => ({
+    scope: { scope_id: 'scope', status: 'OFF' },
+    intents: [
+      { kind: 'PAGE_POST', status: 'VERIFIED', id: 'organic' },
+      { kind: 'AD', status: 'UNKNOWN', id: 'paid' },
+    ],
+  });
+  await h.c.campaignStatus('scope');
+  const html = h.modals[0].html;
+  assert.match(html, /Receipt: organic/);
+  assert.match(html, /Receipt: paid/);
+  const [organic, paid] = [...html.matchAll(/<section class="panel">(.*?)<\/section>/g)];
+  assert.match(paid[1], /data-action="campaign-pause"/);
+  assert.doesNotMatch(organic[1], /data-action="campaign-pause"/);
 });
 
 test('campaign status refresh recovers without obscuring a delivery error or requesting another effect', async () => {

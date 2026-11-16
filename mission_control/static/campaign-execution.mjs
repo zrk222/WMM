@@ -427,14 +427,22 @@ async function campaignStatus(scopeID, plan = null, source = null) {
   const app = state.app,
     version = state.workspace.app.version,
     principal = state.workspace.identity?.principal,
+    view = state.view,
+    fromDialog = source?.closest?.('#modal'),
     result = await api(`/api/apps/${app}/campaigns/status`, { scope_id: scopeID });
   if (
     app !== state.app ||
-    version !== state.workspace.app.version ||
-    principal !== state.workspace.identity?.principal ||
-    (source && !source.isConnected)
+    version !== state.workspace?.app?.version ||
+    principal !== state.workspace?.identity?.principal ||
+    view !== state.view ||
+    (source && !source.isConnected) ||
+    (fromDialog && !fromDialog.open)
   )
     return;
+  if (result.scope?.scope_id !== scopeID)
+    throw new Error(
+      'Saved campaign receipts did not match the requested scope. Open them again to check.',
+    );
   const scope = {
     ...result.scope,
     expires_at: result.scope.permission_expires_at || result.scope.expires_at,
@@ -450,7 +458,7 @@ async function campaignStatus(scopeID, plan = null, source = null) {
     plan = null;
   modal(
     'Campaign progress',
-    `<div id="campaign-progress" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}" data-id="${esc(scopeID)}"><p>Scope: <strong>${esc(scope.status)}</strong> · Page ${esc(scope.page_id)} · expires ${esc(scope.expires_at)}.</p><p>Media ceiling: ${scope.max_total_minor} minor units ${esc(scope.currency)}. Calls used: ${esc(scope.call_allowance_units_used ?? scope.calls_used ?? 'Unknown')}/${scope.max_calls}.</p><p id="campaign-activity" role="status">Saved provider states shown below. A post ID or ad status does not establish app sales.</p>${result.intents.map((row) => `<section class="panel"><h3>${esc(row.status)}</h3><p>Receipt: ${esc(row.id)}</p><p>Provider ID: ${esc(row.remote_id || (row.ids ? Object.values(row.ids).join(', ') : 'Not confirmed'))}</p><pre>${esc(JSON.stringify(row.result, null, 2))}</pre>${button('Read provider status', 'campaign-reconcile', `data-intent="${esc(row.id)}"`)}${button('Pause owned paid campaign', 'campaign-pause', `data-intent="${esc(row.id)}"`)}</section>`).join('') || '<p>No effects have been dispatched for this scope.</p>'}<p id="campaign-error" role="alert"></p><div class="button-row">${plan && scope.status === 'ACTIVE' ? button('Run approved workflow', 'campaign-run', '', 'primary') : ''}${plan?.posts && !scope.ad_account_id && scope.status === 'ACTIVE' ? button('Schedule approved posts', 'campaign-schedule-open') : ''}${button('Campaign report / Save PDF', 'campaign-report')}${button('Refresh saved receipts', 'campaign-status', `data-id="${esc(scopeID)}"`)}${button('Turn off this scope', 'campaign-revoke')}</div></div>`,
+    `<div id="campaign-progress" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}" data-id="${esc(scopeID)}"><p>Scope: <strong>${esc(scope.status)}</strong> · Page ${esc(scope.page_id)} · expires ${esc(scope.expires_at)}.</p><p>Media ceiling: ${scope.max_total_minor} minor units ${esc(scope.currency)}. Calls used: ${esc(scope.call_allowance_units_used ?? scope.calls_used ?? 'Unknown')}/${scope.max_calls}.</p><p id="campaign-activity" role="status">Saved provider states shown below. A post ID or ad status does not establish app sales.</p>${result.intents.map((row) => `<section class="panel"><h3>${esc(row.status)}</h3><p>Receipt: ${esc(row.id)}</p><p>Provider ID: ${esc(row.remote_id || (row.ids ? Object.values(row.ids).join(', ') : 'Not confirmed'))}</p><pre>${esc(JSON.stringify(row.result, null, 2))}</pre>${button('Read provider status', 'campaign-reconcile', `data-intent="${esc(row.id)}"`)}${row.kind === 'AD' ? button('Pause owned paid campaign', 'campaign-pause', `data-intent="${esc(row.id)}"`) : ''}</section>`).join('') || '<p>No effects have been dispatched for this scope.</p>'}<p id="campaign-error" role="alert"></p><div class="button-row">${plan && scope.status === 'ACTIVE' ? button('Run approved workflow', 'campaign-run', '', 'primary') : ''}${plan?.posts && !scope.ad_account_id && scope.status === 'ACTIVE' ? button('Schedule approved posts', 'campaign-schedule-open') : ''}${button('Campaign report / Save PDF', 'campaign-report')}${button('Refresh saved receipts', 'campaign-status', `data-id="${esc(scopeID)}"`)}${button('Turn off this scope', 'campaign-revoke')}</div></div>`,
   );
   const progress = $('#campaign-progress');
   if (
@@ -1056,12 +1064,18 @@ function campaignScheduleReuseHelp(data, canReuse) {
   return 'These posts cannot be copied as a batch. Start a new campaign with up to 20 text posts, each at most 5,000 characters, and one shared HTTPS link or no link.';
 }
 
+function campaignScopeReference(id) {
+  return typeof id === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(id)
+    ? id
+    : null;
+}
+
 function campaignScheduleReceiptScope(data) {
   const scope = data.scope_id;
   if (
     data.evidence_unavailable ||
     typeof scope !== 'string' ||
-    !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(scope) ||
+    !campaignScopeReference(scope) ||
     data.summary?.scope_id !== scope ||
     data.summary?.kind === 'ADMITTED_ORGANIC_VIDEO_V1' ||
     ![
@@ -1393,6 +1407,7 @@ export {
   campaignReviewMarkup,
   campaignSubmit,
   campaignStatus,
+  campaignScopeReference,
   campaignAction,
   campaignWatch,
   campaignReport,
