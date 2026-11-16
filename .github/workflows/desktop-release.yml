@@ -2,8 +2,8 @@ name: Desktop public prerelease
 on:
   workflow_dispatch:
     inputs:
-      unsigned_windows_preview10:
-        description: Explicitly allow unsigned Windows for Preview 10 only
+      unsigned_windows_preview11:
+        description: Explicitly allow unsigned Windows for Preview 11 only
         type: boolean
         default: false
       candidate_sha:
@@ -47,16 +47,16 @@ jobs:
               output.write('sha=' + sha + '\n')
           PY
       - name: Check unsigned preview scope
-        if: ${{ inputs.unsigned_windows_preview10 }}
+        if: ${{ inputs.unsigned_windows_preview11 }}
         env:
           TAG: ${{ inputs.tag }}
-        run: test "$TAG" = v0.1.0-preview.10
+        run: test "$TAG" = v0.1.0-preview.11
       - name: Require publisher browser sign-in configuration
         env:
           WMM_GITHUB_DEVICE_CLIENT_ID: ${{ vars.WMM_GITHUB_DEVICE_CLIENT_ID }}
         run: python -c "import runpy; runpy.run_path('tools/build_desktop.py')['public_device_client'](required=True)"
       - name: Check Windows signing settings before building packages
-        if: ${{ !inputs.unsigned_windows_preview10 }}
+        if: ${{ !inputs.unsigned_windows_preview11 }}
         env:
           WMM_WINDOWS_SIGNER_THUMBPRINT: ${{ vars.WMM_WINDOWS_SIGNER_THUMBPRINT }}
           WMM_WINDOWS_TIMESTAMP_URL: ${{ vars.WMM_WINDOWS_TIMESTAMP_URL }}
@@ -73,7 +73,7 @@ jobs:
     uses: ./.github/workflows/desktop-packages.yml
     with:
       candidate_sha: ${{ needs.validate.outputs.sha }}
-      require_signed_windows: ${{ !inputs.unsigned_windows_preview10 }}
+      require_signed_windows: ${{ !inputs.unsigned_windows_preview11 }}
   publish:
     needs: [validate, packages]
     runs-on: ubuntu-24.04
@@ -96,7 +96,7 @@ jobs:
         uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f
         with:
           subject-path: 'release-assets/*'
-      - name: Verify official source-bound provenance for all six payloads
+      - name: Verify official source-bound provenance for every release payload
         env:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE: ${{ needs.validate.outputs.sha }}
@@ -116,5 +116,5 @@ jobs:
           CANDIDATE: ${{ needs.validate.outputs.sha }}
           TAG: ${{ inputs.tag }}
           WMM_WINDOWS_SIGNER_THUMBPRINT: ${{ vars.WMM_WINDOWS_SIGNER_THUMBPRINT }}
-          WMM_UNSIGNED_WINDOWS_PREVIEW10: ${{ inputs.unsigned_windows_preview10 }}
+          WMM_UNSIGNED_WINDOWS_PREVIEW11: ${{ inputs.unsigned_windows_preview11 }}
         run: python tools/publish_desktop_release.py publish --folder release-assets --sha "$CANDIDATE" --tag "$TAG"

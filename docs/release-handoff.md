@@ -32,7 +32,9 @@ Windows runner. Configure the public certificate thumbprint (uppercase) as
 `WMM_WINDOWS_SIGNER_THUMBPRINT` and its HTTPS timestamp endpoint as
 `WMM_WINDOWS_TIMESTAMP_URL`. These settings do not provision a key or certificate.
 The installer and installed uninstaller must pass Windows signature verification
-under that identity before the release can publish. Build-only runs stay unsigned.
+under that identity before the release can publish. Preview 11 has a one-time
+unsigned Windows option controlled by the explicit `unsigned_windows_preview11`
+input (off by default). Preview 12 and later require signing. Build-only runs stay unsigned.
 Signing does not install trust roots, bypass TLS, or prove human first-use acceptance. The SBOM is a build-environment package inventory, not
 a file-level runtime inventory or a provenance attestation. SHA256SUMS.txt covers
 the ten other release assets.
