@@ -12,7 +12,7 @@ It does not require a receipt committed under the SHA it approves.
    unused tag. The package jobs build and check the signed installers. The
    **prepare** job verifies their attestations with no release write permission. It publishes a
    SHA-256 fingerprint over the source, tag, workflow run and attempt, signer,
-   and the exact eight staged asset digests.
+   and every staged payload and provenance file digest.
 3. The reviewer who did not author or direct the release reviews the exact
    source and prepared assets, verifies the signer and lifecycle evidence, and
    completes the private [IP inventory](../IP-DILIGENCE.md). Do not approve if

@@ -7,10 +7,12 @@ import os
 import re
 import runpy
 import stat
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
 PUBLISHER = Path(__file__).with_name("publish_desktop_release.py")
+PROVENANCE = Path(__file__).with_name("verify_release_provenance.py")
 DIGEST = re.compile(r"[a-f0-9]{64}")
 COMMIT = re.compile(r"[a-f0-9]{40}")
 TAG = re.compile(r"v[0-9]+\.[0-9]+\.[0-9]+-preview\.[0-9]+")
@@ -18,14 +20,13 @@ REVIEW_ENVIRONMENT = "release"
 
 
 def snapshot(folder: Path, sha: str, tag: str, run_id: int, attempt: int, thumbprint: str) -> dict[str, object]:
-    """Hash the exact eight staged assets after checking the Windows signing receipt."""
+    """Hash each attested payload and both proof files after checking Windows signing."""
     if not COMMIT.fullmatch(sha) or not TAG.fullmatch(tag) or min(run_id, attempt) < 1:
         raise ValueError("Invalid release candidate, tag or workflow invocation")
     publisher = runpy.run_path(str(PUBLISHER))
-    assets = cast(dict[str, str], publisher["ASSETS"])
-    names = set(assets.values()) | {platform + ".json" for platform in assets}
-    names |= {"sbom-" + platform + ".json" for platform in assets}
-    names |= {"release-attestation.sigstore.json", "release-provenance.json"}
+    provenance = runpy.run_path(str(PROVENANCE))
+    payload_names = cast(Callable[[], set[str]], provenance["payload_names"])
+    names = payload_names() | {provenance["BUNDLE_NAME"], provenance["RECEIPT_NAME"]}
     if folder.is_symlink() or not folder.is_dir() or {path.name for path in folder.iterdir()} != names:
         raise ValueError("Stage exactly the installer, lifecycle, SBOM and provenance assets")
     paths = [folder / name for name in sorted(names)]

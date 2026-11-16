@@ -1,6 +1,7 @@
 import hashlib
 import importlib.util
 import json
+import runpy
 import tempfile
 import unittest
 from collections.abc import Callable
@@ -38,15 +39,12 @@ class ReleaseClearanceTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.folder = Path(temporary.name)
-        for name in (
-            "WMM-Setup.exe",
-            "wize-marketing-machine_0.1.0_amd64.deb",
-            "Linux.json",
-            "sbom-Windows.json",
-            "sbom-Linux.json",
-            "release-attestation.sigstore.json",
-            "release-provenance.json",
-        ):
+        verifier = runpy.run_path(str(ROOT / "tools/verify_release_provenance.py"))
+        self.asset_names = verifier["payload_names"]() | {
+            verifier["BUNDLE_NAME"],
+            verifier["RECEIPT_NAME"],
+        }
+        for name in self.asset_names:
             (self.folder / name).write_bytes(b"synthetic payload")
         self.sign()
 
@@ -68,6 +66,26 @@ class ReleaseClearanceTests(unittest.TestCase):
         digest = self.candidate()
         self.assertEqual(require_approval([review(digest=digest)], 11, 22, 33, "owner", digest), IP)
         self.assertNotEqual(digest, self.candidate(attempt=2))
+
+    def test_clearance_binds_every_sbom_required_by_provenance(self) -> None:
+        manifest = snapshot(self.folder, SHA, TAG, 123, 1, SIGNER)
+        self.assertEqual(set(cast(dict[str, str], manifest["assets"])), self.asset_names)
+        original = fingerprint(manifest)
+        for name in sorted(self.asset_names):
+            if "sbom" not in name:
+                continue
+            with self.subTest(asset=name):
+                path = self.folder / name
+                content = path.read_bytes()
+                path.write_bytes(content + b" changed")
+                self.assertNotEqual(original, self.candidate())
+                path.unlink()
+                with self.assertRaisesRegex(ValueError, "Stage exactly"):
+                    self.candidate()
+                path.write_bytes(content)
+        (self.folder / "unexpected.json").write_bytes(b"unexpected")
+        with self.assertRaisesRegex(ValueError, "Stage exactly"):
+            self.candidate()
 
     def test_asset_replacement_and_missing_attestation_fail_closed(self) -> None:
         original = self.candidate()
