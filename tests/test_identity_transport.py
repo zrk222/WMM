@@ -8,7 +8,10 @@ import tempfile
 import textwrap
 import threading
 import unittest
+from email.message import Message
+from http.client import HTTPMessage
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -58,11 +61,11 @@ class Response:
 
 
 class FakeOpener:
-    def __init__(self, result):
-        self.result = result
-        self.calls = []
+    def __init__(self, result: Response | Exception) -> None:
+        self.result: Response | Exception = result
+        self.calls: list[tuple[Request, float | None]] = []
 
-    def open(self, request, timeout=None):
+    def open(self, request: Request, timeout: float | None = None) -> Response:
         self.calls.append((request, timeout))
         if isinstance(self.result, Exception):
             raise self.result
@@ -70,8 +73,8 @@ class FakeOpener:
 
 
 class IdentityTransportTests(unittest.TestCase):
-    def reader(self, result):
-        response = result if isinstance(result, Exception) else Response(result)
+    def reader(self, result: bytes):
+        response = Response(result)
         opener = FakeOpener(response)
         with patch.object(operator_identity, "build_opener", return_value=opener) as builder:
             value = operator_identity.github_read("/user", SYNTHETIC_TOKEN)
@@ -94,14 +97,14 @@ class IdentityTransportTests(unittest.TestCase):
         handlers = builder.call_args.args
         self.assertTrue(any(isinstance(handler, NoRedirect) for handler in handlers))
         https = next(handler for handler in handlers if isinstance(handler, HTTPSHandler))
-        context = https._context
-        self.assertIsInstance(context, ssl.SSLContext)
+        context = getattr(https, "_context", None)
+        assert isinstance(context, ssl.SSLContext)
         self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
         self.assertTrue(context.check_hostname)
         self.assertGreaterEqual(context.minimum_version, ssl.TLSVersion.TLSv1_2)
         redirect = next(handler for handler in handlers if isinstance(handler, NoRedirect))
         with self.assertRaisesRegex(Invalid, "redirect blocked"):
-            redirect.redirect_request(request, None, 302, "redirect", {}, "https://evil.example/")
+            redirect.redirect_request(request, BytesIO(), 302, "redirect", HTTPMessage(), "https://evil.example/")
 
     def test_reader_rejects_unlisted_endpoints_before_transport(self):
         with patch.object(operator_identity, "build_opener") as builder:
@@ -120,7 +123,7 @@ class IdentityTransportTests(unittest.TestCase):
         self.assertEqual(identities.sessions, {})
 
     def test_status_and_oversize_responses_are_closed(self):
-        error = HTTPError("https://api.github.com/user", 401, "unauthorized", {}, None)
+        error = HTTPError("https://api.github.com/user", 401, "unauthorized", Message(), None)
         opener = FakeOpener(error)
         with (
             patch.object(operator_identity, "build_opener", return_value=opener),
@@ -156,8 +159,8 @@ class IdentityTransportTests(unittest.TestCase):
             for failure in (
                 TimeoutError(),
                 URLError("offline"),
-                HTTPError("https://api.github.com/user", 429, "rate limited", {}, None),
-                HTTPError("https://api.github.com/user", 503, "unavailable", {}, None),
+                HTTPError("https://api.github.com/user", 429, "rate limited", Message(), None),
+                HTTPError("https://api.github.com/user", 503, "unavailable", Message(), None),
             ):
                 reader.result = failure
                 with self.subTest(failure=failure), self.assertRaises(operator_identity.IdentityTemporarilyUnavailable):
@@ -177,7 +180,7 @@ class IdentityTransportTests(unittest.TestCase):
 
     def test_rejected_identity_and_tls_error_still_remove_the_session(self) -> None:
         failures = (
-            HTTPError("https://api.github.com/user", 401, "unauthorized", {}, None),
+            HTTPError("https://api.github.com/user", 401, "unauthorized", Message(), None),
             URLError(ssl.SSLCertVerificationError("untrusted transport")),
             Response(b'{"type":"User","id":271828,"login":"different-user"}'),
             Response(b'{"type":"Bot","id":314159,"login":"synthetic-owner"}'),
@@ -201,7 +204,7 @@ class IdentityTransportTests(unittest.TestCase):
                 self.end_headers()
                 self.wfile.write(b"not trusted")
 
-            def log_message(self, *_):
+            def log_message(self, format: str, *args: object) -> None:
                 pass
 
         with tempfile.TemporaryDirectory() as folder:
@@ -287,9 +290,9 @@ class IdentityTransportTests(unittest.TestCase):
         failures = (
             URLError(ssl.SSLCertVerificationError(1, "synthetic native rejection")),
             ssl.SSLCertVerificationError(1, "synthetic native revocation rejection"),
-            HTTPError("https://api.github.com/user", 401, "synthetic", {}, None),
-            HTTPError("https://api.github.com/user", 403, "synthetic", {}, None),
-            HTTPError("https://api.github.com/user", 302, "synthetic redirect", {}, None),
+            HTTPError("https://api.github.com/user", 401, "synthetic", Message(), None),
+            HTTPError("https://api.github.com/user", 403, "synthetic", Message(), None),
+            HTTPError("https://api.github.com/user", 302, "synthetic redirect", Message(), None),
             URLError(OSError("synthetic network failure")),
             ssl.SSLError("synthetic TLS protocol failure"),
             TimeoutError("synthetic timeout"),
