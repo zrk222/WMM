@@ -14,7 +14,9 @@ function fixture() {
       Date,
       state: { app: 'one', workspace: { app: { version: 1 }, identity: { principal: 'owner' } } },
       esc: (x) => String(x ?? '').replaceAll('<', '&lt;'),
-      button: () => '',
+      button: (label, action) => '<button data-action="' + action + '">' + label + '</button>',
+      campaignScopeReference: (id) => (id === exactScopeId ? id : null),
+      campaignStatus: async () => {},
       FormData: class {
         constructor(form) {
           return Object.assign(Object.entries(form.values || {}), {
@@ -44,6 +46,7 @@ function fixture() {
   vm.runInContext(source, c);
   return { a: vm.runInContext('WMMCampaignMonitor', c), c, nodes, calls };
 }
+const exactScopeId = 'e5428d1b-7930-4851-9105-dc6e57a64bd5';
 const scope = { scope_id: 's', status: 'ACTIVE', expires_at: '2026-11-03T00:00:00Z' },
   rows = [{ id: 'i', scope_id: 's', request_hash: 'h', kind: 'AD' }],
   organic = { id: 'p', scope_id: 's', request_hash: 'ph' },
@@ -292,6 +295,43 @@ test('saved progress exposes unknown delivery and does not equate OFF with pause
     JSON.stringify(h.a.report(data, {})),
     /provider result unconfirmed after worker interruption/,
   );
+});
+
+test('monitor opens only its saved scope and withholds broken evidence links', async () => {
+  const h = fixture(),
+    localReads = [],
+    links = [],
+    data = {
+      id: 'monitor',
+      effective_status: 'BLOCKED',
+      summary: { proposal: { scope_id: exactScopeId, targets: [], protective_conditions: [] } },
+    };
+  h.c.api = async (path, body) => {
+    localReads.push([path, body.monitor_id]);
+    return data;
+  };
+  h.c.campaignStatus = async (...args) => links.push(args);
+  await h.a.inspect('monitor');
+  assert.match(h.calls[0].html, /Open saved campaign receipts/);
+  const node = {
+    dataset: { action: 'campaign-monitor-receipts', id: 'wrong-scope' },
+    isConnected: true,
+  };
+  await h.a.action(node);
+  assert.deepEqual(links, [[exactScopeId, null, node]]);
+  assert.deepEqual(localReads, [['/api/apps/one/campaign-monitor/status', 'monitor']]);
+  assert.doesNotMatch(
+    h.a.progress({ ...data, evidence_unavailable: true }),
+    /Open saved campaign receipts/,
+  );
+  data.summary.proposal.scope_id = 'invalid<id>';
+  assert.doesNotMatch(h.a.progress(data), /Open saved campaign receipts/);
+  await h.a.action(node);
+  assert.equal(links.length, 1);
+  data.summary.proposal.scope_id = exactScopeId;
+  node.isConnected = false;
+  await h.a.action(node);
+  assert.equal(links.length, 1);
 });
 
 test('next step is consistent across the monitor and printable report', () => {
