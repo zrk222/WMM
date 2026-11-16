@@ -15,8 +15,15 @@ token are not written into collection jobs. The worker reuses the existing
 Apple read path. Collection never publishes, spends, changes the App Store
 listing, or enables a schedule.
 
-Activity provides the individual jobs. Results show source fingerprints and
-leave missing or suppressed counts unknown. Synthetic acceptance proves
+Activity provides the individual jobs. Results show the Apple processing date
+and source fingerprint for each retained download date. A matching count,
+including an explicit zero, is provisional until its file was processed at
+least two calendar days after the download date. Ready to review does not mean
+final: a later Apple correction may replace the retained count. Results
+distinguish a missing file from a retained file with no matching first-time
+download row. Both leave the count unknown. If a date needs more evidence,
+collect newer files for the same dates and keep the saved review window.
+Synthetic acceptance proves
 admission, replay and recovery behavior. Live campaign acceptance also requires
 a current Apple connection, the exact campaign link used in distribution, and a
 dated live read result; it does not imply growth or causal lift.

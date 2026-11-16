@@ -131,13 +131,24 @@
     return `<details><summary>Measure App Store campaign downloads</summary><p>Use the link Apple generated for this app. Apple may suppress low-volume results. First-time downloads are not website sessions or first opens.</p><form id="apple-campaign-form"><div class="field"><label for="apple-campaign-link">Apple campaign link</label><input id="apple-campaign-link" name="link" type="url" required maxlength="2048"></div>${collect}<div class="field"><label for="apple-campaign-territory">Storefront country code (two letters)</label><input id="apple-campaign-territory" name="territory" maxlength="2" pattern="[A-Za-z]{2}" placeholder="CA" required></div><div class="field"><label for="apple-campaign-start">Start date</label><input id="apple-campaign-start" name="start" type="date" required></div><div class="field"><label for="apple-campaign-end">End date (included)</label><input id="apple-campaign-end" name="end" type="date" required></div><button type="submit" class="button" value="review">Review saved downloads</button></form><div id="apple-campaign-results"></div></details>`;
   }
   function campaignResults(result) {
+    const statusLabels = {
+      READY_TO_REVIEW: 'Ready to review',
+      PROVISIONAL: 'Provisional',
+      NO_MATCH: 'No matching row',
+      NO_FILE: 'No saved file',
+    };
     const rows = result.rows
-      .map(
-        (row) =>
-          `<tr><td>${esc(row.date)}</td><td>${esc(row.first_time_downloads ?? 'Unknown')}</td><td>${esc(row.source_sha256 ?? 'No saved file')}</td></tr>`,
-      )
+      .map((row) => {
+        const status = Object.hasOwn(statusLabels, row.evidence_status)
+          ? statusLabels[row.evidence_status]
+          : 'Needs review';
+        const source = row.source_sha256
+          ? `<details><summary>View fingerprint</summary><code>${esc(row.source_sha256)}</code></details>`
+          : 'Unavailable';
+        return `<tr><th scope="row">${esc(row.date)}</th><td>${esc(row.first_time_downloads ?? 'Unknown')}</td><td>${esc(row.processing_date ?? '—')}</td><td>${esc(status)}</td><td>${source}</td></tr>`;
+      })
       .join('');
-    return `<h3>Apple-reported first-time downloads · ${esc(result.territory)}</h3><div class="table-wrap"><table class="result-table"><thead><tr><th scope="col">Date</th><th scope="col">Reported downloads</th><th scope="col">Source fingerprint</th></tr></thead><tbody>${rows}</tbody></table></div><p>${esc(result.next_action)}</p>`;
+    return `<h3>Apple-reported first-time downloads · ${esc(result.territory)}</h3><div class="table-wrap"><table class="result-table"><thead><tr><th scope="col">Download date</th><th scope="col">Downloads</th><th scope="col">Apple processed</th><th scope="col">Evidence</th><th scope="col">Source</th></tr></thead><tbody>${rows}</tbody></table></div><p>${esc(result.next_action)}</p>`;
   }
   function details(data) {
     const s = data.schedule,

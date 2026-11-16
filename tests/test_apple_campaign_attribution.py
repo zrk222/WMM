@@ -107,6 +107,11 @@ class AppleCampaignAttributionTests(unittest.TestCase):
                 actual = apple_campaign_results(db, KEY, CAMPAIGN_NAME, window)
                 self.assertEqual(actual["status"], "APPLE_REPORTED_ROWS")
                 self.assertEqual([row["first_time_downloads"] for row in actual["rows"]], [2, 0, None])
+                self.assertEqual(
+                    [row["evidence_status"] for row in actual["rows"]],
+                    ["READY_TO_REVIEW", "READY_TO_REVIEW", "NO_FILE"],
+                )
+                self.assertEqual([row["processing_date"] for row in actual["rows"]], ["2026-01-04", "2026-01-04", None])
                 self.assertEqual(actual["campaign_sha256"], digest(CAMPAIGN_NAME))
                 self.assertIsNotNone(actual["rows"][0]["source_sha256"])
                 self.assertIsNone(actual["rows"][2]["source_sha256"])
@@ -115,6 +120,42 @@ class AppleCampaignAttributionTests(unittest.TestCase):
                     unavailable = apple_campaign_results(db, wrong, CAMPAIGN_NAME, window)
                     self.assertEqual(unavailable["status"], "UNAVAILABLE_OR_SUPPRESSED")
                     self.assertTrue(all(row["first_time_downloads"] is None for row in unavailable["rows"]))
+
+    def test_provisional_result_and_missing_match_are_distinct_until_apple_revises(self) -> None:
+        day = "2026-01-02"
+        key = dict(KEY, event_date=day)
+        row = f"{day}\t123456789\tFirst-time Download\t{{count}}\tEarly Launch\tUS\tprivate-referrer\n"
+        with TemporaryDirectory() as temp:
+            path = Path(temp) / "fixture.sqlite"
+            initialize(path)
+            with connection(path) as db:
+                db.execute("BEGIN IMMEDIATE")
+                db.execute(
+                    "INSERT INTO apps(id,data,updated) VALUES(?,?,?)",
+                    (KEY["app_id"], json.dumps({"store_app_id": KEY["store_app_id"]}), "fixture"),
+                )
+                window = dict(territory="US", start=day, end=day)
+
+                for processing, count in (("2026-01-03", 2), ("2026-01-04", 1)):
+                    fixture = segment(COLUMNS + row.format(count=count))
+                    instance = parse_instance("123456789", processing, [fixture], True, CAMPAIGN_DOWNLOADS)
+                    _reconcile(db, key, instance)
+                    result = apple_campaign_results(db, KEY, CAMPAIGN_NAME, window)
+                    observation = result["rows"][0]
+                    self.assertEqual(observation["processing_date"], processing)
+                    self.assertEqual(observation["first_time_downloads"], count)
+                    if count == 2:
+                        self.assertEqual(observation["evidence_status"], "PROVISIONAL")
+                        self.assertIn("Keep the existing review window", result["next_action"])
+                    else:
+                        self.assertEqual(observation["evidence_status"], "READY_TO_REVIEW")
+                        self.assertIn("Apple can still issue corrections", result["next_action"])
+
+                no_match = apple_campaign_results(db, KEY, CAMPAIGN_NAME, dict(window, territory="CA"))["rows"][0]
+                self.assertEqual(no_match["evidence_status"], "NO_MATCH")
+                self.assertEqual(no_match["processing_date"], "2026-01-04")
+                self.assertIsNone(no_match["first_time_downloads"])
+                self.assertIsNotNone(no_match["source_sha256"])
 
     def test_provider_collection_requires_explicit_detailed_report_and_instance(self) -> None:
         options = dict(operation="analytics_metrics", report_id="report-1", instance_id="instance-1")
