@@ -1385,7 +1385,7 @@ const WMMAgreement = (() => {
       families +
       '</dd></div><div><dt>Scheduled items</dt><dd>' +
       (s.schedule?.items.length || 0) +
-      '</dd></div><div><dt>Retained media commitment</dt><dd>' +
+      '</dd></div><div><dt>Held by this approval</dt><dd>' +
       esc(
         s.campaign
           ? s.campaign.commitment_held_minor + ' minor ' + s.campaign.approval.currency
@@ -1528,6 +1528,11 @@ const WMMAgreement = (() => {
       '</ul></details>'
     );
   }
+  function campaignBudgetBoundary(approval) {
+    return approval?.ad_account_id
+      ? 'Other commitments on the same Meta ad account and in the same currency can reduce how much of this ceiling is available. WMM checks that limit before launch.'
+      : '';
+  }
   function campaignReportNotes(c) {
     const a = c.approval || {};
     return [
@@ -1542,6 +1547,7 @@ const WMMAgreement = (() => {
         (a.max_total_minor ?? 'Unavailable') +
         ' minor ' +
         (a.currency || 'Unknown'),
+      ...[campaignBudgetBoundary(a)].filter(Boolean),
       ...fingerprintLabels(a).map(([label, values]) => label + ': ' + fingerprintValue(values)),
     ];
   }
@@ -1579,7 +1585,8 @@ const WMMAgreement = (() => {
     const s = data.summary,
       l = s.local_work,
       c = s.campaign,
-      b = s.schedule;
+      b = s.schedule,
+      budgetBoundary = campaignBudgetBoundary(c?.approval);
     return (
       overview(s) +
       '<h3>' +
@@ -1625,9 +1632,12 @@ const WMMAgreement = (() => {
           esc(c.approval.max_total_minor ?? 'Unavailable') +
           ' minor ' +
           esc(c.approval.currency) +
-          '; held ' +
+          ' (approved ceiling).</p><p>Held by this approval: ' +
           esc(c.commitment_held_minor) +
+          ' minor ' +
+          esc(c.approval.currency) +
           '.</p>' +
+          (budgetBoundary ? '<p>' + esc(budgetBoundary) + '</p>' : '') +
           fingerprintMarkup(c.approval) +
           '<p>Scopes ' +
           esc((c.account.reported_scopes || []).join(', ')) +
@@ -1754,10 +1764,10 @@ const WMMAgreement = (() => {
           source: 'Current owner agreement snapshot',
         },
         {
-          label: 'Retained media commitment',
+          label: 'Held by this approval',
           value: c?.commitment_held_minor ?? null,
           unit: c ? 'minor ' + c.approval.currency : 'unavailable',
-          source: 'Saved campaign intents',
+          source: 'Saved intents for this approval',
         },
       ],
       cohorts: [],

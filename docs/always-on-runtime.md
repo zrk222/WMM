@@ -62,7 +62,9 @@ To stop and disable this WMM service:
 systemctl --user disable --now wmm-worker.service
 ```
 
-Stopping WMM does not stop an ad already running at Meta. Use the campaign's protective pause controls and verify the saved provider readback first. Keep uncertain delivery receipts and retained budget commitments for reconciliation.
+Stopping WMM does not stop an ad already running at Meta. To pause it before stopping the service, go to **Connections** → **Campaign automation** → **Review campaign automation**. Under **Saved scopes**, choose **Inspect saved scope** for the approved campaign. Match the Page, ad account and campaign to the saved receipt, then choose **Pause owned paid campaign** on that campaign.
+
+Check the saved provider readback for that same ad account and campaign. A configured status of `PAUSED` records the requested setting; the ad can still be effectively `ACTIVE`. Treat the pause as confirmed only when a current readback reports an effective status of `PAUSED`. Use **Read provider status** if delivery is still active or unclear, and keep uncertain delivery receipts and retained budget commitments for reconciliation.
 
 Ctrl+C requests shutdown for an attached headless process; Ubuntu also supports SIGTERM. A forced process exit can interrupt an external mutation. Its durable intent remains for reconciliation, and an uncertain mutation is not automatically replayed when WMM restarts.
 
