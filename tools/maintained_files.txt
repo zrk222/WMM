@@ -212,7 +212,9 @@ tests/test_organic_research_browser.py
 tests/test_organic_research_http.py
 tests/test_organic_video_collector.py
 tests/test_organic_video_discovery.py
+tests/test_organic_video_intake.py
 tests/test_organic_video_policy.py
+tests/test_organic_video_workflow.py
 tests/test_packaged_first_packet_contract.py
 tests/test_packaging_ui_http.py
 tests/test_page_reporting_http.py
