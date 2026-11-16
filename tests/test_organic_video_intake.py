@@ -1,28 +1,28 @@
 """Protected owner intake of synthetic external-agent reports into native briefs."""
 
+import unittest
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
-import unittest
 from unittest.mock import patch
 
 from mission_control.common import Invalid, digest, now, uid
+from mission_control.creative_briefs import Briefs
+from mission_control.creative_library import Library
 from mission_control.db import connection
+from mission_control.discovery_store import Discovery
+from mission_control.hypit_jobs import resolve_inputs
 from mission_control.operation_authority import bound_owner, protected
 from mission_control.organic_video_collector import submit
 from mission_control.organic_video_intake import adopt
-from mission_control.creative_briefs import Briefs
 from tests import test_organic_video_collector as collector_fixture
-from tests.test_creative_production import ready_production
-from tests.test_discovery_intelligence import reviewed, filters
 from tests.production_fixtures import ready_capabilities
-from mission_control.creative_library import Library
-from mission_control.discovery_store import Discovery
-from mission_control.hypit_jobs import resolve_inputs
+from tests.test_creative_production import ready_production
+from tests.test_discovery_intelligence import filters, reviewed
 
 
 class IntakeTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self, store_app_id: str | None = None):
         self.fixture = collector_fixture.CollectorTests()
         self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
@@ -40,6 +40,7 @@ class IntakeTests(unittest.TestCase):
                 release="test-build",
                 locale="en-US",
                 currency="USD",
+                **({"store_app_id": store_app_id} if store_app_id else {}),
             ),
             app["version"],
         )
@@ -64,7 +65,9 @@ class IntakeTests(unittest.TestCase):
         stamp = datetime.now(timezone.utc)
         review = reviewed()
         review.pop("baseline")
-        review["card"]["authentic_evidence_ids"] = [self.records["asset"]["id"]]
+        card = review["card"]
+        assert isinstance(card, dict)
+        card["authentic_evidence_ids"] = [self.records["asset"]["id"]]
         analysis = dict(
             inspection_kind="DIRECT_VIEW",
             inspection_confirmed=True,
@@ -111,9 +114,11 @@ class IntakeTests(unittest.TestCase):
     def call(self, body=None, actor=None):
         body = self.body if body is None else body
         envelope = dict(app_id=self.app, operation="organic-video.intake", input=body)
-        with bound_owner(self.store, envelope, collector_fixture.Identities(), "owner-session", self.fixture.owner):
-            with protected(self.store, envelope) as accepted:
-                return adopt(self.store, self.app, actor or accepted, body)
+        with (
+            bound_owner(self.store, envelope, collector_fixture.Identities(), "owner-session", self.fixture.owner),
+            protected(self.store, envelope) as accepted,
+        ):
+            return adopt(self.store, self.app, actor or accepted, body)
 
     def test_adoption_binds_exact_report_through_real_brief(self):
         result = self.call()
@@ -186,7 +191,7 @@ class IntakeTests(unittest.TestCase):
         for platform, format_name, base in cases:
             item = deepcopy(template)
             for index, (observation, receipt) in enumerate(
-                zip([item["candidate"], *item["history"]], item["evidence"])
+                zip([item["candidate"], *item["history"]], item["evidence"], strict=True)
             ):
                 identity = f"{index:011d}"
                 url = base + identity
@@ -244,9 +249,11 @@ class IntakeTests(unittest.TestCase):
                     self.app,
                     {"brief_id": brief["id"], "brief_hash": brief["hash"], "shape": "PORTRAIT"},
                 )
-            self.assertEqual(
-                inputs["request"]["brief"]["data"]["discovery"]["collection_provenance"], proof["provenance"]
-            )
+            request = inputs["request"]
+            assert isinstance(request, dict)
+            latest_brief = request.get("brief")
+            assert isinstance(latest_brief, dict)
+            self.assertEqual(latest_brief["data"]["discovery"]["collection_provenance"], proof["provenance"])
             self.assertEqual(sources, {})
 
     def test_research_without_app_proof_saves_but_cannot_enter_production(self):
@@ -346,10 +353,12 @@ class IntakeTests(unittest.TestCase):
 
     def test_current_owner_revocation_and_changed_protected_body_deny_adoption(self):
         envelope = dict(app_id=self.app, operation="organic-video.intake", input=self.body)
-        with bound_owner(self.store, envelope, collector_fixture.Identities(), "owner-session", self.fixture.owner):
-            with protected(self.store, envelope) as actor:
-                with self.assertRaises(PermissionError):
-                    adopt(self.store, self.app, actor, dict(self.body, request_id=uid()))
+        with (
+            bound_owner(self.store, envelope, collector_fixture.Identities(), "owner-session", self.fixture.owner),
+            protected(self.store, envelope) as actor,
+            self.assertRaises(PermissionError),
+        ):
+            adopt(self.store, self.app, actor, dict(self.body, request_id=uid()))
         with connection(self.store.path) as db:
             db.execute(
                 "UPDATE operator_roles SET status='REVOKED',version=version+1 WHERE app_id=? AND principal=?",

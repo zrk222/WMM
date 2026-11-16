@@ -1,16 +1,17 @@
 """Durable organic policy tests with local fixtures and controlled renderer receipts."""
 
-from concurrent.futures import ThreadPoolExecutor
-from copy import deepcopy
-from datetime import datetime, timedelta, timezone
 import hashlib
-from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
-from mission_control.common import Invalid, canonical, digest, now, uid
+from mission_control.common import Invalid, canonical, now, uid
 from mission_control.db import connection
 from mission_control.hypit_jobs import HypitRenders
 from mission_control.managed_media_store import Media
@@ -53,7 +54,7 @@ class OrganicPolicyTests(unittest.TestCase):
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.store = Store(Path(folder.name) / "state.sqlite")
-        self.brief, self.request = prepared_render(self.store)
+        self.brief, self.request = prepared_render(self.store, store_app_id="123456789")
         self.sessions = Sessions()
         Access(self.store).bootstrap(APP, OWNER, dict(confirm_owner=True))
 
@@ -118,7 +119,7 @@ class OrganicPolicyTests(unittest.TestCase):
         self.template = uid()
         self.render_count = 0
         self.expected_first_hash = hashlib.sha256(b"synthetic-rendered-output-1").hexdigest()
-        self.policy = dict(
+        self.policy: dict[str, Any] = dict(
             connection_id=CONNECTION,
             page_id="123",
             expires_at=(datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
@@ -140,9 +141,11 @@ class OrganicPolicyTests(unittest.TestCase):
     def call(self, action, body):
         operation = "organic-video.policy-" + action
         envelope = dict(app_id=APP, operation=operation, input=body)
-        with bound_owner(self.store, envelope, self.sessions, "fixture-session", OWNER):
-            with protected(self.store, envelope):
-                return getattr(self.policies, action)(APP, body)
+        with (
+            bound_owner(self.store, envelope, self.sessions, "fixture-session", OWNER),
+            protected(self.store, envelope),
+        ):
+            return getattr(self.policies, action)(APP, body)
 
     def create(self, policy=None):
         self.creation = dict(request_id=uid(), policy=deepcopy(self.policy if policy is None else policy))
@@ -164,7 +167,7 @@ class OrganicPolicyTests(unittest.TestCase):
         output.update(changes)
         return dict(policy_id=policy["id"], policy_hash=policy["hash"], output=output)
 
-    def reservation_body(self, policy):
+    def reservation_body(self, policy) -> dict[str, Any]:
         return dict(
             policy_id=policy["id"],
             policy_hash=policy["hash"],
@@ -194,7 +197,7 @@ class OrganicPolicyTests(unittest.TestCase):
         render_number = self.render_count
         body = dict(data=reservation["data"]["render_input"], request_key=reservation["data"]["job_request_key"])
 
-        def runtime(folder, scene, alive, submitted, sources):
+        def runtime(folder, scene, alive, submitted, sources, *, download_qr):
             build = "bld_FIXTURE_" + str(render_number).zfill(8)
             submitted(build)
             raw = ("synthetic-rendered-output-" + str(render_number)).encode()
@@ -205,6 +208,7 @@ class OrganicPolicyTests(unittest.TestCase):
                 artifact=dict(sha256=hashlib.sha256(raw).hexdigest(), bytes=len(raw)),
                 source=dict(source_hashes={}, font_sha256=hashlib.sha256(b"fixture-font").hexdigest()),
                 cleanup=dict(worker="STOPPED"),
+                download_qr=download_qr,
             )
             if plan is not None:
                 result["local_plan"] = deepcopy(plan)
@@ -333,6 +337,7 @@ class OrganicPolicyTests(unittest.TestCase):
                 body = dict(
                     data=reservation["data"]["render_input"], request_key=reservation["data"]["job_request_key"]
                 )
+                job = None
                 with patch(
                     "mission_control.hypit_jobs.identity",
                     return_value=dict(launcher="fixture", launcher_sha256="0" * 64),
@@ -344,6 +349,7 @@ class OrganicPolicyTests(unittest.TestCase):
                         with self.assertRaisesRegex(PermissionError, "revoked"):
                             HypitRenders(self.store).queue(APP, body)
                 if queue_first:
+                    assert job is not None
                     with patch("mission_control.hypit_jobs.render") as renderer:
                         self.assertTrue(run_once(self.store))
                         renderer.assert_not_called()
@@ -501,21 +507,25 @@ class OrganicPolicyTests(unittest.TestCase):
                 self.sessions.active = False
             return result
 
-        with patch("mission_control.hypit_jobs.artifact_file", side_effect=expire_after_final_bytes):
-            with self.assertRaisesRegex(PermissionError, "session expired"):
-                self.call("admit", self.admission(policy))
+        with (
+            patch("mission_control.hypit_jobs.artifact_file", side_effect=expire_after_final_bytes),
+            self.assertRaisesRegex(PermissionError, "session expired"),
+        ):
+            self.call("admit", self.admission(policy))
         with connection(self.store.path) as db:
             self.assertEqual(db.execute("SELECT count(*) FROM organic_video_admissions").fetchone()[0], 0)
 
     def test_exact_envelope_prevents_cross_operation_and_request_substitution(self):
         body = dict(request_id=uid(), policy=self.policy)
         envelope = dict(app_id=APP, operation="organic-video.policy-create", input=body)
-        with bound_owner(self.store, envelope, self.sessions, "fixture-session", OWNER):
-            with protected(self.store, envelope):
-                with self.assertRaisesRegex(PermissionError, "differs from its protected admission"):
-                    self.policies.create(APP, dict(body, request_id=uid()))
-                with self.assertRaises(PermissionError):
-                    self.policies.read(APP, dict(policy_id=uid(), policy_hash="a" * 64))
+        with (
+            bound_owner(self.store, envelope, self.sessions, "fixture-session", OWNER),
+            protected(self.store, envelope),
+        ):
+            with self.assertRaisesRegex(PermissionError, "differs from its protected admission"):
+                self.policies.create(APP, dict(body, request_id=uid()))
+            with self.assertRaises(PermissionError):
+                self.policies.read(APP, dict(policy_id=uid(), policy_hash="a" * 64))
 
     def test_source_and_claim_changes_and_expiry_block_admission(self):
         policy = self.create()
@@ -547,7 +557,7 @@ class OrganicPolicyTests(unittest.TestCase):
         body = dict(request_id=uid(), policy=self.policy)
         with self.assertRaises(PermissionError):
             self.policies.create(APP, body)
-        context = dict(
+        context: dict[str, object] = dict(
             store=str(self.store.path.resolve()),
             grant_id="unavailable",
             envelope=canonical(dict(app_id=APP, operation="organic-video.policy-create", input=body)),

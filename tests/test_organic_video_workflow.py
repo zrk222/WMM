@@ -4,38 +4,39 @@ The synthetic external-agent assertion is not independently verified collection.
 This test intentionally does not claim an end-to-end workflow exists.
 """
 
+import hashlib
+import threading
 import unittest
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
-import hashlib
-import threading
 from types import SimpleNamespace
+from typing import Any, cast
 from unittest.mock import patch
 
-from mission_control.db import connection
-from mission_control.common import Invalid, canonical, digest, now, uid
-from mission_control.organic_video_collector import submit
-from mission_control.operation_authority import bound_owner, protected
-from mission_control.creative_library import Library
-from mission_control.creative_briefs import Briefs
-from mission_control.managed_media_store import Media
-from mission_control.organic_video_capture import import_owner_demo, intake_envelope, SOURCE
-from mission_control.organic_video_policy import Policies
-from mission_control.organic_video_workflow import prepare
-from mission_control.hypit_jobs import HypitRenders
-from mission_control.operator_client import ClientError, OperatorClient
-from mission_control.server import Server
-from mission_control.worker import run_once
 from mission_control import campaign_video_execution as video
 from mission_control.campaign_contract import REEL_SCHEMA
+from mission_control.common import Invalid, canonical, digest, now, uid
+from mission_control.creative_briefs import Briefs
+from mission_control.creative_library import Library
+from mission_control.db import connection
+from mission_control.hypit_jobs import HypitRenders
+from mission_control.managed_media_store import Media
+from mission_control.operation_authority import bound_owner, protected
+from mission_control.operator_client import ClientError, OperatorClient
+from mission_control.organic_video_capture import SOURCE, import_owner_demo, intake_envelope
+from mission_control.organic_video_collector import submit
+from mission_control.organic_video_policy import Policies
+from mission_control.organic_video_workflow import prepare
+from mission_control.server import Server
+from mission_control.worker import run_once
 from tests import test_organic_video_collector as collector_fixture
 from tests import test_organic_video_intake as intake_fixture
 from tests import test_organic_video_policy as policy_fixture
-from tests.test_campaign_video_execution import Transport
-from tests.production_fixtures import ready_capabilities
-from tests.test_managed_media_store import synthetic_inspection
 from tests import test_verified_review as identities
+from tests.production_fixtures import ready_capabilities
+from tests.test_campaign_video_execution import Transport
+from tests.test_managed_media_store import synthetic_inspection
 
 
 class WorkflowBoundaryTests(unittest.TestCase):
@@ -63,10 +64,11 @@ class WorkflowBoundaryTests(unittest.TestCase):
 
 class VerticalWorkflowTests(unittest.TestCase):
     RAW = b"synthetic-workflow-output"
+    STORE_APP_ID = "123456789"
 
     def setUp(self):
         self.f = intake_fixture.IntakeTests()
-        self.f.setUp()
+        self.f.setUp(store_app_id=self.STORE_APP_ID)
         self.addCleanup(self.f.doCleanups)
         self.store = self.f.store
         self.app = self.f.app
@@ -109,9 +111,11 @@ class VerticalWorkflowTests(unittest.TestCase):
             uses_personal_account=False,
         )
         envelope = intake_envelope(self.app, selection, b"synthetic-owned-footage")
-        with bound_owner(self.store, envelope, collector_fixture.Identities(), "owner-session", self.owner):
-            with patch("mission_control.organic_video_capture.Media", return_value=self.media):
-                imported = import_owner_demo(self.store, self.app, selection, b"synthetic-owned-footage")
+        with (
+            bound_owner(self.store, envelope, collector_fixture.Identities(), "owner-session", self.owner),
+            patch("mission_control.organic_video_capture.Media", return_value=self.media),
+        ):
+            imported = import_owner_demo(self.store, self.app, selection, b"synthetic-owned-footage")
         self.source = dict(id=imported["media_id"], source_sha256=imported["source_sha256"])
         self.review = dict(
             expected_version=0,
@@ -188,7 +192,7 @@ class VerticalWorkflowTests(unittest.TestCase):
             dict(request_id=uid(), policy=policy),
             lambda body: Policies(self.store).create(self.app, body),
         )
-        self.body = dict(
+        self.body: dict[str, Any] = dict(
             request_id=uid(),
             intake_id=self.intake["id"],
             intake_hash=self.intake["hash"],
@@ -213,9 +217,11 @@ class VerticalWorkflowTests(unittest.TestCase):
 
     def call(self, operation, body, function):
         envelope = dict(app_id=self.app, operation="organic-video." + operation, input=body)
-        with bound_owner(self.store, envelope, collector_fixture.Identities(), "owner-session", self.owner):
-            with protected(self.store, envelope):
-                return function(body)
+        with (
+            bound_owner(self.store, envelope, collector_fixture.Identities(), "owner-session", self.owner),
+            protected(self.store, envelope),
+        ):
+            return cast(dict[str, Any], function(body))
 
     def plan(self, body=None):
         return self.call(
@@ -225,7 +231,12 @@ class VerticalWorkflowTests(unittest.TestCase):
         )
 
     def render(self, reservation):
-        def runtime(folder, scene, alive, submitted, sources):
+        def runtime(folder, scene, alive, submitted, sources, *, download_qr=None):
+            if reservation["data"]["render_input"].get("include_download_qr") is False:
+                self.assertIsNone(download_qr)
+            else:
+                assert isinstance(download_qr, dict)
+                self.assertEqual(download_qr["url"], f"https://apps.apple.com/app/id{self.STORE_APP_ID}")
             self.assertEqual(sources[0], b"synthetic-owned-footage")
             alive()
             submitted("bld_WORKFLOW_00000001")
@@ -236,6 +247,7 @@ class VerticalWorkflowTests(unittest.TestCase):
                 artifact=dict(sha256=hashlib.sha256(self.raw).hexdigest(), bytes=len(self.raw)),
                 source=dict(source_hashes={}, font_sha256=hashlib.sha256(b"synthetic-font").hexdigest()),
                 cleanup=dict(worker="STOPPED"),
+                download_qr=download_qr,
                 local_plan=deepcopy(policy_fixture.LOCAL_PLAN),
             )
 
@@ -249,6 +261,7 @@ class VerticalWorkflowTests(unittest.TestCase):
         return job, HypitRenders(self.store).list(self.app)["items"][0]
 
     def test_submitted_source_to_real_local_records_and_fake_reel_recovery(self):
+        self.body["render_input"]["include_download_qr"] = False
         plan = self.plan()
         self.assertEqual(plan, self.plan())
         self.assertEqual(plan["data"]["publication"], "NOT_RUN")
@@ -307,7 +320,7 @@ class VerticalWorkflowTests(unittest.TestCase):
             "intent-create", body, lambda b: video.create_intent(self.store, self.app, self.owner["principal"], b)
         )
         transport = Transport()
-        transport.failure = "publish"
+        fail_publish = patch.object(transport, "failure", "publish")
 
         def facebook(config, secret, token, alive):
             alive()
@@ -322,14 +335,14 @@ class VerticalWorkflowTests(unittest.TestCase):
 
         with (
             patch.object(
-                video, "_credentials", return_value=({}, "synthetic-secret", dict(access_token="synthetic-user"))
+                video, "_credentials", return_value=({}, "synthetic-secret", {"access_token": "synthetic-user"})
             ),
             patch.object(video, "facebook", side_effect=facebook),
             patch.object(video, "selected_page", side_effect=page),
         ):
             from mission_control.campaign_transport import Unconfirmed
 
-            with self.assertRaises(Unconfirmed):
+            with fail_publish, self.assertRaises(Unconfirmed):
                 self.call(
                     "intent-execute",
                     dict(intent_id=intent["id"]),
@@ -340,7 +353,6 @@ class VerticalWorkflowTests(unittest.TestCase):
             self.assertEqual(interrupted["stage"], "FINISH_PENDING")
             self.assertTrue(interrupted["finish_attempted"])
             self.assertEqual(interrupted["remote_id"], "456")
-            transport.failure = None
             result = self.call(
                 "intent-reconcile",
                 dict(intent_id=intent["id"]),

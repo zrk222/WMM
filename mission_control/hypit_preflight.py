@@ -1,11 +1,13 @@
 """Read-only guided Hypit preflight and explicit content-bound reuse."""
 
 import shutil
+
 from .common import Invalid, digest
 from .db import connection
 from .hypit_authoring import FPS, project
 from .hypit_jobs import artifact_file, capability, current_inputs, resolve_inputs, saved
-from .media_native import SHAPES, capability as media_capability
+from .media_native import SHAPES
+from .media_native import capability as media_capability
 
 SCAN_LIMIT = 50
 CANDIDATE_LIMIT = 5
@@ -58,7 +60,8 @@ def readiness():
     """Inspect only local file presence; never start the CLI or a media process."""
     launcher = capability()
     media = media_capability()
-    tools = media.get("tools", {})
+    local_tools = media.get("tools")
+    tools = local_tools if isinstance(local_tools, dict) else {}
     node_detected = bool(shutil.which("node"))
     issues = []
     if launcher["status"] != "DETECTED":
@@ -172,6 +175,7 @@ def plan(store, app_id, body):
     sources = source_hashes(current["scene"])
     return dict(
         input_hash=digest(current),
+        download_qr=current.get("download_qr"),
         source_hash=digest(sources),
         source_hash_scope="Fixed authored files only; local font and runtime are separate.",
         scene=timeline(current["scene"]),

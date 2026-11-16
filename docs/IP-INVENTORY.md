@@ -5,13 +5,14 @@ This is not a chain-of-title opinion, trademark clearance or commercial
 relicensing permission.
 
 Machine-readable inventory: [`ip-inventory.json`](ip-inventory.json)  
-Inventory SHA-256: `e3665dd6ae728e2328c479c7be997e82d65b96596fc572a3c572415450c77e55`  
-Components: **538** (418 Rust crates, 101 npm build/test packages, 8 Python/runtime
+Inventory SHA-256: `1ab89f45be83ae2aea81e8852834da6b6a9aa25b6f559a42a5625fd7999ade26`
+
+Components: **539** (418 Rust crates, 101 npm build/test packages, 9 Python/runtime
 entries, 7 system/build entries, 3 first-party entries and 1 vendored JS library).
 
 Release SBOM: [`wmm-release-sbom.cdx.json`](wmm-release-sbom.cdx.json) contains
-the **434 shipped components** in CycloneDX 1.5 form and is bound to the current
-main SHA and this inventory hash. The release workflow regenerates
+the **434 shipped components** in the previous source snapshot. Its metadata
+identifies the source and inventory used to generate it. The release workflow regenerates
 `wmm-release-sbom-Windows.cdx.json` and `wmm-release-sbom-Linux.cdx.json` for the
 exact candidate SHA. Checked-in SBOM SHA-256:
 `57f3fca3cbd34028511200d355966ff570fc0bfe68721ebda8cf2090c43a0396`.
@@ -21,7 +22,7 @@ exact candidate SHA. Checked-in SBOM SHA-256:
 The desktop payload contains:
 
 - WMM Python source, static assets and migrations, compiled by PyInstaller.
-- CPython 3.11 plus PyInstaller, tzdata, truststore and platform storage packages.
+- CPython 3.11 plus PyInstaller, tzdata, truststore, qrcodegen and platform storage packages.
 - On Linux, system packages including WebKitGTK 4.1, DejaVu fonts and optional
   FFmpeg.
 - On Windows, the system Microsoft Edge WebView2 Runtime and the Tauri launcher.
@@ -38,7 +39,7 @@ tools, not part of the desktop payload.
 
 | Family | Count |
 | --- | ---: |
-| MIT | 303 |
+| MIT | 304 |
 | Apache-2.0 | 37 |
 | Zlib | 19 |
 | Unicode-3.0 | 18 |

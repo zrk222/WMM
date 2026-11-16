@@ -3,7 +3,7 @@
     "path": "docs/AGENT-PROVENANCE.md",
     "status": "EVIDENCE_RECORDED_TERMS_OPEN"
   },
-  "component_count": 538,
+  "component_count": 539,
   "components": [
     {
       "evidence": "Introduced 2026-11-06 in 15ff283c726f6cb477d1c3349db910df9fd47531 by zrk222; no external source or embedded metadata found",
@@ -84,6 +84,16 @@
       "source": "https://pypi.org/project/mcp/",
       "status": "OBLIGATIONS_APPLY",
       "version": "1.30.0"
+    },
+    {
+      "evidence": "requirements.txt",
+      "kind": "python-package",
+      "license": "MIT",
+      "name": "qrcodegen",
+      "shipped": true,
+      "source": "https://pypi.org/project/qrcodegen/1.8.0/",
+      "status": "OBLIGATIONS_APPLY",
+      "version": "1.8.0"
     },
     {
       "evidence": "requirements.txt; Windows",

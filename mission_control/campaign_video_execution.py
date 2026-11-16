@@ -5,17 +5,18 @@ public visibility, remote byte equality, installs or marketing effectiveness.
 """
 
 import json
-from .campaign_contract import reel_data, numeric
+
+from . import campaign_video_transport as provider
+from .campaign_contract import numeric, reel_data
 from .campaign_locks import paid_lock
 from .campaign_transport import Unconfirmed
 from .common import Invalid, canonical, digest, now, uid
 from .db import connection
 from .operation_authority import PROTECTED, check, store_identity
-from .organic_video_policy import Policies, _saved, _page, child_deadline
+from .organic_video_policy import Policies, _page, _saved, child_deadline
 from .review_access import member
 from .social_connections import Connections
 from .social_profiles import facebook, selected_page
-from . import campaign_video_transport as provider
 
 
 def _schema(db):
@@ -142,6 +143,7 @@ def _bound(db, store, app_id, row, context, *, recovery=False, historical=False,
         raise Invalid("Reel Page or source rights changed")
     if not recovery and not historical:
         from .hypit_jobs import artifact_file, current_inputs, saved
+        from .video_download_qr import verify_download_qr
 
         if heartbeat:
             artifact = saved(
@@ -151,6 +153,7 @@ def _bound(db, store, app_id, row, context, *, recovery=False, historical=False,
             )["data"]
         else:
             _, artifact = artifact_file(store, app_id, output["artifact_id"])
+        verify_download_qr(db, app_id, artifact)
         if digest(artifact) != admission["data"]["artifact_record_hash"]:
             raise Invalid("Admitted Reel artifact record changed")
         if not heartbeat:
@@ -331,8 +334,13 @@ def execute(store, app_id, actor, intent_id, transport) -> object:
         ):
             return view
         config, secret, grant = _credentials(store, app_id, policy)
-        charged = lambda: _guard(store, app_id, actor, intent_id, operation, charge=True)
-        alive = lambda: _guard(store, app_id, actor, intent_id, operation, heartbeat=True)
+
+        def charged():
+            return _guard(store, app_id, actor, intent_id, operation, charge=True)
+
+        def alive():
+            return _guard(store, app_id, actor, intent_id, operation, heartbeat=True)
+
         token = _permission_check(store, app_id, policy, config, secret, grant, charged)
         context = provider.Context(policy["data"]["policy"]["page_id"], token, secret, alive)
         if view["stage"] == "NEW":
@@ -381,8 +389,14 @@ def reconcile(store, app_id, actor, intent_id, transport) -> object:
         if view["remote_id"] is None:
             return view
         config, secret, grant = _credentials(store, app_id, policy)
-        charged = lambda: _guard(store, app_id, actor, intent_id, operation, recovery=True, charge=True)
+
+        def charged():
+            return _guard(store, app_id, actor, intent_id, operation, recovery=True, charge=True)
+
         token = _permission_check(store, app_id, policy, config, secret, grant, charged, read_only=True)
-        alive = lambda: _guard(store, app_id, actor, intent_id, operation, recovery=True)
+
+        def alive():
+            return _guard(store, app_id, actor, intent_id, operation, recovery=True)
+
         context = provider.Context(view["request"]["page_id"], token, secret, alive)
         return _read(store, app_id, actor, intent_id, transport, context, operation, recovery=True)

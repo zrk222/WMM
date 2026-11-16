@@ -164,6 +164,20 @@ async function reviewCreativeBatch(form) {
   };
 }
 
+function downloadQrNote(data) {
+  if (data.renderer !== 'HYPIT_LOCAL') return '';
+  if (data.inputs?.download_qr === false) return '<p>Rendered without a download QR code.</p>';
+  const url = data.receipt?.download_qr?.url;
+  if (
+    typeof url !== 'string' ||
+    !/^https:\/\/(?:apps\.apple\.com\/app\/id[0-9]+|play\.google\.com\/store\/apps\/details\?id=[A-Za-z][A-Za-z0-9_.]+)$/.test(
+      url,
+    )
+  )
+    return '<p>Before publishing, render a new video with your QR choice. If you want a QR code, add this app’s store ID in App setup first.</p>';
+  return `<p>The video’s download QR code opens <a href="${esc(url)}" target="_blank" rel="noopener noreferrer">this app’s store listing</a>.</p>`;
+}
+
 function renderForm(hypitBriefIds = null) {
   const briefs = (state.workspace.briefs || []).filter(
     (b) =>
@@ -199,7 +213,7 @@ function renderForm(hypitBriefIds = null) {
         { id: 'PORTRAIT', title: 'Portrait · 720 × 1280' },
         { id: 'LANDSCAPE', title: 'Landscape · 1280 × 720' },
       ],
-    )}</div><div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Queue local render</button></div></form>`,
+    )}</div><div id="render-qr-choice"${hypitBriefIds ? '' : ' hidden'}><label class="check-row"><input type="checkbox" name="include_download_qr" checked> Add an app download QR code</label></div><div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Queue local render</button></div></form>`,
   );
 }
 
@@ -211,7 +225,7 @@ function openRender(id) {
     base = `/api/apps/${encodeURIComponent(state.app)}/${renderEndpoint(d.renderer)}/${encodeURIComponent(id)}`;
   modal(
     'Review rendered video',
-    `<div class="modal-content">${notice('Check every screen, caption, language and final CTA. This local artifact has not been published or visually approved.')}${row.status !== 'CURRENT' ? notice('Source proof or media changed. Repair the current brief and render a fresh version before publication.', 'warning') : ''}<video class="render-preview" controls playsinline preload="metadata" src="${base}/preview" aria-label="Original captioned marketing video"></video><p id="video-error" class="field-error" role="alert"></p><h3>Exact original captions</h3>${request.captions.map((t) => `<p>${esc(t).replaceAll('\n', '<br>')}</p>`).join('')}<details><summary>Source binding and decoded video receipt</summary><pre>${json(row)}</pre></details><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><a class="button" download href="${base}/download">Download MP4</a>${button('Download render receipt', 'render-receipt', `data-id="${esc(id)}"`)}</div>`,
+    `<div class="modal-content">${notice('Check every screen, caption, language and final CTA. This local artifact has not been published or visually approved.')}${row.status !== 'CURRENT' ? notice('Source proof or media changed. Repair the current brief and render a fresh version before publication.', 'warning') : ''}<video class="render-preview" controls playsinline preload="metadata" src="${base}/preview" aria-label="Original captioned marketing video"></video>${downloadQrNote(row.data)}<p id="video-error" class="field-error" role="alert"></p><h3>Exact original captions</h3>${request.captions.map((t) => `<p>${esc(t).replaceAll('\n', '<br>')}</p>`).join('')}<details><summary>Source binding and decoded video receipt</summary><pre>${json(row)}</pre></details><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><a class="button" download href="${base}/download">Download MP4</a>${button('Download render receipt', 'render-receipt', `data-id="${esc(id)}"`)}</div>`,
   );
   $('#modal video').addEventListener('error', () => {
     $('#video-error').textContent =
@@ -227,7 +241,7 @@ async function reviewHypitPlan(form, data) {
     issues = plan.readiness.remediation;
   modal(
     'Review your Hypit production',
-    `<div id="hypit-plan" class="modal-content" data-app="${esc(app)}"><p>${scene.width} × ${scene.height} · ${scene.frame_rate} fps · ${scene.duration_seconds} seconds. This preflight starts no build.</p><p>Text-density flags are advisory. Check actual frames, captions, sound and your app's call to action before accepting the result.</p><ol>${scene.scenes.map((s) => `<li>${s.start_seconds}–${s.end_seconds}s · ${s.words} words · ${s.words_per_second} words/second · ${esc(s.density_advisory)}</li>`).join('')}</ol>${issues.length ? notice(issues.join(' '), 'warning') : '<p>Local tools were detected. Compiler and browser readiness are checked at render time.</p>'}<h3>Reuse a matching video</h3>${plan.reuse_candidates.items.length ? plan.reuse_candidates.items.map((r) => `<p>${esc(r.render_id)} · ${(r.artifact_bytes / 1048576).toFixed(2)} MiB ${button('Reuse this verified artifact', 'render-reuse', `data-id="${esc(r.render_id)}"`)}</p>`).join('') : '<p>No matching verified artifact in this bounded search.</p>'}<p>Inspected ${plan.reuse_candidates.scanned} saved rows; ${plan.reuse_candidates.unavailable} unavailable.${plan.reuse_candidates.truncated ? ' Older matches may remain outside this scan.' : ''}</p><details><summary>Source binding and preflight details</summary><pre>${json(plan)}</pre></details><p id="form-error" role="alert"></p><div class="modal-actions">${button('Queue a new Hypit render', 'render-plan-queue', issues.length ? 'disabled' : '', 'primary')}${button('Edit production choices', 'render-create')}${button('Cancel', 'close')}</div></div>`,
+    `<div id="hypit-plan" class="modal-content" data-app="${esc(app)}"><p>${scene.width} × ${scene.height} · ${scene.frame_rate} fps · ${scene.duration_seconds} seconds. This preflight starts no build.</p><p>App download QR code: ${plan.download_qr === false ? 'off' : plan.download_qr ? 'on' : 'store ID needed to add it'}.</p><p>Text-density flags are advisory. Check actual frames, captions, sound and your app's call to action before accepting the result.</p><ol>${scene.scenes.map((s) => `<li>${s.start_seconds}–${s.end_seconds}s · ${s.words} words · ${s.words_per_second} words/second · ${esc(s.density_advisory)}</li>`).join('')}</ol>${issues.length ? notice(issues.join(' '), 'warning') : '<p>Local tools were detected. Compiler and browser readiness are checked at render time.</p>'}<h3>Reuse a matching video</h3>${plan.reuse_candidates.items.length ? plan.reuse_candidates.items.map((r) => `<p>${esc(r.render_id)} · ${(r.artifact_bytes / 1048576).toFixed(2)} MiB ${button('Reuse this verified artifact', 'render-reuse', `data-id="${esc(r.render_id)}"`)}</p>`).join('') : '<p>No matching verified artifact in this bounded search.</p>'}<p>Inspected ${plan.reuse_candidates.scanned} saved rows; ${plan.reuse_candidates.unavailable} unavailable.${plan.reuse_candidates.truncated ? ' Older matches may remain outside this scan.' : ''}</p><details><summary>Source binding and preflight details</summary><pre>${json(plan)}</pre></details><p id="form-error" role="alert"></p><div class="modal-actions">${button('Queue a new Hypit render', 'render-plan-queue', issues.length ? 'disabled' : '', 'primary')}${button('Edit production choices', 'render-create')}${button('Cancel', 'close')}</div></div>`,
   );
   $('#hypit-plan').production = {
     data,
@@ -321,6 +335,12 @@ async function renderingAction(node) {
   throw new Error('Unknown render action');
 }
 
+document.addEventListener('change', (event) => {
+  const renderer = event.target;
+  if (renderer?.matches?.('#render-form select[name="renderer"]'))
+    $('#render-qr-choice').hidden = renderer.value !== 'HYPIT_LOCAL';
+});
+
 document.addEventListener('submit', async (event) => {
   const form = event.target;
   if (form.id === 'creative-batch-form') {
@@ -348,8 +368,11 @@ document.addEventListener('submit', async (event) => {
     const data = Object.fromEntries(new FormData(form)),
       endpoint = renderEndpoint(data.renderer);
     delete data.renderer;
+    const includeQr = data.include_download_qr === 'on';
+    delete data.include_download_qr;
     data.brief_hash = state.workspace.briefs.find((b) => b.id === data.brief_id).current.hash;
-    if (endpoint === 'hypit-renders') return await reviewHypitPlan(form, data);
+    if (endpoint === 'hypit-renders')
+      return await reviewHypitPlan(form, { ...data, include_download_qr: includeQr });
     await api(`/api/apps/${form.dataset.app}/production/${endpoint}`, {
       data,
       request_key: form.dataset.key,

@@ -3,7 +3,9 @@
 import hashlib
 import json
 import re
+from typing import NotRequired, TypedDict
 from xml.sax.saxutils import escape
+
 from .common import Invalid, canonical, digest
 from .media_native import SHAPES
 
@@ -14,7 +16,44 @@ FPS = 24
 FOOTAGE_SCHEMA = "growth.hypit-footage-scene.v1"
 
 
-def literal(value):
+class MediaSelection(TypedDict):
+    id: str
+    sha256: str
+    in_frame: int
+    audio: str
+
+
+class SceneItem(TypedDict):
+    text: str
+    seconds: int
+    media: NotRequired[MediaSelection]
+
+
+class Scene(TypedDict):
+    title: str
+    shape: str
+    scenes: list[SceneItem]
+    schema: NotRequired[str]
+
+
+class AuthoringReceipt(TypedDict):
+    schema: str
+    scene_hash: str
+    source_hashes: dict[str, str]
+    duration_seconds: int
+    shape: str
+    video_generation: str
+    publication: str
+    font_sha256: NotRequired[str]
+    media_hashes: NotRequired[dict[str, str]]
+
+
+class Project(TypedDict):
+    files: dict[str, str]
+    receipt: AuthoringReceipt
+
+
+def literal(value: object) -> str:
     """Preserve Unicode XML text while excluding controls and noncharacters."""
     if not isinstance(value, str) or not value.strip() or len(value) > MAX_TEXT:
         raise Invalid("Use nonempty scene text of at most 240 characters")
@@ -30,7 +69,7 @@ def xml_character(code):
     ) and code & 0xFFFF not in (0xFFFE, 0xFFFF)
 
 
-def scene_contract(value):
+def scene_contract(value: object) -> Scene:
     """Freeze exact finite data before content can reach the markup compiler."""
     if not isinstance(value, dict) or set(value) not in (
         {"title", "shape", "scenes"},
@@ -48,7 +87,7 @@ def scene_contract(value):
     normalized = [footage_item(item) if footage else scene_item(item) for item in scenes]
     if sum(item["seconds"] for item in normalized) > MAX_SECONDS:
         raise Invalid("Keep the composition within 60 seconds")
-    result = dict(title=literal(value["title"]), shape=value["shape"], scenes=normalized)
+    result: Scene = {"title": literal(value["title"]), "shape": value["shape"], "scenes": normalized}
     if footage:
         if not any("media" in item for item in normalized):
             raise Invalid("Choose at least one managed footage segment")
@@ -56,17 +95,17 @@ def scene_contract(value):
     return result
 
 
-def scene_item(item):
+def scene_item(item: object) -> SceneItem:
     """Reject hidden commands, media destinations and fractional/bool timing."""
     if not isinstance(item, dict) or set(item) != {"text", "seconds"}:
         raise Invalid("Each scene needs only text and seconds")
     seconds = item["seconds"]
     if type(seconds) is not int or not 1 <= seconds <= 15:
         raise Invalid("Use 1 through 15 integer seconds per scene")
-    return dict(text=literal(item["text"]), seconds=seconds)
+    return {"text": literal(item["text"]), "seconds": seconds}
 
 
-def footage_item(item):
+def footage_item(item: object) -> SceneItem:
     """Use the existing studio media identity and 24-fps source frame contract."""
     if not isinstance(item, dict) or set(item) not in ({"text", "seconds"}, {"text", "seconds", "media"}):
         raise Invalid("Each footage scene needs text, seconds and optional managed media")
@@ -87,14 +126,17 @@ def footage_item(item):
         or media["audio"] != "MUTE"
     ):
         raise Invalid("Choose managed footage, a valid source frame and MUTE audio")
-    result["media"] = dict(media)
+    result["media"] = {"id": media["id"], "sha256": media["sha256"], "in_frame": media["in_frame"], "audio": "MUTE"}
     return result
 
 
-def composition(value):
+def composition(value, qr_insets: tuple[int, int] = (0, 0)):
     """Emit a fixed vocabulary; literal text never becomes an attribute or import."""
     width, height = SHAPES[value["shape"]]
     seconds = sum(item["seconds"] for item in value["scenes"])
+    heading_left, minimum_top = qr_insets
+    heading_left = max(8, heading_left)
+    body_top, picture_top = max(27, minimum_top), max(23, minimum_top)
     windows = []
     tracks = []
     layers = []
@@ -103,7 +145,7 @@ def composition(value):
     has_footage = any("media" in item for item in value["scenes"])
     footage_frames = (
         (
-            '<space:Frame id="picture" within={canvas.bounds} left="8%" top="23%" right="92%" bottom="75%"/>\n'
+            f'<space:Frame id="picture" within={{canvas.bounds}} left="8%" top="{picture_top}%" right="92%" bottom="75%"/>\n'
             '<space:Frame id="caption" within={canvas.bounds} left="8%" top="79%" right="92%" bottom="94%"/>\n'
         )
         if has_footage
@@ -147,8 +189,8 @@ def composition(value):
 <time:Clock id="fps" frame-rate="{FPS}"/>
 <time:Timeline id="clock" clock={{fps}} end="{seconds}s">{"".join(windows)}</time:Timeline>
 <space:Canvas id="canvas" width="{width}" height="{height}"/>
-<space:Frame id="heading" within={{canvas.bounds}} left="8%" top="6%" right="92%" bottom="22%"/>
-<space:Frame id="body" within={{canvas.bounds}} left="8%" top="27%" right="92%" bottom="88%"/>
+<space:Frame id="heading" within={{canvas.bounds}} left="{heading_left}%" top="6%" right="92%" bottom="22%"/>
+<space:Frame id="body" within={{canvas.bounds}} left="8%" top="{body_top}%" right="92%" bottom="88%"/>
 {footage_frames}<media:Font id="font" src="./font.ttf" weight="400" style="normal"/>
 <typo:Style id="title-style" recipe={{style.text.title}} font={{font}}/>
 <typo:Style id="body-style" recipe={{style.text.body}} font={{font}}/>
@@ -162,7 +204,7 @@ def composition(value):
 '''
 
 
-def project(value):
+def project(value: object, qr_insets: tuple[int, int] = (0, 0)) -> Project:
     """Return fixed editable files and exact hashes without filesystem side effects."""
     value = scene_contract(value)
     runtime = dict(
@@ -178,20 +220,20 @@ def project(value):
             dict(name="wmm-agent-video", version="0.0.0", private=True, type="module", hypit=dict(project=True))
         )
         + "\n",
-        "film.svml": composition(value),
+        "film.svml": composition(value, qr_insets=qr_insets),
         "style.svs": '<?svml using="@hypit/recipe@1"?>\n<sheet version="1">\nfilm.main { background: #102124; }\ntext.title { size: 38; weight: 400; fill: #A7E8C1; }\ntext.body { size: 42; weight: 400; line-height: 1.3; fill: #FFFFFF; }\n</sheet>\n',
         "build.svrun": '<?svml using="@hypit/markup/run@1"?>\n<svrun version="1"><author source="./film.svml"/><target output="final.video"/></svrun>\n',
         "runtime.json": json.dumps(runtime, sort_keys=True, indent=2) + "\n",
     }
-    return dict(
-        files=files,
-        receipt=dict(
-            schema="growth.hypit-authoring.v1",
-            scene_hash=digest(value),
-            source_hashes={name: hashlib.sha256(text.encode()).hexdigest() for name, text in files.items()},
-            duration_seconds=sum(item["seconds"] for item in value["scenes"]),
-            shape=value["shape"],
-            video_generation="NOT_REQUIRED_BY_PROFILE",
-            publication="NOT_RUN",
-        ),
-    )
+    return {
+        "files": files,
+        "receipt": {
+            "schema": "growth.hypit-authoring.v1",
+            "scene_hash": digest(value),
+            "source_hashes": {name: hashlib.sha256(text.encode()).hexdigest() for name, text in files.items()},
+            "duration_seconds": sum(item["seconds"] for item in value["scenes"]),
+            "shape": value["shape"],
+            "video_generation": "NOT_REQUIRED_BY_PROFILE",
+            "publication": "NOT_RUN",
+        },
+    }
