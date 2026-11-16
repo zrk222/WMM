@@ -52,7 +52,6 @@ class IpInventoryTests(unittest.TestCase):
         for required in (
             "OWNERSHIP-CHAIN",
             "AGENT-ASSISTED",
-            "ICON-PROVENANCE",
             "SHIPPED-SBOM",
         ):
             self.assertIn(required, ids)

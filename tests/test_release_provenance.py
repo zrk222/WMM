@@ -57,10 +57,10 @@ class ReleaseProvenanceTests(unittest.TestCase):
         self.assertFalse(kwargs["check"])
         return subprocess.CompletedProcess(args, 0, self.output(Path(args[3])), "")
 
-    def test_six_official_verifier_calls_bind_exact_repo_signer_source_and_digests(self):
+    def test_eight_official_verifier_calls_bind_exact_repo_signer_source_and_digests(self):
         with patch.object(provenance.subprocess, "run", side_effect=self.successful_verifier):
             receipt = provenance.verify(self.folder, SHA, self.receipt)
-        self.assertEqual(len(self.calls), 6)
+        self.assertEqual(len(self.calls), 8)
         for args in self.calls:
             self.assertEqual(
                 args[4:],
@@ -89,6 +89,7 @@ class ReleaseProvenanceTests(unittest.TestCase):
             set(assets.values())
             | {platform + ".json" for platform in assets}
             | {"sbom-" + platform + ".json" for platform in assets}
+            | {"wmm-release-sbom-" + platform + ".cdx.json" for platform in assets}
         )
         self.assertEqual(provenance.payload_names(), expected)
 
@@ -177,7 +178,7 @@ class ReleaseProvenanceTests(unittest.TestCase):
 
                 def mutating_verifier(args, _timing=timing, **kwargs):
                     result = self.successful_verifier(args, **kwargs)
-                    if _timing == "during" or len(self.calls) == 6:
+                    if _timing == "during" or len(self.calls) == 8:
                         (self.folder / "Linux.json").write_bytes(b"changed after verification")
                     return result
 
@@ -243,7 +244,7 @@ class ReleaseProvenanceTests(unittest.TestCase):
         bundle.write_bytes(original)
         with patch.object(provenance.subprocess, "run", side_effect=self.successful_verifier):
             receipt = provenance.verify(self.folder, SHA, self.receipt, bundle)
-        self.assertEqual(len(self.calls), 6)
+        self.assertEqual(len(self.calls), 8)
         for args in self.calls:
             self.assertEqual(args[-2:], ["--bundle", str(bundle.resolve())])
             self.assertIn("--deny-self-hosted-runners", args)

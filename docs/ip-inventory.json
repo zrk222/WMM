@@ -1,14 +1,18 @@
 {
+  "agent_provenance": {
+    "path": "docs/AGENT-PROVENANCE.md",
+    "status": "EVIDENCE_RECORDED_TERMS_OPEN"
+  },
   "component_count": 538,
   "components": [
     {
-      "evidence": "icon.ico, icon.png; no provenance receipt found",
+      "evidence": "Introduced 2026-11-06 in 15ff283c726f6cb477d1c3349db910df9fd47531 by zrk222; no external source or embedded metadata found",
       "kind": "first-party-asset",
-      "license": "Claimed first-party; no source receipt",
+      "license": "First-party WMM claim; added after the license transition",
       "name": "Desktop application icons",
       "shipped": true,
       "source": "desktop/src-tauri/icons",
-      "status": "PROVENANCE_OPEN",
+      "status": "FIRST_PARTY_EVIDENCE",
       "version": "repository"
     },
     {
@@ -4302,14 +4306,14 @@
       "version": "system"
     },
     {
-      "evidence": "Ubuntu optional video dependency; verify configure flags",
+      "evidence": "Ubuntu noble ffmpeg package and copyright file",
       "kind": "system-or-build",
-      "license": "GPL-2.0-or-later or LGPL-2.1-or-later depending build",
+      "license": "GPL-2.0-or-later for the default Ubuntu binary; libavcodec/libavfilter GPL-3+ flavor",
       "name": "FFmpeg",
       "shipped": true,
       "source": "https://ffmpeg.org/legal.html",
-      "status": "REVIEW_OPEN",
-      "version": "system"
+      "status": "SYSTEM_DEPENDENCY_NOT_BUNDLED",
+      "version": "7:6.1.1-3ubuntu5 (Ubuntu 24.04 noble)"
     },
     {
       "evidence": "Windows system-provided",
@@ -4322,14 +4326,14 @@
       "version": "system"
     },
     {
-      "evidence": "Ubuntu package dependency",
+      "evidence": "Ubuntu noble libwebkit2gtk-4.1-0 package and copyright file",
       "kind": "system-or-build",
       "license": "LGPL-2.1-or-later",
       "name": "WebKitGTK",
       "shipped": true,
       "source": "https://webkitgtk.org/",
-      "status": "REVIEW_OPEN",
-      "version": "4.1"
+      "status": "SYSTEM_DEPENDENCY_NOT_BUNDLED",
+      "version": "2.52.6-0ubuntu0.24.04.1"
     },
     {
       "evidence": "docs/vendor/three/origin.json, docs/vendor/three/LICENSE",
@@ -5352,14 +5356,14 @@
       "version": "0.1.0"
     },
     {
-      "evidence": "Windows installer build tool",
+      "evidence": "https://raw.githubusercontent.com/jrsoftware/issrc/main/license.txt",
       "kind": "system-or-build",
-      "license": "Inno Setup License",
+      "license": "Inno Setup License (custom permissive; commercial use allowed with notice conditions)",
       "name": "Inno Setup",
       "shipped": false,
       "source": "https://jrsoftware.org/isinfo.php",
-      "status": "REVIEW_OPEN",
-      "version": "6.x"
+      "status": "BUILD_TOOL_REVIEWED",
+      "version": "6.x runner-provided; exact version not pinned"
     },
     {
       "evidence": "Build/test only",
@@ -5397,7 +5401,8 @@
     "This is a component and license inventory, not a chain-of-title opinion.",
     "Cargo license fields come from crates.io package metadata for the locked versions.",
     "System packages are named by the Ubuntu/Windows distribution; exact binary build metadata remains open.",
-    "No contributor assignment, trademark clearance or commercial relicensing permission is established."
+    "No contributor assignment, trademark clearance or commercial relicensing permission is established.",
+    "The per-file ledger records Git evidence, not copyright assignment; legal assignment remains OPEN for every file."
   ],
   "open_items": [
     {
@@ -5411,34 +5416,42 @@
       "status": "OPEN"
     },
     {
-      "id": "ICON-PROVENANCE",
-      "question": "Source and rights for desktop/src-tauri/icons/icon.ico and icon.png.",
-      "status": "OPEN"
-    },
-    {
       "id": "REMOTION",
       "question": "Confirm Remotion license terms for the docs preview video render.",
-      "status": "OPEN"
-    },
-    {
-      "id": "FFMPEG-BUILD",
-      "question": "Confirm the exact Ubuntu FFmpeg build license and configure flags.",
-      "status": "OPEN"
-    },
-    {
-      "id": "WEBKIT-LGPL",
-      "question": "Confirm distribution obligations for the system WebKitGTK dependency.",
-      "status": "OPEN"
-    },
-    {
-      "id": "INNO-SETUP",
-      "question": "Retain Inno Setup license and installer attribution requirements.",
       "status": "OPEN"
     },
     {
       "id": "SHIPPED-SBOM",
       "question": "Bind this inventory to the exact release candidate SBOM and shipped payload hashes; build-environment SBOM is not sufficient.",
       "status": "OPEN"
+    }
+  ],
+  "per_file_ledger": {
+    "files": 1982,
+    "path": "docs/ip-file-ledger.json",
+    "sha256": "62364f82964b9370e97da671fd2e416f4a21bff2bb3685df00ee1645ac147976",
+    "status": "EVIDENCE_LEDGER_COMPLETE_LEGAL_ASSIGNMENT_OPEN"
+  },
+  "resolved_items": [
+    {
+      "evidence": "15ff283c726f6cb477d1c3349db910df9fd47531 (2026-11-06) added desktop/src-tauri/icons/icon.ico and icon.png by zrk222; no external source found",
+      "id": "ICON-PROVENANCE",
+      "status": "RESOLVED_TO_FIRST_PARTY_EVIDENCE"
+    },
+    {
+      "evidence": "Ubuntu 24.04 ffmpeg 7:6.1.1-3ubuntu5 default binary GPL-2+; libavcodec/libavfilter GPL-3+ flavor; optional system dependency, not bundled",
+      "id": "FFMPEG-BUILD",
+      "status": "LICENSE_IDENTIFIED"
+    },
+    {
+      "evidence": "Ubuntu 24.04 libwebkit2gtk-4.1-0 2.52.6-0ubuntu0.24.04.1 is LGPL-2.1+; system dependency, dynamically linked, not bundled",
+      "id": "WEBKIT-LGPL",
+      "status": "LICENSE_IDENTIFIED"
+    },
+    {
+      "evidence": "Inno Setup License permits commercial use and redistribution with copyright/notice conditions; generated installers retain Inno notices; exact compiler version should be pinned",
+      "id": "INNO-SETUP",
+      "status": "LICENSE_IDENTIFIED"
     }
   ],
   "schema": "wmm.ip-inventory.v1",
@@ -5473,5 +5486,5 @@
     "Zlib": 19
   },
   "source_state": "working-tree",
-  "status": "COMPONENT_INVENTORY_COMPLETE_OWNERSHIP_REVIEW_OPEN"
+  "status": "COMPONENT_INVENTORY_AND_LICENSE_EVIDENCE_COMPLETE_OWNERSHIP_AND_AGENT_TERMS_OPEN"
 }

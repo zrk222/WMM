@@ -101,6 +101,7 @@ def validate_assets(folder, sha, require_provenance=False):
     folder = Path(folder)
     paths = [folder / name for name in ASSETS.values()]
     paths += [folder / ("sbom-" + platform + ".json") for platform in ASSETS]
+    paths += [folder / ("wmm-release-sbom-" + platform + ".cdx.json") for platform in ASSETS]
     paths += [folder / (platform + ".json") for platform in ASSETS]
     evidence = [folder / name for name in ("release-attestation.sigstore.json", "release-provenance.json")]
     if require_provenance or any(path.exists() or path.is_symlink() for path in evidence):
@@ -182,9 +183,10 @@ def publish(folder, sha, tag):
         raise ValueError("Existing release/tag is immutable; choose a new version")
     notes = (
         "Windows and Ubuntu amd64 preview installers. No system Python required. "
-        "SHA256SUMS.txt covers the eight other release assets. sbom-Windows.json and sbom-Linux.json list the "
-        "build-environment packages; this is not a runtime file inventory. "
-        "release-attestation.sigstore.json contains the GitHub provenance bundle for the six payloads; "
+        "SHA256SUMS.txt covers the ten other release assets. sbom-Windows.json and sbom-Linux.json list the "
+        "build-environment packages; wmm-release-sbom-Windows.cdx.json and "
+        "wmm-release-sbom-Linux.cdx.json list the shipped component inventory. "
+        "release-attestation.sigstore.json contains the GitHub provenance bundle for the eight payloads; "
         "release-provenance.json retains the source-bound verification results. "
         "Neither the checksum manifest nor the provenance receipt is itself attested. "
         + windows_notice
