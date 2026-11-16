@@ -14,7 +14,7 @@ the **434 shipped components** in CycloneDX 1.5 form and is bound to the current
 main SHA and this inventory hash. The release workflow regenerates
 `wmm-release-sbom-Windows.cdx.json` and `wmm-release-sbom-Linux.cdx.json` for the
 exact candidate SHA. Checked-in SBOM SHA-256:
-`fc3cbe092d657c9407caef1f37f684ef447ae52f8a67eedd4c947bfacb336a8c`.
+`57f3fca3cbd34028511200d355966ff570fc0bfe68721ebda8cf2090c43a0396`.
 
 ## Shipment model
 

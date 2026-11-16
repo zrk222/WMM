@@ -100,7 +100,11 @@ def main() -> int:
     if not path.parent.is_dir():
         raise SystemExit("Output directory does not exist: " + str(path.parent))
     value = build(args.sha, args.platform)
-    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(value, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
     components = cast(list[object], value["components"])
     print(f"SBOM {path} components={len(components)} platform={args.platform}")
     return 0
