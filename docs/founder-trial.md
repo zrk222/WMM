@@ -6,7 +6,16 @@ Own or market an app? Help us learn whether you can use WMM to prepare one usefu
 
 You can take part in the outside-founder trial if you own or market an app and have never used WMM or seen its demo. The project owner, contributors, and demo viewers are excluded. The owner will review eligibility and arrange an uncoached session. The two reporting forms require a GitHub account and post a public issue; the installer does not require a GitHub sign-in. A public self-report does not qualify you or count as a reviewed result.
 
-Use the [official releases page](https://github.com/zrk222/WMM/releases) for the desktop preview agreed for your session. Preview 10 offers Windows and Ubuntu 24.04 installers without a GitHub sign-in. Its Windows installer is unsigned, so SmartScreen or your device policy may block it. If you normally use Ubuntu, you can start your trial there. If Windows blocks your first attempt, report where you stopped and leave that attempt recorded. Do not bypass the warning. Use only the release assigned for the session. Skip the interactive sample before your first attempt so we can see what the app explains on its own.
+Use the exact release tag and operating system agreed for your session. On the
+[official releases page](https://github.com/zrk222/WMM/releases), open that tag and
+look under **Assets** for **WMM-Setup.exe** (Windows) or
+**wize-marketing-machine_0.1.0_amd64.deb** (Ubuntu 24.04). No GitHub sign-in is
+needed to download these assets.
+
+If you are testing on Windows, check the signing status in that release's notes.
+If SmartScreen or your device policy blocks your first attempt, keep the policy
+in place and record where you stopped. Skip the interactive sample before the
+session so we can see what WMM explains on its own.
 
 ## The 45-minute session
 
