@@ -1,12 +1,12 @@
 """Finite app-scoped social commands; connection is not publication authority."""
 
 from .common import Invalid
-from .social_contract import exact
-from .social_setup import Setup
-from .social_flows import Flows, public
 from .social_connections import Connections
+from .social_contract import exact
+from .social_flows import Flows
 from .social_renewal import Renewal
 from .social_secrets import Secrets
+from .social_setup import Setup
 
 
 def view(store, app_id):
@@ -14,11 +14,12 @@ def view(store, app_id):
     return dict(setup=Setup(store).view(app_id), **Connections(store).view(app_id))
 
 
-def post(store, app_id, parts, body, port):
+def post(store, route, body, port, runtime_mode):
     """Unknown commands and extra fields cannot become arbitrary provider actions."""
+    app_id, _, *parts = route
     store.app(app_id)
     setup = Setup(store, port)
-    flows = Flows(store, port)
+    flows = Flows(store, port, require_relay_port=runtime_mode == "DESKTOP")
     accounts = Connections(store, port)
     if len(parts) == 1:
         return single(store, app_id, parts[0], body, setup, flows, accounts)

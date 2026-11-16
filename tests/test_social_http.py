@@ -1,24 +1,55 @@
 """Real private HTTP boundary, exact JSON, callback consumption and account scope."""
 
-import http.cookiejar, json, time, unittest
-from urllib.parse import parse_qs, urlsplit
-from urllib.request import build_opener, HTTPCookieProcessor, Request
+import http.cookiejar
+import json
+import socket
+import tempfile
+import time
+import unittest
+from contextlib import contextmanager
+from typing import cast
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlsplit
+from urllib.request import HTTPCookieProcessor, Request, build_opener
+
+from mission_control.common import Invalid
+from mission_control.db import connection
+from mission_control.desktop import DesktopRuntime
+from mission_control.server import Server
+from mission_control.social_flows import Flows
+from mission_control.social_profiles import Identity
+from mission_control.social_setup import Setup
+from mission_control.social_tokens import parse
 from tests import test_http as fixtures
 from tests.test_measurement_connectors import FakeVault
-from tests.test_social_setup import body
 from tests.test_social_providers import token
-from mission_control.social_tokens import parse
-from mission_control.social_profiles import Identity
+from tests.test_social_setup import body
+
+
+@contextmanager
+def desktop_fixture(directory: str):
+    runtime = DesktopRuntime(directory)
+    try:
+        browser = fixtures.HTTPTests()
+        browser.server = runtime.server
+        browser.base = runtime.start()
+        browser.client = build_opener(HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        browser.bootstrap = browser.request("/api/bootstrap")[1]
+        yield browser
+    finally:
+        runtime.close()
 
 
 class SocialHTTPTests(unittest.TestCase):
+    server: Server
+    base: str
     setUp = fixtures.HTTPTests.setUp
     tearDown = fixtures.HTTPTests.tearDown
 
     def request(self, path, body=None, headers=None, raw=None):
+        # The shared setup initializes the exact request fixture without inheriting its tests.
         return fixtures.HTTPTests.request(
-            self, path, body, {"Content-Type": "application/json", **(headers or {})}, raw
+            cast(fixtures.HTTPTests, self), path, body, {"Content-Type": "application/json", **(headers or {})}, raw
         )
 
     def test_callback_navigation_preserves_existing_session_and_fresh_bootstrap(self):
@@ -132,6 +163,77 @@ class SocialHTTPTests(unittest.TestCase):
                 400,
             )
             self.assertEqual(self.request(base + "/" + saved["id"] + "/disconnect", {"version": 1})[0], 200)
+
+    def test_desktop_fallback_refuses_relay_before_creating_a_flow(self):
+        FakeVault.values = {}
+        self.server.runtime_mode = "DESKTOP"
+        self.assertNotEqual(self.server.server_port, 8765)
+        base = "/api/apps/sample-one/social-access"
+        with patch("mission_control.social_secrets.Vault", FakeVault):
+            self.assertEqual(self.request(base + "/save", body())[0], 200)
+            keys_before = set(FakeVault.values)
+            with patch("mission_control.social_flows.fresh_state") as mint:
+                code, result, _ = self.request(base + "/start", {"provider": "facebook", "version": 1})
+                mint.assert_not_called()
+            self.assertEqual(code, 400)
+            self.assertIn("Free that port, then reopen WMM", result["error"])
+            self.assertNotIn("authorization_url", result)
+            self.assertEqual(set(FakeVault.values), keys_before)
+            with connection(self.server.service.store.path) as db:
+                self.assertEqual(db.execute("SELECT COUNT(*) FROM social_flows").fetchone()[0], 0)
+            self.assertEqual(self.request(base + "/save", {**body("tiktok"), "redirect_uri": ""})[0], 200)
+            code, direct, _ = self.request(base + "/start", {"provider": "tiktok", "version": 1})
+            self.assertEqual(code, 200)
+            self.assertEqual(
+                parse_qs(urlsplit(direct["authorization_url"]).query)["redirect_uri"],
+                [f"{self.base}/social/callback/tiktok"],
+            )
+            self.server.runtime_mode = "SERVER"
+            self.assertEqual(self.request(base + "/start", {"provider": "facebook", "version": 1})[0], 200)
+
+    def test_moved_direct_callback_requires_the_current_port_before_minting_state(self):
+        FakeVault.values = {}
+        store = self.server.service.store
+        port = self.server.server_port
+        self.assertNotEqual(port, 8765)
+        payload = {**body("tiktok"), "redirect_uri": ""}
+        with patch("mission_control.social_secrets.Vault", FakeVault):
+            for saved_port, current_port in ((8765, port), (port, 8765)):
+                app = "sample-one" if saved_port == 8765 else "sample-two"
+                Setup(store, saved_port).save(app, payload)
+                flow = Flows(store, current_port, require_relay_port=True)
+                with patch("mission_control.social_flows.fresh_state") as mint, self.assertRaises(Invalid) as error:
+                    flow.start(app, "tiktok", 1)
+                mint.assert_not_called()
+                self.assertIn(f"http://127.0.0.1:{current_port}/social/callback/tiktok", str(error.exception))
+                Setup(store, current_port).save(app, {**payload, "version": 1})
+                started = flow.start(app, "tiktok", 2)
+                authorization_url = started["authorization_url"]
+                assert isinstance(authorization_url, str)
+                uri = parse_qs(urlsplit(authorization_url).query)["redirect_uri"]
+                self.assertEqual(uri, [f"http://127.0.0.1:{current_port}/social/callback/tiktok"])
+
+    def test_fallback_setup_survives_restart_and_retries_without_resaving(self):
+        FakeVault.values = {}
+        base = "/api/apps/sample-one/social-access"
+        headers = {"Content-Type": "application/json"}
+        command = {"provider": "facebook", "version": 1}
+        with tempfile.TemporaryDirectory() as folder, patch("mission_control.social_secrets.Vault", FakeVault):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as blocker:
+                blocker.bind(("127.0.0.1", 8765))
+                blocker.listen(1)
+                with desktop_fixture(folder) as browser:
+                    self.assertNotEqual(browser.server.server_port, 8765)
+                    self.assertEqual(browser.request(base + "/save", body(), headers)[0], 200)
+                    self.assertEqual(browser.request(base + "/start", command, headers)[0], 400)
+            with desktop_fixture(folder) as browser:
+                self.assertEqual(browser.server.server_port, 8765)
+                view = browser.request("/api/apps/sample-two")[1]
+                self.assertEqual(view["social_access"]["setup"]["configurations"], [])
+                code, started, _ = browser.request(base + "/start", command, headers)
+                self.assertEqual(code, 200)
+                self.assertEqual(started["status"], "PENDING")
+                self.assertEqual(browser.request(base + "/cancel", {"flow_id": started["flow_id"]}, headers)[0], 200)
 
 
 if __name__ == "__main__":

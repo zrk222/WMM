@@ -38,6 +38,10 @@ async function socialSetup(provider, edit = false, reconnect = '') {
   });
   if (app !== state.app) return;
   const data = row?.data || {};
+  const redirect =
+    packet.redirect_needed === 'EXACT_LOOPBACK'
+      ? packet.redirect_uri
+      : data.redirect_uri || packet.redirect_uri;
   const accessModes =
     provider === 'facebook'
       ? [
@@ -77,7 +81,7 @@ async function socialSetup(provider, edit = false, reconnect = '') {
   };
   modal(
     `Connect ${label(provider)}`,
-    `<form id="social-setup-form" class="modal-content" data-app="${esc(app)}" data-provider="${provider}" data-version="${row?.version || 0}"><p>Prepared for <strong>${esc(packet.app_name)}</strong>. Recommended developer-app name: ${esc(packet.suggested_developer_name)}.</p><ol>${packet.steps.map((step) => `<li>${esc(step)}</li>`).join('')}</ol><p><a href="${esc(packet.official_setup)}" target="_blank" rel="noopener noreferrer">Open official developer setup ↗</a></p>${button('Find existing app setup', 'social-discover', `data-provider="${provider}"`)}<label class="field">Provider app / client ID<input name="client_id" required maxlength="128" autocomplete="off" value="${esc(data.client_id || '')}"></label><label class="field">Provider client secret<input type="password" name="client_secret" maxlength="2048" autocomplete="off" ${data.native_enabled ? '' : 'required'}></label><label class="field">Exact callback URL<input name="redirect_uri" type="url" ${packet.redirect_uri ? 'readonly' : 'required'} value="${esc(data.redirect_uri || packet.redirect_uri)}" placeholder="https://your-deployed-relay/cb/${provider}"></label>${provider === 'linkedin' ? '<label class="check-row"><input type="checkbox" name="native_enabled" ' + (data.native_enabled ? 'checked' : '') + '> LinkedIn has explicitly enabled native PKCE for this app. Use the system browser; no client secret is sent.</label>' : ''}<label class="field">Requested account access<select name="campaign_access">${accessModes.map(([value, name]) => `<option value="${value}" ${(data.campaign_access || 'read') === value ? 'selected' : ''}>${name}</option>`).join('')}</select></label><p>Selected permissions are requested during official login. Saving or connecting grants no post approval or spending authority. Instagram publishing requires a connected Facebook Page with the Instagram publishing permission and a verified linked account.</p><p>Exact requested scopes: <span id="social-requested-scopes">${requestedScopes(
+    `<form id="social-setup-form" class="modal-content" data-app="${esc(app)}" data-provider="${provider}" data-version="${row?.version || 0}"><p>Prepared for <strong>${esc(packet.app_name)}</strong>. Recommended developer-app name: ${esc(packet.suggested_developer_name)}.</p><ol>${packet.steps.map((step) => `<li>${esc(step)}</li>`).join('')}</ol><p><a href="${esc(packet.official_setup)}" target="_blank" rel="noopener noreferrer">Open official developer setup ↗</a></p>${button('Find existing app setup', 'social-discover', `data-provider="${provider}"`)}<label class="field">Provider app / client ID<input name="client_id" required maxlength="128" autocomplete="off" value="${esc(data.client_id || '')}"></label><label class="field">Provider client secret<input type="password" name="client_secret" maxlength="2048" autocomplete="off" ${data.native_enabled ? '' : 'required'}></label><label class="field">Exact callback URL<input name="redirect_uri" type="url" ${packet.redirect_uri ? 'readonly' : 'required'} value="${esc(redirect)}" placeholder="https://your-deployed-relay/cb/${provider}"></label>${provider === 'linkedin' ? '<label class="check-row"><input type="checkbox" name="native_enabled" ' + (data.native_enabled ? 'checked' : '') + '> LinkedIn has explicitly enabled native PKCE for this app. Use the system browser; no client secret is sent.</label>' : ''}<label class="field">Requested account access<select name="campaign_access">${accessModes.map(([value, name]) => `<option value="${value}" ${(data.campaign_access || 'read') === value ? 'selected' : ''}>${name}</option>`).join('')}</select></label><p>Selected permissions are requested during official login. Saving or connecting grants no post approval or spending authority. Instagram publishing requires a connected Facebook Page with the Instagram publishing permission and a verified linked account.</p><p>Exact requested scopes: <span id="social-requested-scopes">${requestedScopes(
       data.campaign_access || 'read',
     )
       .map(esc)
@@ -104,10 +108,15 @@ async function socialSetup(provider, edit = false, reconnect = '') {
   }
 }
 
-async function socialStart(provider, version, reconnect = '') {
+async function socialStart(provider, version, reconnect = '', active = () => true) {
+  if (!active()) return;
   const app = state.app,
     result = await api(`/api/apps/${app}/social-access/start`, { provider, version });
-  if (app !== state.app) return;
+  if (app !== state.app || !active()) {
+    // Stop this unpresented local flow when possible; it otherwise expires on the server.
+    await api(`/api/apps/${app}/social-access/cancel`, { flow_id: result.flow_id }).catch(() => {});
+    return;
+  }
   modal(
     'Finish official login',
     `<div class="modal-content" id="social-progress" data-app="${esc(app)}" data-flow="${result.flow_id}" data-reconnect="${esc(reconnect)}"><p>Review ${esc(label(provider))}’s own consent screen. When it returns, confirm the detected destination here.</p><p>For desktop/native authorization, open this link in your default system browser. Keep Mission Control running.</p><p><a class="button primary" href="${esc(result.authorization_url)}" target="_blank" rel="noopener noreferrer">Open official ${esc(label(provider))} login ↗</a></p>${button('Copy login link for system browser', 'social-copy-login')}<div id="social-progress-result" role="status">Waiting for official login…</div>${button('Check login result', 'social-check')}${button('Cancel this login', 'social-cancel')}<p id="social-error" role="alert"></p></div>`,
@@ -275,10 +284,12 @@ async function socialAction(node) {
 }
 
 async function socialSubmit(form) {
+  if (form.dataset.setupSaved === 'true') return;
+  const app = form.dataset.app;
+  const active = () => app === state.app && form.isConnected && $('#modal').open;
   const submit = form.querySelector('[type=submit]');
   submit.disabled = true;
   try {
-    const app = form.dataset.app;
     if (app !== state.app)
       throw new Error('App changed. Reopen this connection in the correct workspace.');
     const values = Object.fromEntries(new FormData(form));
@@ -293,8 +304,10 @@ async function socialSubmit(form) {
         campaign_access: values.campaign_access || 'read',
       });
       form.elements.client_secret.value = '';
+      form.dataset.setupSaved = 'true';
       await refresh();
-      return socialStart(result.provider, result.version);
+      await socialStart(result.provider, result.version, '', active);
+      return;
     }
     const row = state.workspace.social_access.accounts.find((r) => r.id === values.connection_id);
     await api(`/api/apps/${app}/social-access/confirm`, {
@@ -308,9 +321,13 @@ async function socialSubmit(form) {
     await refresh();
     toast('Account saved and read-tested. Provider-supported renewal is enabled.');
   } catch (error) {
-    form.querySelector('#social-error').textContent = error.message;
+    if (form.id === 'social-setup-form' && !active()) return;
+    form.querySelector('#social-error').textContent =
+      form.dataset.setupSaved === 'true'
+        ? `${error.message} Developer setup was saved. To retry, close this dialog and choose Connect an account.`
+        : error.message;
   } finally {
-    submit.disabled = false;
+    submit.disabled = form.dataset.setupSaved === 'true';
   }
 }
 
