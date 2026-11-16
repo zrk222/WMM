@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       unsigned_windows_preview11:
-        description: Explicitly allow unsigned Windows for Preview 11 or its review patch
+        description: Explicitly allow unsigned Windows for one listed Preview 11 tag
         type: boolean
         default: false
       candidate_sha:

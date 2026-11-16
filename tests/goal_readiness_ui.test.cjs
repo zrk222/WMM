@@ -129,17 +129,26 @@ test('nonowner opens only an actionable owner setup explanation', () => {
     false,
   );
 });
-test('measurement readiness opens current saved evidence without requiring an owner or agent', () => {
-  const h = fixture();
-  h.state.goalChoice.id = 'measurement';
-  h.state.workspace.access.members = [];
-  h.c.guidedNavigate = (...args) => h.calls.push(args);
-  h.w.open();
-  assert.deepEqual(h.calls, [['results', '#analytics-overview-heading']]);
+test('each local readiness route needs neither owner nor agent setup', () => {
+  for (const [goal, view, anchor] of [
+    ['research', 'evidence', '#creative-source-library-heading'],
+    ['creative', 'research', '#creative-rendering-heading'],
+    ['measurement', 'results', '#analytics-overview-heading'],
+  ]) {
+    const h = fixture();
+    h.state.goalChoice.id = goal;
+    h.state.workspace.access.members = [];
+    h.c.guidedNavigate = (...args) => h.calls.push(args);
+    h.w.open();
+    assert.deepEqual(h.calls, [[view, anchor]]);
 
-  h.state.app = 'other';
-  assert.throws(() => h.w.open(), /selected app to finish loading/);
-  assert.equal(h.calls.length, 1);
+    h.w.open('managed');
+    assert.match(h.calls[1].body, /establish this app/);
+    assert.doesNotMatch(h.calls[1].body, /goal-readiness-form/);
+    h.state.app = 'other';
+    assert.throws(() => h.w.open(), /selected app to finish loading/);
+    assert.equal(h.calls.length, 2);
+  }
 });
 
 test('campaign setup offers all implemented organic channels with no effect or automatic selection', () => {
