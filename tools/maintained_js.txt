@@ -92,6 +92,7 @@ mission_control/static/workflow-telemetry.js
 tests/activity_timeline_ui.test.cjs
 tests/analytics_inventory.test.mjs
 tests/apple_ads_acquisition_ui.test.cjs
+tests/apple_analytics_ui.test.cjs
 tests/automation_agreement_ui.test.cjs
 tests/campaign_monitor_ui.test.cjs
 tests/campaign_owner_report_ui.test.cjs
@@ -110,6 +111,7 @@ tests/organic_research_ui.test.cjs
 tests/page_reporting.test.cjs
 tests/process_status_ui.test.cjs
 tests/publication_ui.test.cjs
+tests/social_access_ui.test.cjs
 tests/weekly_operation_ui.test.cjs
 tests/wmm_hero_vendor.test.mjs
 tests/workflow_telemetry.test.cjs

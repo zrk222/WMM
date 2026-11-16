@@ -1,5 +1,6 @@
 import { $, api, button, esc, notice, state } from './app.mjs';
 import { modal } from './app-ui.mjs';
+import { WMMCampaignReuse } from './campaign-plan.mjs';
 import { WMMPageReports } from './feature-apis.mjs';
 ('use strict');
 /* Owner scope is authority; this view cannot issue authority for an agent. */
@@ -29,6 +30,16 @@ async function campaignHash(value) {
   return Array.from(new Uint8Array(bytes), (x) => x.toString(16).padStart(2, '0')).join('');
 }
 
+function campaignTrackingTag(url) {
+  if (!url) return '';
+  const parsed = new URL(url);
+  return (
+    parsed.searchParams.get(
+      parsed.hostname === 'apps.apple.com' && parsed.searchParams.has('pt') ? 'ct' : 'utm_campaign',
+    ) || ''
+  );
+}
+
 function campaignBound(form) {
   if (
     form.isConnected === false ||
@@ -43,7 +54,7 @@ function campaignExpiryUI() {
   return globalThis.WMMAuthorityExpiry;
 }
 
-async function campaignOpen(source = null, study = null) {
+async function campaignOpen(source = null, study = null, reuse = null) {
   const destination = study?.destination;
   const app = state.app,
     version = state.workspace.app.version,
@@ -71,13 +82,20 @@ async function campaignOpen(source = null, study = null) {
       r.provider === 'facebook' && r.status === 'CONNECTED_READ_TESTED' && !r.reconnect_required,
   );
   const selected = study && accounts.find((row) => row.data.destination.id === destination);
+  const prior =
+    reuse &&
+    history.scopes.find(
+      (scope) => scope.scope_id === reuse.scopeId && scope.approval_hash === reuse.scopeHash,
+    );
+  if (reuse && !prior)
+    throw new Error('The original approval is unavailable. Open a new campaign.');
   if (study && !selected)
     throw new Error(
       'The selected Facebook Page is no longer available. Reconnect it and select it again.',
     );
   modal(
     'Campaign automation',
-    `<form id="campaign-scope-form" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}" data-principal="${esc(principal || '')}"><p>Choose the work once, review its exact limits, then let your agent operate within them. Account permissions are checked separately before execution.</p><label class="field">Facebook Page connection<select name="connection_id" required><option value="">Choose a connected Page</option>${accounts.map((r) => `<option value="${esc(r.id)}">${esc(r.data.destination.name)} · ${esc(r.data.destination.id)}</option>`).join('')}</select></label>${accounts.length ? '' : notice('Connect a Facebook Page first. Select publishing or ad access during setup, complete official login, then return here.', 'warning')}<label class="field">Approved post copy<textarea name="posts" rows="6" maxlength="50000" required placeholder="Write one post. Separate additional posts with a line containing ---"></textarea></label><p>Up to 20 exact posts per review. The workflow uses your approved words; it does not invent product claims.</p><label class="field">App or landing-page link<input name="link" type="url" placeholder="https://your-app.example" maxlength="2048"></label><label class="field">Rights and claims evidence<textarea name="rights" maxlength="2000" required placeholder="Explain your authority to use this copy and media, and where its app claims are substantiated."></textarea></label><label class="field">Maximum Meta requests<input name="max_calls" type="number" min="1" max="500" value="500" required></label><p>Includes account checks, publication and verification. Your agent has a separate WMM call limit.</p><label class="field">Authority expires in hours<input name="hours" type="number" min="1" max="24" value="1" required></label><details><summary>Optional paid Meta campaign</summary><p>Leave the ad account empty for free organic publishing. Media limits exclude taxes, fees and currency conversion; provider reports may lag. A campaign's maximum approved media budget is reserved before activation.</p><label class="field">Numeric ad-account ID<input name="ad_account_id" inputmode="numeric" pattern="[0-9]+" maxlength="40"></label><label class="field">Currency<input name="currency" pattern="[A-Z]{3}" maxlength="3" value="${esc(state.workspace.app.data.currency || 'USD')}" required></label><label class="field">Maximum media budget in minor units<input name="budget" type="number" min="0" max="100000000" value="0" step="1"></label><label class="field">Audience country codes<input name="countries" value="CA" maxlength="100" placeholder="CA, US"></label><label class="check-row"><input name="billing" type="checkbox"> I approve this media commitment and understand separate provider taxes, fees and billing delays.</label><label class="check-row"><input name="ordinary" type="checkbox"> I confirm this is outside Meta special ad categories (including housing, employment, financial products and political or social-issue advertising).</label></details><details><summary>Optional measurement plan (enforced before launch)</summary><p>Complete this plan to require connected acquisition and outcome sources, a tagged link and a frozen measurement window before any post or paid campaign dispatches. Leave it empty only for an unscoped legacy workflow.</p><label class="field">Primary metric<input name="measurement_metric" maxlength="2000" placeholder="paid_conversion"></label><label class="field">Denominator<input name="measurement_denominator" maxlength="2000" placeholder="installs"></label><label class="field">Campaign tag<input name="measurement_tag" maxlength="64" placeholder="launch-a"></label><label class="field">Measurement starts<input name="measurement_starts" type="datetime-local"></label><label class="field">Measurement ends<input name="measurement_ends" type="datetime-local"></label><label class="field">Frozen hypothesis<textarea name="measurement_hypothesis" maxlength="2000"></textarea></label><label class="field">Decision rule<textarea name="measurement_rule" maxlength="2000"></textarea></label></details><p id="campaign-error" role="alert"></p><div class="modal-actions"><button class="button primary" type="submit">Review exact automation scope</button>${button('Cancel', 'close')}</div></form><section class="modal-content"><h3>Saved scopes</h3>${history.scopes.length ? history.scopes.map((s) => `<p>${esc(s.page_id)} · ${esc(s.status)} · expires ${esc(s.permission_expires_at || s.expires_at)} ${button('Inspect saved scope', 'campaign-status', `data-id="${esc(s.scope_id)}"`)}</p>`).join('') : '<p>No saved scopes for this owner and app yet.</p>'}<h3>Saved schedules</h3>${(schedules.batches || []).map((b) => `<p>${esc(campaignScheduleCopy(b)[0])} · ${esc(b.items.length)} scheduled items ${button('Inspect scheduled batch', 'campaign-schedule-status', `data-batch="${esc(b.id)}"`)}</p>`).join('') || '<p>No saved scheduled batch yet.</p>'}</section>`,
+    `<form id="campaign-scope-form" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}" data-principal="${esc(principal || '')}"><p>Choose the work once, review its exact limits, then let your agent operate within them. Account permissions are checked separately before execution.</p><label class="field">Facebook Page connection<select name="connection_id" required><option value="">Choose a connected Page</option>${accounts.map((r) => `<option value="${esc(r.id)}">${esc(r.data.destination.name)} · ${esc(r.data.destination.id)}</option>`).join('')}</select></label>${accounts.length ? '' : notice('Connect a Facebook Page first. Select publishing or ad access during setup, complete official login, then return here.', 'warning')}<label class="field">Approved post copy<textarea name="posts" rows="6" maxlength="50000" required placeholder="Write one post. Separate additional posts with a line containing ---"></textarea></label><p>Up to 20 exact posts per review. The workflow uses your approved words; it does not invent product claims.</p><label class="field">App or landing-page link<input name="link" type="url" placeholder="https://your-app.example" maxlength="2048"></label><label class="field">Rights and claims evidence<textarea name="rights" maxlength="2000" required placeholder="Explain your authority to use this copy and media, and where its app claims are substantiated."></textarea></label><label class="field">Maximum Meta requests<input name="max_calls" type="number" min="1" max="500" value="500" required></label><p>Includes account checks, publication and verification. Your agent has a separate WMM call limit.</p><label class="field">Authority expires in hours<input name="hours" type="number" min="1" max="24" value="1" required></label><details><summary>Optional paid Meta campaign</summary><p>Leave the ad account empty for free organic publishing. Media limits exclude taxes, fees and currency conversion; provider reports may lag. A campaign's maximum approved media budget is reserved before activation.</p><label class="field">Numeric ad-account ID<input name="ad_account_id" inputmode="numeric" pattern="[0-9]+" maxlength="40"></label><label class="field">Currency<input name="currency" pattern="[A-Z]{3}" maxlength="3" value="${esc(state.workspace.app.data.currency || 'USD')}" required></label><label class="field">Maximum media budget in minor units<input name="budget" type="number" min="0" max="100000000" value="0" step="1"></label><label class="field">Audience country codes<input name="countries" value="CA" maxlength="100" placeholder="CA, US"></label><label class="check-row"><input name="billing" type="checkbox"> I approve this media commitment and understand separate provider taxes, fees and billing delays.</label><label class="check-row"><input name="ordinary" type="checkbox"> I confirm this is outside Meta special ad categories (including housing, employment, financial products and political or social-issue advertising).</label></details><details><summary>Optional measurement plan (enforced before launch)</summary><p>For an Apple campaign link, enter the measurement dates, hypothesis and decision rule. WMM reads first-time downloads for one organic post; leave the metric, denominator and tag blank. Website measurement still needs its tagged link and connected acquisition and outcome sources.</p><label class="field">Primary metric<input name="measurement_metric" maxlength="2000" placeholder="paid_conversion"></label><label class="field">Denominator<input name="measurement_denominator" maxlength="2000" placeholder="installs"></label><label class="field">Campaign tag<input name="measurement_tag" maxlength="64" placeholder="launch-a"></label><label class="field">Measurement starts<input name="measurement_starts" type="datetime-local"></label><label class="field">Measurement ends<input name="measurement_ends" type="datetime-local"></label><label class="field">Frozen hypothesis<textarea name="measurement_hypothesis" maxlength="2000"></textarea></label><label class="field">Decision rule<textarea name="measurement_rule" maxlength="2000"></textarea></label></details><p id="campaign-error" role="alert"></p><div class="modal-actions"><button class="button primary" type="submit">Review exact automation scope</button>${button('Cancel', 'close')}</div></form><section class="modal-content"><h3>Saved scopes</h3>${history.scopes.length ? history.scopes.map((s) => `<p>${esc(s.page_id)} · ${esc(s.status)} · expires ${esc(s.permission_expires_at || s.expires_at)} ${button('Inspect saved scope', 'campaign-status', `data-id="${esc(s.scope_id)}"`)}</p>`).join('') : '<p>No saved scopes for this owner and app yet.</p>'}<h3>Saved schedules</h3>${(schedules.batches || []).map((b) => `<p>${esc(campaignScheduleCopy(b)[0])} · ${esc(b.items.length)} scheduled items ${button('Inspect scheduled batch', 'campaign-schedule-status', `data-batch="${esc(b.id)}"`)}</p>`).join('') || '<p>No saved scheduled batch yet.</p>'}</section>`,
   );
   $('#campaign-scope-form').dataset.principal = principal || '';
   const scopeForm = $('#campaign-scope-form');
@@ -85,8 +103,26 @@ async function campaignOpen(source = null, study = null) {
     scopeForm.elements.link.value = study.link.url;
     scopeForm.elements.connection_id.value = selected.id;
   }
+  if (prior) {
+    const samePage = accounts.find(
+      (row) => row.id === prior.connection_id && row.data.destination.id === prior.page_id,
+    );
+    const tag = campaignTrackingTag(reuse.link);
+    scopeForm.elements.posts.value = reuse.messages.join('\n---\n');
+    scopeForm.elements.link.value = tag ? '' : reuse.link || '';
+    scopeForm.elements.connection_id.value = samePage?.id || '';
+    scopeForm.elements.max_calls.value = '60';
+    scopeForm.dataset.originalCampaignTag = tag || '';
+    scopeForm.dataset.requireMeasurement = prior.measurement_plan ? 'true' : 'false';
+    scopeForm.insertAdjacentHTML(
+      'afterbegin',
+      '<p role="status">Draft copied. Review the Page, add current rights evidence and choose new dates. No approval, budget or schedule was copied.' +
+        (tag ? ' Use a fresh tracking link to measure this run separately.' : '') +
+        '</p>',
+    );
+  }
   const draftPlan = state.workspace?.pre_registration?.measurement_plan;
-  if (draftPlan && !study) {
+  if (draftPlan && !study && !reuse) {
     const useDraft = document.createElement('button');
     useDraft.type = 'button';
     useDraft.className = 'button outline';
@@ -146,7 +182,7 @@ function campaignReviewMarkup(scope, preview, posts, rights, targeting, pageName
       ? [
           row(
             'Measurement plan',
-            `${scope.measurement_plan.primary_metric} / ${scope.measurement_plan.denominator}; ${scope.measurement_plan.starts_at} to ${scope.measurement_plan.ends_at}`,
+            `${scope.measurement_plan.measurement_source === 'APPLE_APP_DOWNLOADS' ? 'Apple first-time downloads (count)' : `${scope.measurement_plan.primary_metric} / ${scope.measurement_plan.denominator}`}; ${scope.measurement_plan.starts_at} to ${scope.measurement_plan.ends_at}`,
           ),
         ]
       : []),
@@ -252,14 +288,15 @@ async function campaignSubmit(form) {
       values.measurement_ends,
       ...Object.values(planValues),
     ].some((value) => String(value || '').trim());
+    if (form.dataset.requireMeasurement === 'true' && !anyPlan)
+      throw new Error('Set a new measurement window and campaign tag for this run.');
+    if (form.dataset.originalCampaignTag) {
+      const tag = campaignTrackingTag(link);
+      if (!tag || tag.toLowerCase() === form.dataset.originalCampaignTag.toLowerCase())
+        throw new Error('Add a tracking link with a new campaign tag for this run.');
+    }
     let measurementPlan = null;
     if (anyPlan) {
-      if (
-        Object.values(planValues).some((value) => !String(value || '').trim()) ||
-        !values.measurement_starts ||
-        !values.measurement_ends
-      )
-        throw new Error('Complete every measurement plan field or leave the plan empty.');
       if (!link) throw new Error('Add the approved tagged link before the measurement plan.');
       let parsed;
       try {
@@ -267,11 +304,39 @@ async function campaignSubmit(form) {
       } catch {
         throw new Error('Use a valid HTTPS measurement link.');
       }
-      if (
-        parsed.protocol !== 'https:' ||
-        parsed.searchParams.get('utm_campaign') !== planValues.tag
-      )
+      if (parsed.protocol !== 'https:') throw new Error('Use a valid HTTPS measurement link.');
+      const apple = parsed.hostname === 'apps.apple.com' && parsed.searchParams.has('pt');
+      if (apple) {
+        if (paid || messages.length !== 1)
+          throw new Error(
+            'Choose one organic post with no ad account for Apple download measurement.',
+          );
+        const tag = parsed.searchParams.get('ct');
+        if (
+          !tag ||
+          (planValues.tag?.trim() && planValues.tag.trim().toLowerCase() !== tag.toLowerCase())
+        )
+          throw new Error('Use the Apple campaign link with its matching campaign tag.');
+        if (
+          (planValues.metric?.trim() &&
+            planValues.metric.trim() !== 'apple_first_time_downloads') ||
+          (planValues.denominator?.trim() && planValues.denominator.trim() !== 'none')
+        )
+          throw new Error(
+            'Leave metric and denominator blank for an Apple first-time download count.',
+          );
+        planValues.metric = 'apple_first_time_downloads';
+        planValues.denominator = 'none';
+        planValues.tag = tag;
+      } else if (parsed.searchParams.get('utm_campaign') !== planValues.tag) {
         throw new Error('The measurement link must carry the same utm_campaign tag.');
+      }
+      if (
+        Object.values(planValues).some((value) => !String(value || '').trim()) ||
+        !values.measurement_starts ||
+        !values.measurement_ends
+      )
+        throw new Error('Complete the measurement window, hypothesis and decision rule.');
       const starts = new Date(values.measurement_starts),
         ends = new Date(values.measurement_ends);
       if (Number.isNaN(starts.getTime()) || Number.isNaN(ends.getTime()) || !(starts < ends))
@@ -384,14 +449,22 @@ async function campaignStatus(scopeID, plan = null, source = null) {
   const app = state.app,
     version = state.workspace.app.version,
     principal = state.workspace.identity?.principal,
+    view = state.view,
+    fromDialog = source?.closest?.('#modal'),
     result = await api(`/api/apps/${app}/campaigns/status`, { scope_id: scopeID });
   if (
     app !== state.app ||
-    version !== state.workspace.app.version ||
-    principal !== state.workspace.identity?.principal ||
-    (source && !source.isConnected)
+    version !== state.workspace?.app?.version ||
+    principal !== state.workspace?.identity?.principal ||
+    view !== state.view ||
+    (source && !source.isConnected) ||
+    (fromDialog && !fromDialog.open)
   )
     return;
+  if (result.scope?.scope_id !== scopeID)
+    throw new Error(
+      'Saved campaign receipts did not match the requested scope. Open them again to check.',
+    );
   const scope = {
     ...result.scope,
     expires_at: result.scope.permission_expires_at || result.scope.expires_at,
@@ -407,7 +480,7 @@ async function campaignStatus(scopeID, plan = null, source = null) {
     plan = null;
   modal(
     'Campaign progress',
-    `<div id="campaign-progress" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}" data-id="${esc(scopeID)}"><p>Scope: <strong>${esc(scope.status)}</strong> · Page ${esc(scope.page_id)} · expires ${esc(scope.expires_at)}.</p><p>Media ceiling: ${scope.max_total_minor} minor units ${esc(scope.currency)}. Calls used: ${esc(scope.call_allowance_units_used ?? scope.calls_used ?? 'Unknown')}/${scope.max_calls}.</p><p id="campaign-activity" role="status">Saved provider states shown below. A post ID or ad status does not establish app sales.</p>${result.intents.map((row) => `<section class="panel"><h3>${esc(row.status)}</h3><p>Receipt: ${esc(row.id)}</p><p>Provider ID: ${esc(row.remote_id || (row.ids ? Object.values(row.ids).join(', ') : 'Not confirmed'))}</p><pre>${esc(JSON.stringify(row.result, null, 2))}</pre>${button('Read provider status', 'campaign-reconcile', `data-intent="${esc(row.id)}"`)}${button('Pause owned paid campaign', 'campaign-pause', `data-intent="${esc(row.id)}"`)}</section>`).join('') || '<p>No effects have been dispatched for this scope.</p>'}<p id="campaign-error" role="alert"></p><div class="button-row">${plan && scope.status === 'ACTIVE' ? button('Run approved workflow', 'campaign-run', '', 'primary') : ''}${plan?.posts && !scope.ad_account_id && scope.status === 'ACTIVE' ? button('Schedule approved posts', 'campaign-schedule-open') : ''}${button('Campaign report / Save PDF', 'campaign-report')}${button('Refresh saved receipts', 'campaign-status', `data-id="${esc(scopeID)}"`)}${button('Turn off this scope', 'campaign-revoke')}</div></div>`,
+    `<div id="campaign-progress" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}" data-id="${esc(scopeID)}"><p>Scope: <strong>${esc(scope.status)}</strong> · Page ${esc(scope.page_id)} · expires ${esc(scope.expires_at)}.</p><p>Media ceiling: ${scope.max_total_minor} minor units ${esc(scope.currency)}. Calls used: ${esc(scope.call_allowance_units_used ?? scope.calls_used ?? 'Unknown')}/${scope.max_calls}.</p><p id="campaign-activity" role="status">Saved provider states shown below. A post ID or ad status does not establish app sales.</p>${result.intents.map((row) => `<section class="panel"><h3>${esc(row.status)}</h3><p>Receipt: ${esc(row.id)}</p><p>Provider ID: ${esc(row.remote_id || (row.ids ? Object.values(row.ids).join(', ') : 'Not confirmed'))}</p><pre>${esc(JSON.stringify(row.result, null, 2))}</pre>${button('Read provider status', 'campaign-reconcile', `data-intent="${esc(row.id)}"`)}${row.kind === 'AD' ? button('Pause owned paid campaign', 'campaign-pause', `data-intent="${esc(row.id)}"`) : ''}</section>`).join('') || '<p>No effects have been dispatched for this scope.</p>'}<p id="campaign-error" role="alert"></p><div class="button-row">${plan && scope.status === 'ACTIVE' ? button('Run approved workflow', 'campaign-run', '', 'primary') : ''}${plan?.posts && !scope.ad_account_id && scope.status === 'ACTIVE' ? button('Schedule approved posts', 'campaign-schedule-open') : ''}${button('Campaign report / Save PDF', 'campaign-report')}${button('Refresh saved receipts', 'campaign-status', `data-id="${esc(scopeID)}"`)}${button('Turn off this scope', 'campaign-revoke')}</div></div>`,
   );
   const progress = $('#campaign-progress');
   if (
@@ -851,6 +924,7 @@ function campaignScheduleOpen() {
 async function campaignScheduleSubmit(form) {
   const submit = form.querySelector('[type=submit]');
   if (submit.disabled) return;
+  const submitWasFocused = document.activeElement === submit;
   submit.disabled = true;
   try {
     campaignBound(form);
@@ -901,7 +975,18 @@ async function campaignScheduleSubmit(form) {
     );
     $('#campaign-schedule-review').campaign = saved;
   } catch (e) {
-    if (form.isConnected) form.querySelector('#campaign-error').textContent = e.message;
+    if (form.isConnected) {
+      const alert = form.querySelector('#campaign-error');
+      alert.textContent = e.message;
+      if (
+        e.feedback?.code === 'CAMPAIGN_REVIEW_REQUIRED' &&
+        submitWasFocused &&
+        [document.body, submit].includes(document.activeElement)
+      ) {
+        alert.tabIndex = -1;
+        alert.focus();
+      }
+    }
   } finally {
     submit.disabled = false;
   }
@@ -990,6 +1075,43 @@ function campaignScheduleCopy(data) {
   );
 }
 
+function campaignScheduleReuseHelp(data, canReuse) {
+  if (canReuse) return '';
+  if (data.evidence_unavailable)
+    return 'Saved post details are unavailable. Refresh the receipts before copying any post.';
+  if (
+    data.items.some((item) => !['VERIFIED', 'BLOCKED', 'CANCELLED'].includes(item.effective_status))
+  )
+    return 'Wait until the scheduled items finish, or turn this batch off, before copying posts.';
+  return 'These posts cannot be copied as a batch. Start a new campaign with up to 20 text posts, each at most 5,000 characters, and one shared HTTPS link or no link.';
+}
+
+function campaignScopeReference(id) {
+  return typeof id === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(id)
+    ? id
+    : null;
+}
+
+function campaignScheduleReceiptScope(data) {
+  const scope = data.scope_id;
+  if (
+    data.evidence_unavailable ||
+    typeof scope !== 'string' ||
+    !campaignScopeReference(scope) ||
+    data.summary?.scope_id !== scope ||
+    data.summary?.kind === 'ADMITTED_ORGANIC_VIDEO_V1' ||
+    ![
+      'NEEDS_RECONCILIATION',
+      'NEEDS_REPAIR',
+      'BLOCKED',
+      'APPROVAL_EXPIRED',
+      'APPROVAL_INACTIVE',
+    ].includes(data.progress)
+  )
+    return null;
+  return scope;
+}
+
 async function campaignScheduleStatus(batch, source = null, isCurrent = () => true) {
   const app = state.app,
     version = state.workspace.app.version,
@@ -1004,6 +1126,7 @@ async function campaignScheduleStatus(batch, source = null, isCurrent = () => tr
   )
     return;
   const [title, explanation] = campaignScheduleCopy(data);
+  const canReuse = !!WMMCampaignReuse.draft(data);
   modal(
     'Scheduled campaign progress',
     '<div id="campaign-schedule-progress" class="modal-content" data-app="' +
@@ -1027,6 +1150,11 @@ async function campaignScheduleStatus(batch, source = null, isCurrent = () => tr
       '</p><div id="schedule-live-items">' +
       data.items.map((i) => campaignScheduleProgressItem(i, data)).join('') +
       '</div><p id="campaign-error" role="alert"></p>' +
+      '<div id="schedule-receipt-action"' +
+      (campaignScheduleReceiptScope(data) ? '' : ' hidden') +
+      '>' +
+      button('Open saved campaign receipts', 'campaign-schedule-receipts') +
+      '</div>' +
       button(
         'Refresh scheduled receipts',
         'campaign-schedule-status',
@@ -1034,6 +1162,13 @@ async function campaignScheduleStatus(batch, source = null, isCurrent = () => tr
       ) +
       button('Turn scheduled batch OFF', 'campaign-schedule-off') +
       button('Report / Save PDF', 'campaign-schedule-report') +
+      '<p id="schedule-reuse-help">' +
+      esc(campaignScheduleReuseHelp(data, canReuse)) +
+      '</p><div id="schedule-reuse-action"' +
+      (canReuse ? '' : ' hidden') +
+      '>' +
+      button('Reuse posts in a new campaign', 'campaign-schedule-reuse') +
+      '</div>' +
       '</div>',
   );
   const progress = $('#campaign-schedule-progress');
@@ -1088,6 +1223,13 @@ function campaignScheduleWatch(panel) {
           .map((i) => campaignScheduleProgressItem(i, data))
           .join('');
         panel.querySelector('#schedule-live-stage').textContent = data.repair || explanation;
+        const receipts = panel.querySelector('#schedule-receipt-action');
+        if (receipts) receipts.hidden = !campaignScheduleReceiptScope(data);
+        const reuse = panel.querySelector('#schedule-reuse-action');
+        const canReuse = !!WMMCampaignReuse.draft(data);
+        if (reuse) reuse.hidden = !canReuse;
+        const help = panel.querySelector('#schedule-reuse-help');
+        if (help) help.textContent = campaignScheduleReuseHelp(data, canReuse);
       }
     } catch {
       failures++;
@@ -1241,8 +1383,18 @@ async function campaignScheduleAction(node) {
   try {
     const app = state.app,
       data = panel.campaign;
+    if (action === 'campaign-schedule-receipts') {
+      const scope = campaignScheduleReceiptScope(data);
+      if (!scope) throw new Error('This batch no longer has an available campaign receipt link.');
+      return await campaignStatus(scope, null, node);
+    }
     if (action === 'campaign-schedule-report')
       return WMMPageReports.openReport(campaignScheduleReport(data), window);
+    if (action === 'campaign-schedule-reuse') {
+      const reuse = WMMCampaignReuse.draft(data);
+      if (!reuse) throw new Error('Check delivery receipts before reusing this batch.');
+      return await campaignOpen(panel, null, reuse);
+    }
     if (action === 'campaign-schedule-activate') {
       await api('/api/apps/' + app + '/campaigns/schedule-activate', {
         batch_id: data.summary.batch_id,
@@ -1277,6 +1429,7 @@ export {
   campaignReviewMarkup,
   campaignSubmit,
   campaignStatus,
+  campaignScopeReference,
   campaignAction,
   campaignWatch,
   campaignReport,

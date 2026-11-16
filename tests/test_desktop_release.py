@@ -1,5 +1,6 @@
 """Synthetic release protocol tests. No builds, credentials or network calls."""
 
+import hashlib
 import importlib.util
 import io
 import json
@@ -115,6 +116,31 @@ class ReleaseTests(unittest.TestCase):
                     )
                 )
             )
+            (self.folder / ("wmm-release-sbom-" + platform + ".cdx.json")).write_text(
+                json.dumps(
+                    dict(
+                        bomFormat="CycloneDX",
+                        specVersion="1.5",
+                        version=1,
+                        metadata=dict(
+                            component=dict(
+                                type="application",
+                                name="wmm",
+                                version=SHA,
+                                properties=[
+                                    dict(name="wmm:platform", value=platform),
+                                    dict(name="wmm:inventory_scope", value="shipped_components"),
+                                    dict(
+                                        name="wmm:ip_inventory_sha256",
+                                        value=hashlib.sha256(b"inventory").hexdigest(),
+                                    ),
+                                ],
+                            )
+                        ),
+                        components=[dict(type="library", name="example", version="1")],
+                    )
+                )
+            )
 
     def test_receipt_rejects_same_commit_proof_from_different_executable(self):
         proof = self.folder / "windows-fresh" / "evidence.json"
@@ -134,7 +160,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_both_passed_assets_and_manifest(self):
         paths = release.validate_assets(self.folder, SHA)
-        self.assertEqual(len(paths), 7)
+        self.assertEqual(len(paths), 9)
         manifest = (self.folder / "SHA256SUMS.txt").read_text()
         for name in release.ASSETS.values():
             self.assertIn(release.digest(self.folder / name) + "  " + name, manifest)
@@ -238,14 +264,29 @@ class ReleaseTests(unittest.TestCase):
             with self.subTest(thumbprint=thumbprint, timestamp=timestamp), self.assertRaises(ValueError):
                 release.validate_signing_config(thumbprint, timestamp)
 
-    def test_unsigned_preview_10_is_explicit_and_scoped(self):
-        with patch.dict(os.environ, WMM_UNSIGNED_WINDOWS_PREVIEW10="true"):
-            self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.10"))
-            with self.assertRaisesRegex(ValueError, "limited to Preview 10"):
-                release.windows_release_notice(self.folder, "v0.1.0-preview.11")
+    def test_unsigned_preview_11_is_explicit_and_scoped(self) -> None:
+        with patch.dict(os.environ, WMM_UNSIGNED_WINDOWS_PREVIEW11="true"):
+            self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11"))
+            self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11.1"))
+            self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11.1.1"))
+            self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11.1.2"))
+            self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11.1.3"))
+            self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11.1.4"))
+            for tag in (
+                "v0.1.0-preview.10",
+                "v0.1.0-preview.11.1.5",
+                "v0.1.0-preview.11.2",
+                "v0.1.0-preview.12",
+                "v0.1.0",
+            ):
+                with (
+                    self.subTest(tag=tag),
+                    self.assertRaisesRegex(ValueError, "limited to the explicitly listed Preview 11"),
+                ):
+                    release.windows_release_notice(self.folder, tag)
             self.mark_signed_fixture()
             with self.assertRaisesRegex(ValueError, "unsigned Windows lifecycle receipt"):
-                release.windows_release_notice(self.folder, "v0.1.0-preview.10")
+                release.windows_release_notice(self.folder, "v0.1.0-preview.11")
 
     def test_signed_release_requires_exact_publisher_and_bytes(self):
         with self.assertRaisesRegex(ValueError, "Configure"):
@@ -360,7 +401,7 @@ class ReleaseTests(unittest.TestCase):
             patch.object(release, "urlopen", download),
         ):
             release.publish(self.folder, SHA, TAG)
-        self.assertEqual(len(urls), 9)
+        self.assertEqual(len(urls), 11)
         self.assertTrue(all(url.startswith("https://github.com/zrk222/WMM/releases/download/") for url in urls))
         self.assertTrue(any(c[:2] == ("release", "edit") for c in self.calls))
 

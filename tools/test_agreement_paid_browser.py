@@ -88,7 +88,9 @@ def run(browser, width):
             "Page for posts Facebook Page 123 · paid promotion Meta ad account 456",
             "Scope destination Meta ad account 456",
             "Per-campaign media cap 90 minor CAD",
-            "maximum total media commitment 100 minor CAD; held 80",
+            "maximum total media commitment 100 minor CAD (approved ceiling)",
+            "Held by this approval: 80 minor CAD",
+            "Other commitments on the same Meta ad account and in the same currency",
             "Exact approved content, rights and targeting hashes",
             "Approved content fingerprints:",
             "Approved rights fingerprints:",
@@ -133,6 +135,8 @@ def run(browser, width):
         report = report_info.value
         expect(report.locator("body")).to_contain_text("Combined automation agreement")
         expect(report.locator("body")).to_contain_text("Maximum total media commitment 100 minor CAD")
+        expect(report.locator("body")).to_contain_text("Held by this approval")
+        expect(report.locator("body")).to_contain_text("Other commitments on the same Meta ad account")
         expected_padding = "20px" if width <= 600 else "32px"
         report.wait_for_function(
             "(padding) => getComputedStyle(document.body).paddingLeft === padding",

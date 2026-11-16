@@ -4,17 +4,17 @@ import secrets
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from urllib.parse import parse_qs, urlsplit
 
 from .campaign_execution import saved_pause_receipt, scope_view
-from .campaign_metric_definitions import definitions, historical_measurement, object_data
+from .campaign_metric_definitions import definitions, historical_measurement, joined_outcome_advice, object_data
 from .campaign_monitor import actor, last_observation, whole
 from .campaign_report_pause import pause_guidance
 from .common import Invalid, canonical, digest, identifier, iso_time, now, uid
 from .db import connection
+from .evidence_gate import has_campaign_tag
 from .experiments import lookup as lookup_experiment
 from .first_party_outcomes import normalized_batch
-from .first_party_receipts import HASH, for_campaign, primary_outcome, retain
+from .first_party_receipts import HASH, for_campaign, primary_outcome, require_first_party_plan, retain
 from .ios_reports import snapshot
 from .metrics import KPI_GAPS
 from .operation_authority import bound_owner, protected, store_identity
@@ -384,8 +384,16 @@ def build(db, store, app_id, owner, chosen):
         value["delivery_evidence"] = matched_post(
             db, app_id, chosen["scope_id"], approved, value["first_party_outcomes"]
         )
+        value["joined_outcome_advice"] = joined_outcome_advice(
+            value["delivery_evidence"], value["first_party_outcomes"]["report"]
+        )
     value["next_action"] = next_action(
-        campaign, monitor_view, experiment, value.get("delivery_evidence"), value.get("primary_outcome")
+        campaign,
+        monitor_view,
+        experiment,
+        value.get("delivery_evidence"),
+        value.get("primary_outcome"),
+        value.get("joined_outcome_advice"),
     )
     value["source_hash"] = digest(
         dict(
@@ -467,17 +475,7 @@ def matched_post(db, app_id, scope_id, approved, outcome):
     )
 
 
-def has_campaign_tag(url: object, campaign: str) -> bool:
-    """Read retained destination evidence without fetching or exposing its URL."""
-    if not isinstance(url, str) or len(url) > 4096:
-        return False
-    try:
-        return campaign in parse_qs(urlsplit(url).query, max_num_fields=256).get("utm_campaign", [])
-    except ValueError:
-        return False
-
-
-def next_action(campaign, monitor, experiment, delivery=None, outcome=None):
+def next_action(campaign, monitor, experiment, delivery=None, outcome=None, advice=None):
     if guidance := pause_guidance(campaign["receipts"]):
         return guidance
     uncertain = ("UNKNOWN", "DISPATCHING", "ACKNOWLEDGED", "VERIFYING")
@@ -486,6 +484,11 @@ def next_action(campaign, monitor, experiment, delivery=None, outcome=None):
     observation = monitor["last_observation"]
     if observation and observation.get("status") == "BLOCKED":
         return "Inspect the blocked monitor and reconcile its saved campaign receipts; do not replay mutations."
+    if advice and not experiment:
+        guidance = advice["next_action"]
+        if _historical(campaign):
+            return guidance + " This report does not renew expired or OFF execution authority."
+        return guidance
     if _historical(campaign):
         guidance = historical_measurement(campaign, delivery, outcome)
         return guidance + " This historical report does not renew expired or OFF execution authority."
@@ -591,9 +594,7 @@ class Reports:
                 raise Invalid("Report summary ownership changed")
             if scope["status"] != "ACTIVE":
                 raise Invalid("Approve a measurement plan before importing campaign outcomes")
-            plan = summary.get("measurement_plan")
-            if not isinstance(plan, dict):
-                raise Invalid("Approve a measurement plan before importing campaign outcomes")
+            plan = require_first_party_plan(summary.get("measurement_plan"))
         return retain(
             self.store.path,
             app_id=app_id,

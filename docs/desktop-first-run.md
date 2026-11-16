@@ -81,6 +81,20 @@ Missing measurements stay unknown. Growth and time savings are not guaranteed.
   work, you approve a specific publish, and only a connected source can show
   what happened.
 
+## Check what you need for this goal
+
+- **Find a useful marketing angle** → **Check your research sources** opens
+  this app’s saved source library and its add or import options.
+- **Produce or revise a video** → **Check video tools** shows the saved
+  local renderer state and how to prepare a first brief and approved media.
+- **Understand app results** → **Check what you can measure** opens the
+  app’s saved analytics and the next useful evidence step.
+
+You can inspect these local checks before setting up an agent. Use
+**Advanced readiness options → Check managed automation** when you want to
+review WMM’s agent and account setup. That check does not issue authority.
+Missing measurements stay unknown. Provider access still needs the right account.
+
 ## When you are ready to run an approved campaign
 
 1. In **Set your goal**, choose **Run an approved campaign**, then

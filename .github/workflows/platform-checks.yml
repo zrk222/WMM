@@ -5,8 +5,13 @@
     "pull_request": {
       "paths": [
         "ios/**",
-        "mission_control/**",
+        "mission_control/**/*.py",
+        "mission_control/migrations/**",
         "package/**",
+        "codemagic.yaml",
+        "specs/ios-client.md",
+        "plans/ios-client.md",
+        "tests/ios_acceptance.md",
         "tools/check_platform_receipts.py",
         "tests/test_platform_receipts.py",
         ".github/workflows/platform-checks.yml"

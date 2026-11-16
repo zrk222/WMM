@@ -1,12 +1,15 @@
 """Single-use official consent handoffs, bounded state and safe cancellation."""
 
-import json, time, hashlib
+import hashlib
+import json
+import time
+
 from .common import Invalid, canonical, now, uid
 from .db import connection
-from .social_contract import provider_id, reference, opaque
-from .social_auth import fresh_state, authorization
-from .social_setup import Setup
+from .social_auth import authorization, fresh_state
+from .social_contract import callback, opaque, provider_id, reference
 from .social_secrets import Secrets, queue
+from .social_setup import Setup
 
 
 def decoded(row):
@@ -39,10 +42,12 @@ def public(row):
 
 
 class Flows:
-    def __init__(self, store, port=8765):
+    def __init__(self, store, port=8765, *, require_relay_port=False):
         self.store = store
+        self.port = port
         self.setup = Setup(store, port)
         self.secrets = Secrets(store)
+        self.require_relay_port = require_relay_port
 
     def get(self, app_id, identity):
         self.store.app(app_id)
@@ -57,6 +62,17 @@ class Flows:
         config = self.setup.get(app_id, provider)
         if type(version) is not int or version != config["version"]:
             raise Invalid("Provider setup changed; reload before official login")
+        direct = callback(provider, config["data"].get("native_enabled", False), self.port)
+        if direct is not None and config["data"]["redirect_uri"] != direct:
+            raise Invalid(
+                f"This provider's saved callback does not match the current WMM address. "
+                f"Register {direct} with the provider, then open Edit setup in WMM and save it before connecting."
+            )
+        if self.require_relay_port and self.port != 8765 and direct is None:
+            raise Invalid(
+                "This login returns to WMM on local port 8765. Free that port, then reopen WMM and connect again. "
+                "Your saved work and connections are preserved."
+            )
         state, hashed, verifier = fresh_state()
         ref = self.secrets.stage(app_id, provider, {"verifier": verifier})
         identity = uid()

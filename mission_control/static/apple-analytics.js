@@ -87,6 +87,58 @@
     return Number.isNaN(d.getTime()) ? 'Not recorded' : d.toLocaleString();
   }
   const canRead = (data) => data?.connection?.status === 'CONFIGURED_UNVERIFIED';
+  const detailedName = 'App Downloads Detailed';
+  function inventoryNextStep(data) {
+    if (data.connection?.status === 'RECONNECT_REQUIRED')
+      return 'Reconnect the App Store Connect key for this app, then read Apple inventory again.';
+    if (data.connection?.status === 'PROTECTED_STORAGE_UNAVAILABLE')
+      return 'Unlock protected storage on this host, then read Apple inventory again.';
+    if (!data.connection) return 'Connect App Store Connect for this app and read its inventory.';
+    switch (data.inventory?.status) {
+      case 'REPORT_SETUP_REQUIRED':
+        return 'Apple did not return an active report stream. Ask an App Store Connect Admin to start ongoing reporting for this app. Keep your existing Sales and Reports key in WMM, then read Apple inventory again.';
+      case 'REQUEST_INVENTORY_PARTIAL':
+        return 'Apple returned an incomplete list of report requests. Read Apple inventory again before deciding whether setup is needed.';
+      case 'WAITING_FOR_REPORTS':
+        return 'Apple showed an active report stream with no available files in the saved inventory. First reports usually take 24–48 hours after setup. Read Apple inventory later. No file means the download count is unknown.';
+      default:
+        return '';
+    }
+  }
+  function inventoryGuidance(data) {
+    const next = inventoryNextStep(data);
+    if (!next) return '';
+    const docs =
+      canRead(data) && data.inventory?.status === 'REPORT_SETUP_REQUIRED'
+        ? ' <a href="https://developer.apple.com/help/app-store-connect-analytics/overview/analytics-reports-api" target="_blank" rel="noopener noreferrer">Apple’s report setup instructions (opens in a new tab)</a>.'
+        : '';
+    return `<p><strong>Next step:</strong> ${esc(next)}${docs}</p>`;
+  }
+  function campaignForm(data) {
+    const report = data.reports?.find((r) => r.name === detailedName && r.coverage === 'COMPLETE');
+    if (!report)
+      return '<p>For campaign downloads, generate the Apple campaign link in App Store Connect and refresh the inventory until App Downloads Detailed is available.</p>';
+    const days = (report.daily || []).map((day) => day.processing_date).sort();
+    const latest = days.at(-1);
+    const recommended = days.find((day) => Date.parse(latest) - Date.parse(day) <= 6 * 86400000);
+    const collect =
+      canRead(data) && data.inventory?.job_id && latest
+        ? `<p id="apple-campaign-processing-note">Choose up to 31 Apple file processing days. Files may include earlier download dates or corrections.</p>
+<div class="field"><label for="apple-campaign-file-start">File processing start</label><input id="apple-campaign-file-start" name="file_start" type="date" value="${esc(recommended)}" min="${esc(days[0])}" max="${esc(latest)}" aria-describedby="apple-campaign-processing-note"></div>
+<div class="field"><label for="apple-campaign-file-end">File processing end (included)</label><input id="apple-campaign-file-end" name="file_end" type="date" value="${esc(latest)}" min="${esc(days[0])}" max="${esc(latest)}"></div>
+<button class="button outline" type="submit" value="collect" formnovalidate>Collect Detailed files</button>`
+        : '<p>No daily Detailed file is ready to collect with this connection.</p>';
+    return `<details><summary>Measure App Store campaign downloads</summary><p>Use the link Apple generated for this app. Apple may suppress low-volume results. First-time downloads are not website sessions or first opens.</p><form id="apple-campaign-form"><div class="field"><label for="apple-campaign-link">Apple campaign link</label><input id="apple-campaign-link" name="link" type="url" required maxlength="2048"></div>${collect}<div class="field"><label for="apple-campaign-territory">Storefront country code (two letters)</label><input id="apple-campaign-territory" name="territory" maxlength="2" pattern="[A-Za-z]{2}" placeholder="CA" required></div><div class="field"><label for="apple-campaign-start">Start date</label><input id="apple-campaign-start" name="start" type="date" required></div><div class="field"><label for="apple-campaign-end">End date (included)</label><input id="apple-campaign-end" name="end" type="date" required></div><button type="submit" class="button" value="review">Review saved downloads</button></form><div id="apple-campaign-results"></div></details>`;
+  }
+  function campaignResults(result) {
+    const rows = result.rows
+      .map(
+        (row) =>
+          `<tr><td>${esc(row.date)}</td><td>${esc(row.first_time_downloads ?? 'Unknown')}</td><td>${esc(row.source_sha256 ?? 'No saved file')}</td></tr>`,
+      )
+      .join('');
+    return `<h3>Apple-reported first-time downloads · ${esc(result.territory)}</h3><div class="table-wrap"><table class="result-table"><thead><tr><th scope="col">Date</th><th scope="col">Reported downloads</th><th scope="col">Source fingerprint</th></tr></thead><tbody>${rows}</tbody></table></div><p>${esc(result.next_action)}</p>`;
+  }
   function details(data) {
     const s = data.schedule,
       reports = data.reports || [],
@@ -130,7 +182,7 @@
             data.connection ? 'Reconnect App Store Connect' : 'Set up App Store connection',
             'setup',
           );
-    return `<p>Apple source: ${esc(source)}</p><p>Inventory: ${esc(data.inventory ? friendly(data.inventory.status) : 'Not read')} · observed ${esc(time(data.inventory?.observed_at))}.</p>${rows ? `<ul>${rows}</ul>` : '<p>No current report inventory is available.</p>'}<p>Report instance counts describe available files, not downloads, revenue, retention or other metrics. Missing metrics remain unknown.</p>${state}${controls}${impressions}${button('Refresh saved status', 'refresh')}${canRead(data) ? form : ''}${s?.enabled ? button('Pause refresh', 'pause') : ''}${button('Report / Save PDF', 'report')}<p>Scheduled reads run only while the WMM worker is running. Pausing stops future scheduled reads; it does not remove saved evidence.</p>`;
+    return `<p>Apple source: ${esc(source)}</p><p>Inventory: ${esc(data.inventory ? friendly(data.inventory.status) : 'Not read')} · observed ${esc(time(data.inventory?.observed_at))}.</p>${inventoryGuidance(data)}${rows ? `<ul>${rows}</ul>` : '<p>No current report inventory is available.</p>'}<p>Report instance counts describe available files, not downloads, revenue, retention or other metrics. Missing metrics remain unknown.</p>${state}${controls}${impressions}${button('Refresh saved status', 'refresh')}${canRead(data) ? form : ''}${campaignForm(data)}${s?.enabled ? button('Pause refresh', 'pause') : ''}${button('Report / Save PDF', 'report')}<p>Scheduled reads run only while the WMM worker is running. Pausing stops future scheduled reads; it does not remove saved evidence.</p>`;
   }
   function validate(t, data) {
     if (
@@ -202,7 +254,8 @@
   }
   function report(data, state, pages) {
     const base = pages.model(state),
-      s = data.schedule;
+      s = data.schedule,
+      next = inventoryNextStep(data);
     return {
       ...base,
       title: 'Apple analytics inventory',
@@ -217,6 +270,7 @@
       notes: [
         'Inventory observed: ' + (data.inventory?.observed_at || 'Not recorded'),
         'Inventory state: ' + friendly(data.inventory?.status),
+        ...(next ? ['Next step: ' + next] : []),
         'Refresh state: ' + friendly(s?.status),
         'Latest job: ' + (s?.last_job || 'Not recorded') + ' · ' + friendly(s?.last_job_status),
         'Consecutive failures: ' + (s?.failures ?? 'Not recorded'),
@@ -294,7 +348,61 @@
       busy(t, false);
     }
   }
-  async function submit(form, d) {
+  async function submitCampaign(form, d, mode) {
+    const t = active;
+    if (!t || !current(t) || t.pending || !form.isConnected || !t.data) return;
+    const report = t.data.reports.find((r) => r.name === detailedName && r.coverage === 'COMPLETE');
+    const values = new d.FormData(form),
+      collecting = mode === 'collect';
+    const link = String(values.get('link') || '').trim();
+    if (!report || !link || (collecting && (!canRead(t.data) || !t.data.inventory?.job_id))) {
+      fail(t, Error('Choose this app’s Apple campaign link and an available Detailed report.'));
+      return;
+    }
+    const body = { manifest_version: t.scope.version, report_id: report.id, link };
+    if (collecting) {
+      body.inventory_id = t.data.inventory.job_id;
+      body.start = values.get('file_start');
+      body.end = values.get('file_end');
+    } else {
+      body.territory = String(values.get('territory') || '')
+        .trim()
+        .toUpperCase();
+      body.start = values.get('start');
+      body.end = values.get('end');
+    }
+    busy(t, true);
+    try {
+      const path = collecting ? 'campaign-collect-window' : 'campaign-results';
+      const result = await d.api(
+        '/api/apps/' + encodeURIComponent(t.scope.app) + '/apple-analytics/' + path,
+        body,
+      );
+      if (!current(t)) return;
+      if (result.app_id !== t.scope.app) throw Error('App changed. Reopen Apple analytics.');
+      if (collecting) {
+        const failed = result.jobs.filter((job) =>
+          ['FAILED', 'BLOCKED', 'CANCELLED'].includes(job.status),
+        ).length;
+        t.node.querySelector('#apple-analytics-status').textContent =
+          result.jobs.length +
+          ' Apple file reads queued or already recorded. Check Activity, then review saved downloads.' +
+          (failed
+            ? ' Refresh Apple inventory before retrying the ' + failed + ' unsuccessful reads.'
+            : '');
+      } else {
+        t.node.querySelector('#apple-campaign-results').innerHTML = campaignResults(result);
+        t.node.querySelector('#apple-analytics-status').textContent =
+          'Saved Apple campaign results reviewed.';
+      }
+    } catch (error) {
+      fail(t, error);
+    } finally {
+      busy(t, false);
+    }
+  }
+  async function submit(form, d, mode) {
+    if (form.id === 'apple-campaign-form') return submitCampaign(form, d, mode);
     const t = active;
     if (
       !t ||
@@ -367,5 +475,6 @@
     action,
     submit,
     impressionsResult,
+    campaignResults,
   };
 });

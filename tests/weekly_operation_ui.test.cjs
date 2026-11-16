@@ -84,6 +84,91 @@ test('schedule recovery opens only the reviewed batch and ignores refreshed iden
     assert.equal(calls.length, scenario === 'changed owner' || scenario === 'changed view' ? 1 : 2);
   }
 });
+test('store growth recovery checks the exact owner card and app revision', async () => {
+  const begin = src.indexOf('async function weeklyAction(');
+  const finish = src.indexOf('function ', begin + 10);
+  const card = {
+    id: 'store-growth-card',
+    app_id: 'one',
+    category: 'store_growth',
+    resolution_route: 'connections',
+    owner_only: true,
+    owner_principal: 'owner',
+    source_receipt: { manifest_version: 4, source_hash: 'research-and-inventory' },
+    action: { resource_id: 'growth-decision' },
+  };
+  assert.equal(c.recoveryLabel(card), 'Open Apple analytics setup');
+  for (const scenario of [
+    'current',
+    'forged',
+    'no access',
+    'revision changed',
+    'role changed',
+    'same revision, evidence changed',
+  ]) {
+    const calls = [];
+    const state = {
+      app: 'one',
+      view: 'weekly',
+      boot: { apps: [{ id: 'one' }] },
+      workspace: {
+        identity: { principal: scenario === 'no access' ? 'other' : 'owner' },
+        app: { version: 4 },
+        access: { members: [{ principal: 'owner', status: 'ACTIVE', role: 'OWNER' }] },
+      },
+      weeklyReview: { owner_operations_principal: 'owner', exceptions: [card] },
+    };
+    const context = {
+      state,
+      $: () => ({}),
+      currentWorkspace: () => true,
+      visibleWeeklyExceptions: c.visibleWeeklyExceptions,
+      refresh: async () => {
+        calls.push('refresh');
+        if (scenario === 'revision changed') state.workspace.app.version += 1;
+        if (scenario === 'role changed') state.workspace.access.members[0].role = 'MAKER';
+      },
+      api: async (path) => {
+        calls.push(path);
+        return {
+          owner_operations_principal: 'owner',
+          exceptions: [
+            scenario === 'same revision, evidence changed'
+              ? { ...card, source_receipt: { ...card.source_receipt, source_hash: 'new-research' } }
+              : card,
+          ],
+        };
+      },
+      guidedNavigate: (tool, anchor) => calls.push([tool, anchor]),
+    };
+    vm.createContext(context);
+    vm.runInContext(src.slice(begin, finish), context);
+    const action = context.weeklyAction({
+      dataset: {
+        action: 'weekly-recover',
+        app: 'one',
+        tool: 'connections',
+        category: 'store_growth',
+        resource: scenario === 'forged' ? 'wrong' : card.action.resource_id,
+      },
+    });
+    if (scenario === 'current') {
+      await action;
+      assert.deepEqual(calls, [
+        'refresh',
+        '/api/weekly-review?offset=0',
+        ['connections', '[aria-label="Apple analytics"]'],
+      ]);
+    } else {
+      await assert.rejects(action, /Refresh|refresh/);
+      const expected = ['revision changed', 'role changed'].includes(scenario) ? ['refresh'] : [];
+      if (scenario === 'same revision, evidence changed')
+        expected.push('refresh', '/api/weekly-review?offset=0');
+      assert.deepEqual(calls, expected);
+    }
+  }
+});
+
 test('cached owner operations require matching response and current card principal', () => {
   const value = {
     owner_operations_principal: 'owner',

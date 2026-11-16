@@ -19,6 +19,42 @@ EVIDENCE_ROLES = ("demand", "competitive_gap", "app_proof")
 SOURCE_MAX_AGE = timedelta(days=90)
 
 
+def next_intent_action(missing: list[str], platform: str) -> tuple[str, str]:
+    """Choose one actionable next step without claiming demand or granting authority."""
+    if "current_listing" in missing:
+        return "REFRESH_LISTING", "Capture the current localized listing and attach its date and storefront."
+    if "app_proof" in missing:
+        return "VERIFY_PRODUCT_FIT", "Attach a current product screen or tested flow that proves the promised use case."
+    if "demand" in missing:
+        if platform == "iOS":
+            return (
+                "COLLECT_QUERY_EVIDENCE",
+                "Record this query in the selected storefront or read its Apple Ads search-term report. "
+                "Label observed organic position and paid queries separately; neither is total search volume.",
+            )
+        return (
+            "COLLECT_QUERY_EVIDENCE",
+            "Record the exact queries in the selected storefront and attach the dated source. "
+            "Label observed position separately from any paid or inferred demand.",
+        )
+    if "competitive_gap" in missing:
+        return (
+            "COMPARE_LISTINGS",
+            "Compare the first screen and listing promise with a current alternative serving the same intent.",
+        )
+    if "distinct_evidence" in missing:
+        return (
+            "SEPARATE_EVIDENCE",
+            "Attach distinct evidence for query demand, competitor positioning, and proof in this app.",
+        )
+    if "test_hypothesis" in missing:
+        return "DRAFT_ONE_TEST", "Draft one change and state which measurable user action it is intended to improve."
+    return (
+        "REVIEW_ONE_TEST",
+        "Review the proposed change and freeze one control, metric, sample and stop rule before seeking approval.",
+    )
+
+
 def _phrase(value):
     return " ".join(re.findall(r"[^\W_]+", required(value, "Phrase", MAX_PHRASE).casefold(), re.UNICODE))
 
@@ -302,15 +338,15 @@ def _intent_opportunities(snapshot, as_of):
             missing.append("current_listing")
         if cluster["test"] is None:
             missing.append("test_hypothesis")
+        action_code, action_text = next_intent_action(missing, snapshot["platform"])
         opportunities.append(
             dict(
                 cluster,
                 phrases=[phrases[ref] for ref in cluster["phrase_ids"]],
                 status="COLLECT_EVIDENCE" if missing else "REVIEW_TEST",
                 missing=missing,
-                next_action="Fill the evidence gaps before choosing a test."
-                if missing
-                else "Review the sources and freeze a control, metric, sample and stopping rule before launching.",
+                next_action_code=action_code,
+                next_action=action_text,
                 evidence_status="OPERATOR_SUPPLIED",
                 organic_demand_verified=False,
             )
@@ -485,6 +521,6 @@ def agent_contract():
                 }
             ]
         },
-        "intent_cluster_guidance": "Supply fresh, distinct evidence for each role. Separate actual search observations from language hypotheses. An empty role stays unknown. REVIEW_TEST is advisory and does not grant approval.",
+        "intent_cluster_guidance": "Supply fresh, distinct evidence for each role. Separate actual search observations from language hypotheses. An empty role stays unknown. Follow the next_action_code and next_action on each opportunity. REVIEW_TEST is advisory and does not grant approval.",
         "no_network": True,
     }

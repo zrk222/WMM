@@ -9,9 +9,13 @@ import socket
 import ssl
 import threading
 import time
+from io import BufferedReader
+from typing import cast
 from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
-from .common import Invalid
+
 from .aeo_tls import trust_context
+from .apple_campaign_links import campaign_parts
+from .common import Invalid
 
 AGENT = "AppGrowthMissionControl"
 DNS_SLOTS = threading.BoundedSemaphore(4)
@@ -89,9 +93,11 @@ def public_url(value, *, allow_tracking=False):
     """Canonical public origin and path, with an opt-in for exact UTM queries."""
     try:
         u = url_parts(value, allow_tracking=allow_tracking)
-        query = tracking_query(u.query) if u.query else ""
+        query = u.query if u.query and campaign_parts(u) is not None else tracking_query(u.query) if u.query else ""
         return urlunsplit(("https", hostname(u.hostname), url_path(u.path), query, ""))
-    except (ValueError, AttributeError, UnicodeError) as exc:
+    except ReadError:
+        raise
+    except (Invalid, ValueError, AttributeError, UnicodeError) as exc:
         raise ReadError("URL_INVALID") from exc
 
 
@@ -200,7 +206,7 @@ class DeadlineResponse(http.client.HTTPResponse):
     def __init__(self, sock, deadline, **kwargs):
         """Keep the standard parser's framing checks and ownership semantics."""
         super().__init__(sock, **kwargs)
-        self.fp = DeadlineFile(self.fp, sock, deadline)
+        self.fp = cast(BufferedReader, DeadlineFile(self.fp, sock, deadline))
 
 
 class PinnedHTTPS(http.client.HTTPConnection):
@@ -210,7 +216,9 @@ class PinnedHTTPS(http.client.HTTPConnection):
         """Bind the checked address, original hostname and shared deadline."""
         super().__init__(host, 443, timeout=remaining(deadline))
         self.ip, self.context, self.deadline = ip, context, deadline
-        self.response_class = lambda sock, **kwargs: DeadlineResponse(sock, self.deadline, **kwargs)
+        self.response_class = cast(
+            type[http.client.HTTPResponse], lambda sock, **kwargs: DeadlineResponse(sock, self.deadline, **kwargs)
+        )
 
     def connect(self):
         """Wrap only the pinned socket, closing it on any handshake failure."""
@@ -347,8 +355,11 @@ class PublicReader:
         target = urlsplit(url)
         if "https://" + target.netloc != initial:
             raise ReadError("REDIRECT_ORIGIN")
-        if target.query != urlsplit(resource["url"]).query:
+        source = urlsplit(resource["url"])
+        if target.query != source.query:
             raise ReadError("REDIRECT_QUERY")
+        if campaign_parts(source) != campaign_parts(target):
+            raise ReadError("REDIRECT_PRODUCT")
         return url
 
 

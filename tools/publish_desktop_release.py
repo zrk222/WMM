@@ -101,6 +101,7 @@ def validate_assets(folder, sha, require_provenance=False):
     folder = Path(folder)
     paths = [folder / name for name in ASSETS.values()]
     paths += [folder / ("sbom-" + platform + ".json") for platform in ASSETS]
+    paths += [folder / ("wmm-release-sbom-" + platform + ".cdx.json") for platform in ASSETS]
     paths += [folder / (platform + ".json") for platform in ASSETS]
     evidence = [folder / name for name in ("release-attestation.sigstore.json", "release-provenance.json")]
     if require_provenance or any(path.exists() or path.is_symlink() for path in evidence):
@@ -153,10 +154,21 @@ def require_windows_signature(folder, expected_thumbprint):
         raise ValueError("Missing verified Windows installer and uninstaller publisher signatures")
 
 
+def validate_unsigned_preview(tag: str) -> None:
+    if tag not in {
+        "v0.1.0-preview.11",
+        "v0.1.0-preview.11.1",
+        "v0.1.0-preview.11.1.1",
+        "v0.1.0-preview.11.1.2",
+        "v0.1.0-preview.11.1.3",
+        "v0.1.0-preview.11.1.4",
+    }:
+        raise ValueError("Unsigned Windows publication is limited to the explicitly listed Preview 11 tags")
+
+
 def windows_release_notice(folder, tag):
-    if os.environ.get("WMM_UNSIGNED_WINDOWS_PREVIEW10") == "true":
-        if tag != "v0.1.0-preview.10":
-            raise ValueError("Unsigned Windows publication is limited to Preview 10")
+    if os.environ.get("WMM_UNSIGNED_WINDOWS_PREVIEW11") == "true":
+        validate_unsigned_preview(tag)
         lifecycle = json.loads((Path(folder) / "Windows.json").read_text(encoding="utf-8"))["lifecycle"]
         if lifecycle.get("publisher_signature") is not None:
             raise ValueError("Expected an unsigned Windows lifecycle receipt")
@@ -182,9 +194,10 @@ def publish(folder, sha, tag):
         raise ValueError("Existing release/tag is immutable; choose a new version")
     notes = (
         "Windows and Ubuntu amd64 preview installers. No system Python required. "
-        "SHA256SUMS.txt covers the eight other release assets. sbom-Windows.json and sbom-Linux.json list the "
-        "build-environment packages; this is not a runtime file inventory. "
-        "release-attestation.sigstore.json contains the GitHub provenance bundle for the six payloads; "
+        "SHA256SUMS.txt covers the ten other release assets. sbom-Windows.json and sbom-Linux.json list the "
+        "build-environment packages; wmm-release-sbom-Windows.cdx.json and "
+        "wmm-release-sbom-Linux.cdx.json list the shipped component inventory. "
+        "release-attestation.sigstore.json contains the GitHub provenance bundle for the eight payloads; "
         "release-provenance.json retains the source-bound verification results. "
         "Neither the checksum manifest nor the provenance receipt is itself attested. "
         + windows_notice

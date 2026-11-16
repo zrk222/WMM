@@ -18,8 +18,10 @@ and attested files. The publication job rechecks and uploads those exact files.
 Pull requests cannot trigger publication.
 
 The publisher creates a draft prerelease, uploads the two native installers,
-their source-bound lifecycle receipts, one build-environment SBOM per platform
-(`sbom-Windows.json`, `sbom-Linux.json`) and SHA256SUMS.txt, checks the draft
+their source-bound lifecycle receipts, one build-environment SBOM and one
+shipped-component SBOM per platform (`sbom-Windows.json`, `sbom-Linux.json`,
+`wmm-release-sbom-Windows.cdx.json`, `wmm-release-sbom-Linux.cdx.json`) and
+SHA256SUMS.txt, checks the draft
 asset names/sizes, then publishes. It downloads the public assets anonymously over
 normal verified HTTPS and compares full SHA256 hashes. Retain the successful run
 URL and publisher readback as release evidence. CI logs and source archives alone
@@ -33,13 +35,21 @@ Windows runner. Configure the public certificate thumbprint (uppercase) as
 `WMM_WINDOWS_SIGNER_THUMBPRINT` and its HTTPS timestamp endpoint as
 `WMM_WINDOWS_TIMESTAMP_URL`. These settings do not provision a key or certificate.
 The installer and installed uninstaller must pass Windows signature verification
-under that identity before the release can publish. Build-only runs stay unsigned.
+under that identity before the release can publish. Preview 11 and its review patch have a scoped
+unsigned Windows option controlled by the explicit `unsigned_windows_preview11`
+input (off by default), limited to `v0.1.0-preview.11`,
+`v0.1.0-preview.11.1`, `v0.1.0-preview.11.1.1` (Update 1),
+`v0.1.0-preview.11.1.2` (Update 2), `v0.1.0-preview.11.1.3` (Update 3) and
+`v0.1.0-preview.11.1.4` (Update 4).
+Each update has its own checksums and
+attestations. The earlier published tags and assets stay intact.
+Preview 12 and later require signing. Build-only runs stay unsigned.
 Signing does not install trust roots, bypass TLS, or prove human first-use acceptance. The SBOM is a build-environment package inventory, not
 a file-level runtime inventory or a provenance attestation. SHA256SUMS.txt covers
-the eight other release assets.
+the ten other release assets.
 
 Before the publisher creates SHA256SUMS.txt, the pinned GitHub attestation action
-attests the exact six staged payloads. `tools/verify_release_provenance.py` then
+attests the exact eight staged payloads. `tools/verify_release_provenance.py` then
 requires the official `gh attestation verify` result for each payload, constrained
 to repository `zrk222/WMM`, signer workflow
 `zrk222/WMM/.github/workflows/desktop-release.yml`, the exact admitted source SHA,
@@ -47,12 +57,12 @@ and GitHub-hosted runners. Missing or failed results stop publication. The helpe
 rejects missing, empty, linked or extra stage entries and changed bytes during
 verification, then writes `.factory/release-provenance.json` outside the release
 folder. That receipt must upload successfully before the immutable publisher
-runs. After all six payload verifications pass, the exact action-generated bundle is copied as `release-attestation.sigstore.json`, and the complete source-bound verification receipt as `release-provenance.json`. Both are explicit public release assets covered by the checksum manifest. They are not added to the six attestation subjects, and no recursive checksum or receipt attestation is claimed.
+runs. After all eight payload verifications pass, the exact action-generated bundle is copied as `release-attestation.sigstore.json`, and the complete source-bound verification receipt as `release-provenance.json`. Both are explicit public release assets covered by the checksum manifest. They are not added to the eight attestation subjects, and no recursive checksum or receipt attestation is claimed.
 
 The receipt records payload hashes, bundle hash, verifier result counts, full verifier outputs and their hashes;
 it is execution evidence, not a substitute for independently verifying downloaded
 payloads with the [buyer verification commands](VERIFY-RELEASE.md). The checksum
-manifest is created later, covers all eight other assets and is not itself attested. Provenance verification does not substitute for Windows publisher verification.
+manifest is created later, covers all ten other assets and is not itself attested. Provenance verification does not substitute for Windows publisher verification.
 
 ## Installer checks
 

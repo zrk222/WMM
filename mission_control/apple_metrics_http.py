@@ -1,22 +1,33 @@
 """Fresh-owner Apple analytics inventory and schedule controls for one app."""
 
-from datetime import datetime
 import json
+import re
 import secrets
+from datetime import date, datetime, timedelta
+from sqlite3 import Connection
+from typing import Any, NamedTuple
+from urllib.parse import urlsplit
 
-from .apple_analytics import DISCOVERY, DOWNLOADS, REPORTS, identity
+from .aeo_transport import public_url
+from .apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, DOWNLOADS, REPORTS, identity
+from .apple_campaign_links import campaign_parts
 from .apple_metrics_schedule import AppleMetricsSchedules, public_row
+from .apple_metrics_store import read_in_snapshot
 from .common import Invalid, digest, identifier, uid
 from .connection_setup import Connections
 from .db import connection
 from .discovery_http import json_body
 from .managed_media_http import singleton
 from .operation_authority import bound_owner, protected
+from .worker import enqueue_db
 
 FIELDS = {
     "view": set(),
     "inventory": {"manifest_version", "connection_id", "connection_version"},
     "impressions": {"manifest_version", "report_id"},
+    "campaign-collect": {"manifest_version", "report_id", "link", "instance_id"},
+    "campaign-collect-window": {"manifest_version", "report_id", "inventory_id", "link", "start", "end"},
+    "campaign-results": {"manifest_version", "report_id", "link", "territory", "start", "end"},
 }
 INVENTORY_STATES = {
     "REPORT_SETUP_REQUIRED",
@@ -24,6 +35,17 @@ INVENTORY_STATES = {
     "METRIC_DOWNLOAD_REQUIRED",
     "WAITING_FOR_REPORTS",
 }
+MAX_CAMPAIGN_DAYS = 31
+
+
+class AnalyticsSource(NamedTuple):
+    manifest_version: int
+    store_app_id: str | None
+    connection_id: str | None
+    connection_version: int | None
+    connection_hash: str | None
+    inventory_id: str | None
+    report: dict[str, Any] | None
 
 
 def source(db, app_id):
@@ -111,10 +133,27 @@ def inventory(db, app_id, version, store_id, record):
                     return None, []
                 ids.add(report_id)
                 names.add(report["name"])
-                projected.append(
-                    dict(id=report_id, name=report["name"], instance_count=len(instances), coverage=report["coverage"])
+                item: dict[str, Any] = dict(
+                    id=report_id, name=report["name"], instance_count=len(instances), coverage=report["coverage"]
                 )
-            return dict(job_id=identity(row["id"]), status=result["status"], observed_at=timestamp), projected
+                if report["name"] == CAMPAIGN_DOWNLOADS:
+                    item["daily"] = [
+                        dict(id=identity(i["id"]), processing_date=date.fromisoformat(i["processing_date"]).isoformat())
+                        for i in instances
+                        if i.get("granularity") == "DAILY"
+                    ]
+                    if len({i["id"] for i in item["daily"]}) != len(item["daily"]):
+                        return None, []
+                projected.append(item)
+            return (
+                dict(
+                    job_id=identity(row["id"]),
+                    status=result["status"],
+                    observed_at=timestamp,
+                    coverage=result["coverage"],
+                ),
+                projected,
+            )
         except (ValueError, TypeError, AttributeError, KeyError):
             return None, []
     return None, []
@@ -150,7 +189,7 @@ def check_source(
     report_family=DOWNLOADS,
     *,
     readiness_store=None,
-):
+) -> AnalyticsSource:
     """Revalidate all inputs inside the scheduler or queue write transaction."""
     version, store_id, record = source(db, app_id)
     if type(manifest_version) is not int or version != manifest_version:
@@ -165,23 +204,21 @@ def check_source(
     if readiness_store is not None:
         require_connection_ready(readiness_store, app_id, record)
     inventory_id = None
+    selected = None
     if report_id is not None:
         current, reports = inventory(db, app_id, version, store_id, record)
-        if current is None or not any(
-            r["id"] == report_id
-            and r["name"] == report_family
-            and (report_family == DOWNLOADS or r["coverage"] == "COMPLETE")
-            for r in reports
-        ):
+        selected = next((r for r in reports if r["id"] == report_id and r["name"] == report_family), None)
+        if current is None or selected is None or (report_family != DOWNLOADS and selected["coverage"] != "COMPLETE"):
             raise Invalid("Select the current Apple report from this app inventory")
         inventory_id = current["job_id"]
-    return (
+    return AnalyticsSource(
         version,
         store_id,
         record["id"] if record else None,
         record["version"] if record else None,
         record["hash"] if record else None,
         inventory_id,
+        selected,
     )
 
 
@@ -207,11 +244,176 @@ def view(store, app_id):
         )
 
 
+def apple_campaign_read(service: Any, app_id: str, action: str, body: dict[str, Any]) -> dict[str, Any]:
+    """Queue only the selected app's Detailed instance, or read its retained dated rows."""
+    report_id = identity(body["report_id"])
+    if report_id != body["report_id"]:
+        raise Invalid("Select the exact Apple campaign report identity")
+    apple = campaign_parts(urlsplit(public_url(body["link"], allow_tracking=True)))
+    window = action == "campaign-collect-window"
+    collecting = window or action == "campaign-collect"
+
+    def snapshot(db: Connection, readiness: Any = None) -> AnalyticsSource:
+        current = check_source(
+            db,
+            app_id,
+            body["manifest_version"],
+            report_id=report_id,
+            report_family=CAMPAIGN_DOWNLOADS,
+            readiness_store=readiness,
+        )
+        if apple is None or apple[0] != current[1]:
+            raise Invalid("Paste the Apple campaign link for this app's App Store listing")
+        return current
+
+    with connection(service.store.path) as db:
+        db.execute("BEGIN IMMEDIATE" if window else "BEGIN")
+        expected = snapshot(db, service.store if collecting else None)
+        key = dict(
+            app_id=app_id,
+            store_app_id=expected[1],
+            connection_id=expected[2],
+            connection_version=expected[3],
+            report_id=report_id,
+            report_family=CAMPAIGN_DOWNLOADS,
+            granularity="DAILY",
+        )
+        if not collecting:
+            assert apple is not None
+            return apple_campaign_results(db, key, apple[1], body)
+        if window:
+            return queue_campaign_window(service, db, app_id, body, expected)
+        instance = identity(body["instance_id"])
+        if instance != body["instance_id"]:
+            raise Invalid("Select the exact Apple report instance")
+        if not expected.report or not any(i["id"] == instance for i in expected.report.get("daily", [])):
+            raise Invalid("Select an available daily Apple campaign report file")
+
+    def check(db: Any) -> None:
+        if snapshot(db) != expected:
+            raise Invalid("Apple analytics source changed; reload before collecting")
+
+    data = dict(
+        manifest_version=expected[0],
+        connection_id=expected[2],
+        connection_version=expected[3],
+        connection_hash=expected[4],
+        options=dict(
+            operation="analytics_metrics", report_id=report_id, report_family=CAMPAIGN_DOWNLOADS, instance_id=instance
+        ),
+    )
+    job = service.queue(app_id, dict(action="sync", data=data, request_key=uid()), commit_check=check)
+    return dict(job_id=job["id"], status=job["status"])
+
+
+def campaign_dates(body: dict[str, Any], message: str) -> tuple[date, date]:
+    try:
+        start, end = (date.fromisoformat(body[name]) for name in ("start", "end"))
+    except (TypeError, ValueError):
+        raise Invalid(message) from None
+    if (
+        not 0 <= (end - start).days < MAX_CAMPAIGN_DAYS
+        or body["start"] != start.isoformat()
+        or body["end"] != end.isoformat()
+    ):
+        raise Invalid(message)
+    return start, end
+
+
+def queue_campaign_window(
+    service: Any, db: Connection, app_id: str, body: dict[str, Any], expected: AnalyticsSource
+) -> dict[str, Any]:
+    """Queue the shown daily files in one transaction; repeat only failed reads after inventory refresh."""
+    if not expected.report or not expected.inventory_id or body["inventory_id"] != expected.inventory_id:
+        raise Invalid("Apple inventory changed; refresh saved status and review the processing dates")
+    start, end = campaign_dates(body, "Choose up to 31 Apple processing dates")
+    first, last = start.isoformat(), end.isoformat()
+    files = sorted(
+        (i for i in expected.report["daily"] if first <= i["processing_date"] <= last),
+        key=lambda i: (i["processing_date"], i["id"]),
+    )
+    if not files:
+        raise Invalid("No daily Detailed files match these Apple processing dates; refresh saved inventory")
+    if len(files) > MAX_CAMPAIGN_DAYS:
+        raise Invalid("More than 31 files match; choose a shorter Apple processing window")
+    jobs = []
+    inventory_fingerprint = digest(expected.inventory_id)[:24]
+    for file in files:
+        data = dict(
+            manifest_version=expected[0],
+            connection_id=expected[2],
+            connection_version=expected[3],
+            connection_hash=expected[4],
+            options=dict(
+                operation="analytics_metrics",
+                report_id=body["report_id"],
+                report_family=CAMPAIGN_DOWNLOADS,
+                instance_id=file["id"],
+            ),
+        )
+        prefix = "apple-campaign-file:" + digest(data) + ":"
+        request_key = prefix + inventory_fingerprint
+        job = db.execute(
+            "SELECT id,status FROM jobs WHERE app_id=? "
+            "AND (request_key=? OR (request_key GLOB ? AND status IN ('QUEUED','RUNNING','SUCCEEDED'))) "
+            "ORDER BY CASE status WHEN 'SUCCEEDED' THEN 0 WHEN 'RUNNING' THEN 1 WHEN 'QUEUED' THEN 2 ELSE 3 END,id LIMIT 1",
+            (app_id, request_key, prefix + "*"),
+        ).fetchone()
+        if job is None:
+            job = enqueue_db(db, service.store, app_id, "sync", data, request_key)
+        jobs.append(dict(job_id=job["id"], status=job["status"], processing_date=file["processing_date"]))
+    return dict(app_id=app_id, jobs=jobs, external_writes=False)
+
+
+def apple_campaign_results(db: Any, key: dict, token: str, body: dict[str, Any]) -> dict[str, Any]:
+    """Do not sum incomplete days into a campaign total or join to first opens."""
+    territory = body["territory"]
+    start, end = campaign_dates(body, "Choose up to 31 Apple campaign event dates")
+    if not isinstance(territory, str) or not re.fullmatch("[A-Z]{2}", territory):
+        raise Invalid("Choose a storefront and up to 31 calendar days")
+    token_hash = digest(token)
+    observations = []
+    for offset in range((end - start).days + 1):
+        day = (start + timedelta(days=offset)).isoformat()
+        saved = read_in_snapshot(db, dict(key, event_date=day))
+        matches = (
+            [
+                row["count"]
+                for row in saved["instance"]["rows"]
+                if row["type"] == "first_download"
+                and row["dimensions"].get("campaign_sha256") == token_hash
+                and row["dimensions"].get("territory") == territory
+            ]
+            if saved
+            else []
+        )
+        observations.append(
+            dict(
+                date=day,
+                first_time_downloads=sum(matches) if matches else None,
+                source_sha256=digest(saved["instance"]["sources"]) if saved else None,
+            )
+        )
+    return dict(
+        app_id=key["app_id"],
+        territory=territory,
+        campaign_sha256=token_hash,
+        rows=observations,
+        status="APPLE_REPORTED_ROWS"
+        if any(row["first_time_downloads"] is not None for row in observations)
+        else "UNAVAILABLE_OR_SUPPRESSED",
+        next_action="Collect the Detailed files for missing dates or extend the window if Apple suppresses low-volume rows.",
+        external_writes=False,
+    )
+
+
 def dispatch(service, app_id, action, body):
     if not isinstance(body, dict):
         raise Invalid("Use the exact Apple analytics fields")
     if action in FIELDS and set(body) != FIELDS[action]:
         raise Invalid("Use the exact Apple analytics fields")
+    if action in {"campaign-collect", "campaign-collect-window", "campaign-results"}:
+        return apple_campaign_read(service, app_id, action, body)
     if action == "view":
         return view(service.store, app_id)
     if action == "inventory":
@@ -314,7 +516,7 @@ def post(handler, parts):
         len(parts) != 5
         or parts[:2] != ["api", "apps"]
         or parts[3] != "apple-analytics"
-        or parts[4] not in {"view", "inventory", "impressions", "schedule"}
+        or parts[4] not in FIELDS.keys() | {"schedule"}
     ):
         raise Invalid("Use the exact Apple analytics address")
     identifier(parts[2])

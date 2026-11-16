@@ -6,7 +6,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from playwright.sync_api import Browser, expect, sync_playwright
+from playwright.sync_api import Browser, Page, Route, expect, sync_playwright
+from test_goal_journey_browser import rendered_page
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -47,6 +48,74 @@ def saved_review_monitor(path: str | Path, principal: str) -> str:
             ),
         )
     return monitor
+
+
+def verify_changed_schedule(page: Page, width: int, out: Path) -> None:
+    """Send changed, correctly hashed copy to the real local schedule route."""
+    from mission_control.common import digest
+
+    address = "**/api/apps/sample-one/campaigns/schedule-prepare"
+    form = page.locator("#campaign-schedule-form")
+    submit = form.get_by_role("button", name="Review exact scheduled batch", exact=True)
+    text = "Synthetic draft after the approval"
+
+    def change_copy(route: Route) -> None:
+        body = route.request.post_data_json
+        assert isinstance(body, dict)
+        item = body["items"][0]["request"]
+        item.update(message=text, content_hash=digest({"message": text, "link": item["link"]}))
+        route.continue_(post_data=json.dumps(body))
+
+    page.route(address, change_copy, times=1)
+    with page.expect_response(address) as rejected:
+        submit.press("Enter")
+    assert rejected.value.status == 403
+    alert = form.get_by_role("alert")
+    expect(alert).to_contain_text("The saved campaign approval does not cover this post")
+    expect(alert).to_contain_text("review the exact post and its rights")
+    expect(alert).not_to_contain_text(text)
+    expect(alert).to_be_focused()
+    expect(submit).to_be_enabled()
+    page.keyboard.press("Tab")
+    expect(submit).to_be_focused()
+    expect(page.locator("#campaign-schedule-review")).to_have_count(0)
+    (out / f"schedule-review-required-{width}.html").write_text(rendered_page(page), encoding="utf-8")
+    overflow = page.locator("#modal").evaluate(
+        """modal => [...modal.querySelectorAll('*')].flatMap(el => {
+            const {right} = el.getBoundingClientRect();
+            return right > modal.getBoundingClientRect().right + 1 ? [[el.tagName, el.getAttribute('name')]] : [];
+        }).slice(0, 10)"""
+    )
+    assert page.locator("#modal").evaluate("(modal) => modal.scrollWidth <= modal.clientWidth"), (width, overflow)
+
+
+def verify_monitor_watch(page: Page, width: int, out: Path, path: Path, monitor_id: str) -> None:
+    from mission_control.common import canonical, digest
+    from mission_control.db import connection
+
+    with connection(path) as db:
+        row = db.execute("SELECT summary FROM campaign_monitors WHERE id=?", (monitor_id,)).fetchone()
+        assert row is not None
+        summary = json.loads(row["summary"])
+        summary["proposal"]["expires_at"] = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+        db.execute(
+            "UPDATE campaign_monitors SET status='BLOCKED',summary=?,summary_hash=? WHERE id=?",
+            (canonical(summary), digest(summary), monitor_id),
+        )
+    page.reload()
+    page.get_by_role("button", name="Watch the work", exact=True).press("Enter")
+    card = page.get_by_role("article").filter(has_text="Monitoring approval expired")
+    expect(card).to_contain_text("before approving any new monitoring")
+    (out / f"watch-monitor-review-{width}.html").write_text(rendered_page(page), encoding="utf-8")
+    for _ in range(2):
+        with page.expect_request("**/api/apps/sample-one/campaign-monitor/status") as review:
+            card.get_by_role("button", name="Review this saved monitor", exact=True).press("Enter")
+        assert review.value.post_data_json == {"monitor_id": monitor_id}
+        progress = page.get_by_role("dialog", name="Monitor saved work")
+        expect(progress).to_contain_text("This monitoring approval expired")
+        assert progress.evaluate("(modal) => modal.scrollWidth <= modal.clientWidth")
+        page.keyboard.press("Escape")
+        expect(progress).to_be_hidden()
 
 
 def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
@@ -283,12 +352,15 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         page.get_by_role("button", name="Schedule approved posts", exact=True).click()
         form = page.locator("#campaign-schedule-form")
         form.locator("[name=due_0]").fill((datetime.now() + timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M"))
+        verify_changed_schedule(page, width, out)
+        assert f.wire.posts == 0 and not jobs(f.store, "sample-one")
         form.get_by_role("button", name="Review exact scheduled batch", exact=True).click()
         expect(page.locator("#campaign-schedule-review")).to_contain_text(f.message)
         assert f.wire.posts == 0
         assert not jobs(f.store, "sample-one")
         page.get_by_role("button", name="Approve exact batch and schedule", exact=True).click()
         expect(page.locator("#schedule-batch-state")).to_have_text("Scheduled")
+        expect(page.get_by_role("button", name="Reuse posts in a new campaign")).to_have_count(0)
         expect(page.locator("#schedule-live-stage")).to_contain_text("WMM must remain running")
         page.screenshot(path=str(out / f"schedule-{width}.png"))
         (out / f"schedule-{width}.html").write_text(page.content(), encoding="utf-8")
@@ -299,6 +371,44 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         assert f.message not in report.locator("body").inner_text()
         assert OWNER_TOKEN not in report.locator("body").inner_text()
         report.close()
+        with connection(f.store.path) as db:
+            scheduled_batch, scheduled_scope = db.execute(
+                "SELECT id,scope_id FROM campaign_schedule_batches"
+            ).fetchone()
+        page.locator("#close-modal").click()
+        before = len(posts)
+        with patch("mission_control.campaign_schedule.datetime", wraps=datetime) as clock:
+            clock.now.return_value = datetime.now(timezone.utc) + timedelta(days=2)
+            page.reload()
+            expect(page.get_by_role("heading", name="Set your goal", exact=True)).to_be_visible()
+            page.get_by_role("button", name="Watch the work", exact=True).press("Enter")
+            card = page.get_by_role("article").filter(has_text="Schedule approval expired")
+            expect(card).to_be_visible()
+            expect(card).to_contain_text("Review what finished")
+            assert f.message not in card.inner_text()
+            assert OWNER_TOKEN not in card.inner_text()
+            assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
+            page.screenshot(path=str(out / f"watch-schedule-exception-{width}.png"))
+            (out / f"watch-schedule-exception-{width}.html").write_text(rendered_page(page), encoding="utf-8")
+            with page.expect_request("**/api/apps/sample-one/campaigns/schedule-status") as exact_batch:
+                card.get_by_role("button", name="Review this scheduled batch").press("Enter")
+            assert exact_batch.value.post_data_json == {"batch_id": scheduled_batch}
+            expect(page.locator("#schedule-batch-state")).to_have_text("Approval expired")
+            receipt_link = page.get_by_role("button", name="Open saved campaign receipts", exact=True)
+            expect(receipt_link).to_be_visible()
+            (out / f"schedule-receipt-link-{width}.html").write_text(rendered_page(page), encoding="utf-8")
+            assert page.locator("#modal").evaluate("(modal) => modal.scrollWidth <= modal.clientWidth")
+            with page.expect_request("**/api/apps/sample-one/campaigns/status") as exact_scope:
+                receipt_link.press("Enter")
+            assert exact_scope.value.post_data_json == {"scope_id": scheduled_scope}
+            expect(page.locator("#campaign-progress")).to_contain_text("No effects have been dispatched")
+            page.locator("#close-modal").click()
+            card.get_by_role("button", name="Review this scheduled batch").press("Enter")
+            expect(page.locator("#schedule-batch-state")).to_have_text("Approval expired")
+        assert not [
+            url for url in posts[before:] if "/campaigns/" in url and not url.endswith(("/schedule-status", "/status"))
+        ]
+        assert f.wire.posts == 0 and not jobs(f.store, "sample-one")
         page.get_by_role("button", name="Turn scheduled batch OFF", exact=True).click()
         expect(page.locator("#campaign-schedule-progress")).to_contain_text("CANCELLED")
         page.locator("#close-modal").click()
@@ -313,6 +423,37 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         page.get_by_role("button", name="Inspect scheduled batch", exact=True).click()
         expect(page.locator("#schedule-batch-state")).to_have_text("Schedule off")
         expect(page.locator("#schedule-live-stage")).to_contain_text("No new items will start")
+        page.get_by_role("button", name="Reuse posts in a new campaign", exact=True).press("Enter")
+        form = page.locator("#campaign-scope-form")
+        expect(form.get_by_role("status")).to_contain_text("No approval, budget or schedule was copied")
+        expect(form.get_by_label("Approved post copy", exact=True)).to_have_value(f.message)
+        expect(form.get_by_label("App or landing-page link", exact=True)).to_have_value("")
+        expect(form.get_by_label("Rights and claims evidence", exact=True)).to_have_value("")
+        expect(form.locator("[name=connection_id]")).to_have_value(f.connection)
+        expect(form.locator("[name=budget]")).to_have_value("0")
+        expect(form.locator("[name=expires_at]")).to_have_value("")
+        (out / f"campaign-reuse-{width}.html").write_text(page.content(), encoding="utf-8")
+        overflow = page.locator("#modal").evaluate(
+            """(modal) => [...modal.querySelectorAll('*')].flatMap(el => {
+                const {right, width} = el.getBoundingClientRect();
+                return width && right > modal.getBoundingClientRect().right + 1
+                    ? [[el.tagName, el.getAttribute('name'), Math.round(width)]] : [];
+            }).slice(0, 10)"""
+        )
+        assert page.locator("#modal").evaluate("(modal) => modal.scrollWidth <= modal.clientWidth"), overflow
+        form.get_by_label("Rights and claims evidence", exact=True).fill("New rights evidence")
+        form.get_by_label("App or landing-page link", exact=True).fill(link)
+        form.get_by_role("button", name="Review exact automation scope", exact=True).click()
+        expect(form.get_by_role("alert")).to_contain_text("new campaign tag")
+        form.get_by_label("App or landing-page link", exact=True).fill(
+            "https://example.test/app?utm_campaign=fresh-run"
+        )
+        form.get_by_role("button", name="Review exact automation scope", exact=True).click()
+        expect(page.locator("#campaign-review")).to_contain_text("does not publish, schedule, or spend now")
+        with connection(f.store.path) as db:
+            assert sorted(row[0] for row in db.execute("SELECT status FROM campaign_scopes")) == ["ACTIVE", "DRAFT"]
+            assert db.execute("SELECT status FROM campaign_schedule_batches").fetchone()[0] == "OFF"
+        assert f.wire.posts == 0 and not jobs(f.store, "sample-one")
         page.locator("#close-modal").click()
         page.locator("#navigation > [data-view=overview]").click()
         page.locator("#goal-advanced > summary").click()
@@ -360,6 +501,12 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         expect(page.locator("#campaign-schedule-progress")).to_contain_text(batch_id)
         assert f.wire.posts == 0
         assert not jobs(f.store, "sample-one")
+        before = len(posts)
+        verify_monitor_watch(page, width, out, f.store.path, monitor_id)
+        assert [url for url in posts[before:] if "/campaign-monitor/" in url] == [
+            f.origin + "/api/apps/sample-one/campaign-monitor/status"
+        ] * 2
+        assert f.wire.posts == 0 and not jobs(f.store, "sample-one")
         saved_runs = (
             ("campaign_post", "Publish approved Facebook post", "BLOCKED"),
             ("campaign_ad", "Launch approved Meta ad", "BLOCKED"),
@@ -397,12 +544,17 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
             exact_meta_request_ceiling=70,
             exact_schedule_review=True,
             exact_schedule_recovery_link=True,
+            expired_schedule_from_watch_keyboard_read_only=True,
+            exact_campaign_receipts_from_schedule_keyboard_read_only=True,
             exact_monitor_conditions_and_report=True,
+            stopped_monitor_from_watch_keyboard_read_only=True,
             exact_post_link_visible_in_private_review=True,
             no_effect_before_due=True,
             off=True,
             durable_reload=True,
+            campaign_reuse_requires_new_approval_and_tracking=True,
             report_privacy=True,
+            changed_schedule_needs_exact_owner_review=True,
             saved_campaign_runs_have_distinct_labels=True,
             campaign_does_not_select_agent=True,
             javascript_errors=errors,

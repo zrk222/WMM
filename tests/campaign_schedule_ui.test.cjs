@@ -4,6 +4,7 @@ const { test } = require('node:test'),
   vm = require('node:vm'),
   path = require('node:path'),
   { webcrypto } = require('node:crypto');
+const { WMMCampaignReuse } = require('../mission_control/static/campaign-plan.mjs');
 const src = fs.readFileSync(
   path.join(__dirname, '../mission_control/static/campaign-execution.mjs'),
   'utf8',
@@ -14,6 +15,7 @@ function fixture() {
     modals = [];
   const c = {
     Date,
+    URL,
     TextEncoder,
     Uint8Array,
     crypto: webcrypto,
@@ -36,12 +38,75 @@ function fixture() {
     },
     api: async (...a) => calls.push(a),
     WMMPageReports: { model: () => ({}), openReport: (x) => x },
+    WMMCampaignReuse,
     window: {},
   };
   vm.createContext(c);
   vm.runInContext(src, c);
   return { c, calls, panels, modals };
 }
+test('unavailable reuse gives an action beside settled and unfinished receipts', () => {
+  const { c } = fixture();
+  assert.match(
+    c.campaignScheduleReuseHelp({ evidence_unavailable: true }, false),
+    /Refresh the receipts/,
+  );
+  assert.match(
+    c.campaignScheduleReuseHelp({ items: [{ effective_status: 'RUNNING' }] }, false),
+    /Wait until the scheduled items finish/,
+  );
+  assert.match(
+    c.campaignScheduleReuseHelp({ items: [{ effective_status: 'VERIFIED' }] }, false),
+    /5,000 characters.*HTTPS link/,
+  );
+  assert.equal(c.campaignScheduleReuseHelp({ items: [] }, true), '');
+});
+test('Apple measurement prepares one organic scope with the original Apple link and count metric', async () => {
+  const { c, calls } = fixture();
+  c.state.workspace.social_access = {
+    accounts: [{ id: 'page-row', provider: 'facebook', data: { destination: { id: '123' } } }],
+  };
+  const error = { textContent: '' };
+  const button = { disabled: false };
+  const form = {
+    isConnected: true,
+    dataset: { app: 'one', version: '1', principal: 'owner' },
+    querySelector: (selector) => (selector === '#campaign-error' ? error : button),
+    values: {
+      connection_id: 'page-row',
+      posts: 'One synthetic Page update',
+      hours: '1',
+      ad_account_id: '',
+      budget: '0',
+      currency: 'CAD',
+      countries: 'CA',
+      link: 'https://apps.apple.com/ca/app/example/id123?pt=456&ct=Early%20Launch&mt=8',
+      rights: 'Synthetic fixture',
+      measurement_starts: '2026-11-16T12:00Z',
+      measurement_ends: '2026-11-19T12:00Z',
+      measurement_hypothesis: 'Measure App Store demand',
+      measurement_rule: 'Retain an honest unknown if Apple has no matching rows',
+    },
+  };
+  c.api = async (path, data) => {
+    calls.push([path, data]);
+    throw new Error('Terminate after capturing the synthetic prepare request');
+  };
+  await c.campaignSubmit(form);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], '/api/apps/one/campaigns/prepare');
+  const scope = calls[0][1].scope;
+  assert.equal(scope.max_posts, 1);
+  assert.equal(scope.max_total_minor, 0);
+  assert.equal(scope.measurement_plan.link, form.values.link);
+  assert.equal(scope.measurement_plan.campaign_tag, 'Early Launch');
+  assert.equal(scope.measurement_plan.primary_metric, 'apple_first_time_downloads');
+  assert.equal(scope.measurement_plan.denominator, 'none');
+  form.values.posts += '\n---\nAnother post';
+  await c.campaignSubmit(form);
+  assert.equal(calls.length, 1);
+  assert.match(error.textContent, /Choose one organic post/);
+});
 const scope = {
   scope_id: 'scope',
   status: 'ACTIVE',
@@ -69,6 +134,70 @@ const values = {
   name: 'Approved promotion',
 };
 const clock = Date.parse('2026-11-02T12:00:00Z');
+test('reuse extracts draft copy only from a settled organic batch', () => {
+  const settled = {
+    id: 'prior-batch',
+    scope_id: 'prior-scope',
+    progress: 'DELIVERY_VERIFIED',
+    items: [{ item_id: '1', effective_status: 'VERIFIED' }],
+    summary: {
+      batch_id: 'prior-batch',
+      scope_id: 'prior-scope',
+      scope_hash: '1'.repeat(64),
+      items: [
+        {
+          item_id: '1',
+          operation: 'campaign.publish',
+          request: {
+            message: 'Original text',
+            link: 'https://example.test/',
+            request_id: 'old-request',
+            rights_hash: 'old-rights',
+          },
+        },
+      ],
+    },
+  };
+  assert.deepEqual(WMMCampaignReuse.draft(settled), {
+    scopeId: 'prior-scope',
+    scopeHash: '1'.repeat(64),
+    messages: ['Original text'],
+    link: 'https://example.test/',
+  });
+  for (const progress of ['SCHEDULED', 'RUNNING', 'NEEDS_RECONCILIATION', 'NEEDS_REPAIR'])
+    assert.equal(WMMCampaignReuse.draft({ ...settled, progress }), null);
+  for (const effective_status of ['RUNNING', 'QUEUED', 'NEEDS_RECONCILIATION'])
+    assert.equal(
+      WMMCampaignReuse.draft({ ...settled, items: [{ item_id: '1', effective_status }] }),
+      null,
+    );
+  const mismatches = [
+    { ...settled.summary, kind: 'ADMITTED_ORGANIC_VIDEO_V1' },
+    {
+      ...settled.summary,
+      items: [{ ...settled.summary.items[0], operation: 'campaign.ad-launch' }],
+    },
+  ];
+  for (const summary of mismatches)
+    assert.equal(WMMCampaignReuse.draft({ ...settled, summary }), null);
+  assert.equal(WMMCampaignReuse.draft(null), null);
+  assert.equal(WMMCampaignReuse.draft({ ...settled, id: 'foreign-batch' }), null);
+  assert.equal(WMMCampaignReuse.draft({ ...settled, scope_id: 'foreign-scope' }), null);
+  const item = settled.summary.items[0];
+  const withItem = (item) =>
+    WMMCampaignReuse.draft({
+      ...settled,
+      summary: { ...settled.summary, items: [item] },
+    });
+  assert.equal(withItem({ ...item, item_id: 'foreign-receipt' }), null);
+  for (const link of [
+    123,
+    undefined,
+    'https://test:password@example.test/',
+    'http://example.test/',
+  ])
+    assert.equal(withItem({ ...item, request: { ...item.request, link } }), null);
+});
 test('scheduled post times remain finite and within scope', () => {
   const h = fixture(),
     p = { request_id: 'fixed' };
@@ -362,7 +491,7 @@ test('scope refresh retains pending approved posts only for the same unused acti
     await h.c.campaignAction({
       dataset: { action: 'campaign-status', id: 'scope' },
       isConnected: true,
-      closest: () => panel,
+      closest: (selector) => (selector === '#campaign-progress' ? panel : null),
     });
     assert.equal(h.calls.length, 1);
     assert.equal(h.calls[0].path, '/api/apps/one/campaigns/status');
@@ -484,6 +613,86 @@ test('saved schedule progress distinguishes delivery, expired permission and unc
     c.campaignScheduleCopy({ ...data, status: 'OFF', progress: 'NEEDS_RECONCILIATION' })[1],
     /may already/,
   );
+});
+
+test('schedule recovery reads only the current batch’s exact saved campaign', async () => {
+  const h = fixture();
+  h.c.modal = (title, html) => h.modals.push({ title, html });
+  const scopeId = '11111111-1111-4111-8111-111111111111';
+  const err = { textContent: '' };
+  const data = {
+    status: 'OFF',
+    progress: 'NEEDS_RECONCILIATION',
+    scope_id: scopeId,
+    summary: { scope_id: scopeId },
+  };
+  const panel = {
+    dataset: { app: 'one', version: '1', principal: 'owner' },
+    campaign: data,
+    isConnected: true,
+    querySelector: () => err,
+  };
+  h.panels['#campaign-schedule-progress'] = panel;
+  h.panels['#campaign-progress'] = { dataset: {} };
+  h.c.api = async (path, body) => {
+    h.calls.push([path, body.scope_id]);
+    return { scope: { scope_id: scopeId, status: 'OFF' }, intents: [] };
+  };
+  const btn = { dataset: { action: 'campaign-schedule-receipts' }, isConnected: true };
+  await h.c.campaignAction(btn);
+  assert.deepEqual(h.calls, [['/api/apps/one/campaigns/status', scopeId]]);
+  assert.match(h.modals[0].html, /No effects have been dispatched/);
+  for (const changed of [
+    { progress: 'DELIVERY_VERIFIED' },
+    { summary: { scope_id: 'other-app' } },
+    { summary: { scope_id: scopeId, kind: 'ADMITTED_ORGANIC_VIDEO_V1' } },
+    { evidence_unavailable: true },
+    { scope_id: '"><script>' },
+  ]) {
+    panel.campaign = { ...data, ...changed };
+    await h.c.campaignAction(btn);
+    assert.equal(h.calls.length, 1);
+    assert.match(err.textContent, /no longer has an available campaign receipt link/);
+  }
+});
+
+test('saved campaign lookup rejects a mismatched scope and ignores a closed origin dialog', async () => {
+  const h = fixture(),
+    dialog = { open: true },
+    source = { isConnected: true, closest: () => dialog };
+  let fulfill;
+  h.c.api = () => new Promise((resolve) => (fulfill = resolve));
+  const stale = h.c.campaignStatus('scope', null, source);
+  dialog.open = false;
+  fulfill({ scope: { scope_id: 'scope', status: 'OFF' }, intents: [] });
+  await stale;
+  assert.equal(h.modals.length, 0);
+  dialog.open = true;
+  h.c.api = async () => ({ scope: { scope_id: 'other', status: 'OFF' }, intents: [] });
+  await assert.rejects(
+    h.c.campaignStatus('scope', null, source),
+    /did not match the requested scope/,
+  );
+  assert.equal(h.modals.length, 0);
+});
+
+test('saved receipt recovery offers paid pause only for a paid intent', async () => {
+  const h = fixture();
+  h.panels['#campaign-progress'] = { dataset: {} };
+  h.c.api = async () => ({
+    scope: { scope_id: 'scope', status: 'OFF' },
+    intents: [
+      { kind: 'PAGE_POST', status: 'VERIFIED', id: 'organic' },
+      { kind: 'AD', status: 'UNKNOWN', id: 'paid' },
+    ],
+  });
+  await h.c.campaignStatus('scope');
+  const html = h.modals[0].html;
+  assert.match(html, /Receipt: organic/);
+  assert.match(html, /Receipt: paid/);
+  const [organic, paid] = [...html.matchAll(/<section class="panel">(.*?)<\/section>/g)];
+  assert.match(paid[1], /data-action="campaign-pause"/);
+  assert.doesNotMatch(organic[1], /data-action="campaign-pause"/);
 });
 
 test('campaign status refresh recovers without obscuring a delivery error or requesting another effect', async () => {

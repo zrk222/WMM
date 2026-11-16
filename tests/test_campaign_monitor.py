@@ -23,6 +23,7 @@ from mission_control.campaign_schedule import CampaignSchedules, schedule_table_
 from mission_control.common import Invalid, canonical, digest, now
 from mission_control.db import connection
 from mission_control.operation_authority import bound_owner, protected
+from mission_control.service import Service
 from mission_control.store import Store
 from mission_control.worker import claim, persist_job_result
 from tests import test_campaign_execution as fixtures
@@ -659,6 +660,48 @@ class CampaignMonitorTests(unittest.TestCase):
             row = db.execute("SELECT status FROM jobs WHERE id=?", (job["id"],)).fetchone()
             assert row is not None
             self.assertEqual(row[0], "BLOCKED")
+
+    def test_watch_keeps_uncertain_off_monitor_ahead_of_expiry_without_effects(self) -> None:
+        monitor, job = self.job()
+        with connection(self.store.path) as db:
+            db.execute("UPDATE jobs SET lease=0 WHERE id=?", (job["id"],))
+            db.execute("UPDATE campaign_monitors SET due=0 WHERE id=?", (monitor["id"],))
+        self.assertEqual(core.tick(self.store), 0)
+        with self.owner():
+            self.monitors.off("sample", monitor["id"], self.status(monitor)["version"])
+        expires = self.activate()
+        service = Service(self.store)
+        with connection(self.store.path) as db:
+            before = "\n".join(db.iterdump())
+        with patch("time.time", return_value=time.time() + 800):
+            cards = service.workspace("sample", viewer="owner")["workflow"]["exceptions"]
+            self.assertEqual(
+                [(card["state"], card["monitor_id"]) for card in cards],
+                [
+                    ("CAMPAIGN_MONITOR_NEEDS_RECONCILIATION", monitor["id"]),
+                    ("CAMPAIGN_MONITOR_APPROVAL_EXPIRED", expires["id"]),
+                ],
+            )
+            self.assertEqual(service.workspace("sample", viewer="other-viewer")["workflow"]["exceptions"], [])
+            self.assertEqual(service.workspace("sample")["workflow"]["exceptions"], [])
+        self.assertIn("before retrying or assuming the campaign paused", cards[0]["next_action"])
+        for card in cards:
+            self.assertEqual(
+                set(card), {"state", "source", "reason", "next_action", "repair_route", "monitor_id", "observed_at"}
+            )
+        with connection(self.store.path) as db:
+            self.assertEqual("\n".join(db.iterdump()), before)
+
+    def test_watch_ignores_drafts_healthy_and_off_monitors_without_an_attempt(self) -> None:
+        live = self.activate()
+        with self.owner():
+            self.monitors.prepare("sample", self.body())
+        with connection(self.store.path) as db:
+            self.assertEqual(core.watch_monitor_exceptions(db, "sample", "owner"), [])
+        with self.owner():
+            self.monitors.off("sample", live["id"], live["version"])
+        with connection(self.store.path) as db:
+            self.assertEqual(core.watch_monitor_exceptions(db, "sample", "owner"), [])
 
     def test_pending_with_unknown_owner_does_not_pause_or_replay(self):
         monitor, job = self.job()

@@ -13,6 +13,7 @@ Present outcome-specific owner connection selection and the existing authoritati
 - The system shall display every selected workflow blocker and a fixed repair action through `show_blockers`.
 - The system shall display readiness as preparation for scope review and shall issue no execution authority through `no_authority`.
 - The system shall display owner-reviewed organic Instagram, TikTok, YouTube and LinkedIn work alongside Facebook through `organic_channels`, naming the supported connection path without treating adapter availability or a read-tested account as publication permission.
+- For an app with an App Store listing, the campaign and measurement goals shall open the current app's Apple download tracking panel. The campaign goal shall also open the app's social account setup when there is no read-tested Facebook Page, or the exact campaign review when there is one. These entries shall reject stale app actions and issue no approval.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin

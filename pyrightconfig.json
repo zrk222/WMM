@@ -11,7 +11,8 @@
     "mission_control/agent_tasks.py",
     "mission_control/agent_context.py",
     "mission_control/agent_contract.py",
-    "mission_control/agent_registry.py"
+    "mission_control/agent_registry.py",
+    "mission_control/agent_access.py"
   ],
   "extraPaths": [
     "."

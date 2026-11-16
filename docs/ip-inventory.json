@@ -1,0 +1,5490 @@
+{
+  "agent_provenance": {
+    "path": "docs/AGENT-PROVENANCE.md",
+    "status": "EVIDENCE_RECORDED_TERMS_OPEN"
+  },
+  "component_count": 538,
+  "components": [
+    {
+      "evidence": "Introduced 2026-11-06 in 15ff283c726f6cb477d1c3349db910df9fd47531 by zrk222; no external source or embedded metadata found",
+      "kind": "first-party-asset",
+      "license": "First-party WMM claim; added after the license transition",
+      "name": "Desktop application icons",
+      "shipped": true,
+      "source": "desktop/src-tauri/icons",
+      "status": "FIRST_PARTY_EVIDENCE",
+      "version": "repository"
+    },
+    {
+      "evidence": "docs/images/provenance.json, docs/media/provenance.json",
+      "kind": "first-party-asset",
+      "license": "First-party synthetic captures; rendered output claimed by WMM",
+      "name": "Synthetic UI screenshots and preview video",
+      "shipped": true,
+      "source": "Local WMM UI captures",
+      "status": "PROVENANCE_PARTIAL",
+      "version": "2026-11-15"
+    },
+    {
+      "evidence": "LICENSE, NOTICE, licenses/Apache-2.0.txt, docs/IP-DILIGENCE.md",
+      "kind": "first-party-source",
+      "license": "WMM Personal and Internal Business Use License 1.0; prior Apache-2.0 grants retained",
+      "name": "WMM repository source",
+      "shipped": true,
+      "source": "https://github.com/zrk222/WMM",
+      "status": "OWNERSHIP_REVIEW_OPEN",
+      "version": "working tree"
+    },
+    {
+      "evidence": "Build/runtime bootloader",
+      "kind": "python-package",
+      "license": "GPL-2.0-or-later WITH PyInstaller-exception",
+      "name": "PyInstaller",
+      "shipped": true,
+      "source": "https://pypi.org/project/pyinstaller/",
+      "status": "OBLIGATIONS_APPLY",
+      "version": "6.22.3"
+    },
+    {
+      "evidence": "Linux protected storage",
+      "kind": "python-package",
+      "license": "BSD-3-Clause",
+      "name": "SecretStorage",
+      "shipped": true,
+      "source": "https://pypi.org/project/SecretStorage/",
+      "status": "OBLIGATIONS_APPLY",
+      "version": "3.3.3"
+    },
+    {
+      "evidence": "Linux SecretStorage dependency",
+      "kind": "python-package",
+      "license": "MIT",
+      "name": "jeepney",
+      "shipped": true,
+      "source": "https://pypi.org/project/jeepney/",
+      "status": "OBLIGATIONS_APPLY",
+      "version": "0.8.0"
+    },
+    {
+      "evidence": "macOS only",
+      "kind": "python-package",
+      "license": "MIT",
+      "name": "keyring",
+      "shipped": true,
+      "source": "https://pypi.org/project/keyring/",
+      "status": "OBLIGATIONS_APPLY",
+      "version": "25.7.0"
+    },
+    {
+      "evidence": "docs/requirements-mcp.txt",
+      "kind": "python-package",
+      "license": "MIT",
+      "name": "mcp",
+      "shipped": true,
+      "source": "https://pypi.org/project/mcp/",
+      "status": "OBLIGATIONS_APPLY",
+      "version": "1.30.0"
+    },
+    {
+      "evidence": "requirements.txt; Windows",
+      "kind": "python-package",
+      "license": "MIT",
+      "name": "truststore",
+      "shipped": true,
+      "source": "https://pypi.org/project/truststore/",
+      "status": "OBLIGATIONS_APPLY",
+      "version": "0.10.5"
+    },
+    {
+      "evidence": "requirements.txt",
+      "kind": "python-package",
+      "license": "Apache-2.0",
+      "name": "tzdata",
+      "shipped": true,
+      "source": "https://pypi.org/project/tzdata/",
+      "status": "OBLIGATIONS_APPLY",
+      "version": "2025.3"
+    },
+    {
+      "evidence": "Embedded runtime",
+      "kind": "python-runtime",
+      "license": "PSF-2.0",
+      "name": "CPython",
+      "shipped": true,
+      "source": "https://www.python.org/",
+      "status": "OBLIGATIONS_APPLY",
+      "version": "3.11"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "0BSD OR MIT OR Apache-2.0",
+      "name": "adler2",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.0.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unlicense OR MIT",
+      "name": "aho-corasick",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.1.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "BSD-3-Clause",
+      "name": "alloc-no-stdlib",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "3.0.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "BSD-3-Clause",
+      "name": "alloc-stdlib",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "android_system_properties",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.6"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "anyhow",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.104"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "atk",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "atk-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "atomic-waker",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.1.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "autocfg",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.5.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "base64",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.21.7"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "base64",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.23.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "bit-set",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "bit-vec",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT/Apache-2.0",
+      "name": "bitflags",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "bitflags",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.13.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "block-buffer",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.10.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "block2",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.6.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "BSD-3-Clause AND MIT",
+      "name": "brotli",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "9.1.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "BSD-3-Clause/MIT",
+      "name": "brotli-decompressor",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "6.2.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT/Apache-2.0",
+      "name": "bs58",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.5.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "bumpalo",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "3.20.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "bytemuck",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.25.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unlicense OR MIT",
+      "name": "byteorder",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.5.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "bytes",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.12.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "cairo-rs",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "cairo-sys-rs",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "camino",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.2.6"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "cargo-platform",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.9"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "cargo_metadata",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.19.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "cargo_toml",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "cc",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.11.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0/MIT",
+      "name": "cesu8",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.1.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "cfb",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.14.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "cfg-expr",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.15.8"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "cfg-if",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "chrono",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.45"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "combine",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "4.6.9"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "cookie",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "core-foundation",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.10.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "core-foundation-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.7"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "core-graphics",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.25.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "core-graphics-types",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "cpufeatures",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.17"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "crc32fast",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.5.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "crossbeam-channel",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.5.17"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "crossbeam-utils",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.23"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "crypto-common",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.7"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MPL-2.0",
+      "name": "cssparser",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.37.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MPL-2.0",
+      "name": "cssparser-macros",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.7.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "ctor",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.13"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "darling",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.24.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "darling_core",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.24.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "darling_macro",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.24.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0/MIT",
+      "name": "dbus",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.9.12"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "defmt",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.2.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "defmt-macros",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.2.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "defmt-parser",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.1.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "deranged",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.5.9"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "derive_more",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.1.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "derive_more-impl",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.1.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "digest",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.10.7"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "dirs",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "7.0.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "dirs-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.5.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "dispatch2",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "displaydoc",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.7"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "dlopen2",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "dlopen2_derive",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "dom_query",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.28.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 AND MIT",
+      "name": "dpi",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "dtoa",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.11"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MPL-2.0",
+      "name": "dtoa-short",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "CC0-1.0 OR MIT-0 OR Apache-2.0",
+      "name": "dunce",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "dyn-clone",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.20"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "embed-resource",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "3.0.12"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "embed_plist",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.2.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "equivalent",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "erased-serde",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.11"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "fastrand",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.5.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "fdeflate",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.7"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "field-offset",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.6"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "find-msvc-tools",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.15"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "flate2",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.1.10"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 / MIT",
+      "name": "fnv",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.7"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib",
+      "name": "foldhash",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT/Apache-2.0",
+      "name": "foreign-types",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.5.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT/Apache-2.0",
+      "name": "foreign-types-macros",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT/Apache-2.0",
+      "name": "foreign-types-shared",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "form_urlencoded",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.2.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "futures-channel",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.34"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "futures-core",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.34"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "futures-executor",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.34"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "futures-io",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.34"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "futures-macro",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.34"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "futures-sink",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.34"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "futures-task",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.34"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "futures-util",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.34"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "gdk",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "gdk-pixbuf",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "gdk-pixbuf-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "gdk-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "gdkwayland-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "gdkx11",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "gdkx11-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "generic-array",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.14.7"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "getrandom",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.17"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "getrandom",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "getrandom",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "gio",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "gio-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "glib",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "glib-macros",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "glib-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "glob",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "gobject-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "gtk",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "gtk-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "gtk3-macros",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "hashbrown",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.12.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "hashbrown",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.17.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "heck",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "heck",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.5.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "hex",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "hmac",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.12.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "html5ever",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.39.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "http",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.5.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "http-body",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.1.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "http-body-util",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "httparse",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.10.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "hyper",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.12.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "hyper-util",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.21"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "iana-time-zone",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.65"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "iana-time-zone-haiku",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "ico",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.6.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "icu_collections",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.4.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "icu_locale_core",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.4.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "icu_normalizer",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.4.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "icu_normalizer_data",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.4.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "icu_properties",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.4.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "icu_properties_data",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.4.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "icu_provider",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.4.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT/Apache-2.0",
+      "name": "ident_case",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "idna",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.1.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "idna_adapter",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.2.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "indexmap",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.9.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "indexmap",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.14.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "infer",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.22.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "ipnet",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.12.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "itoa",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.18"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "javascriptcore-rs",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.1.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "javascriptcore-rs-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.1.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unlicense OR MIT",
+      "name": "jiff",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.39"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unlicense OR MIT",
+      "name": "jiff-core",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unlicense OR MIT",
+      "name": "jiff-static",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.39"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unlicense OR MIT",
+      "name": "jiff-tzdb",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.9"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unlicense OR MIT",
+      "name": "jiff-tzdb-platform",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT/Apache-2.0",
+      "name": "jni",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.21.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "jni-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "jni-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "jni-sys-macros",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "js-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.107"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT/Apache-2.0",
+      "name": "json-patch",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "4.2.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "jsonptr",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.7.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "keyboard-types",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "libappindicator",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.9.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "libappindicator-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.9.0"
+    },
+    {
+      "evidence": "desktop/launcher/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "libc",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.189"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "libc",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.191"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0/MIT",
+      "name": "libdbus-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.7"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "ISC",
+      "name": "libloading",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.7.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "libredox",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.25"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "litemap",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "lock_api",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.14"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "log",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.35"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "markup5ever",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.39.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unlicense OR MIT",
+      "name": "memchr",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.8.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "memoffset",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.9.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "mime",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.18"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Zlib OR Apache-2.0",
+      "name": "miniz_oxide",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.9"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Zlib OR Apache-2.0",
+      "name": "miniz_oxide",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.9.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "mio",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.2.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "muda",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.20.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "ndk",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.9.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "ndk-context",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "ndk-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.6.0+11769913"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "new_debug_unreachable",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.6"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "num-conv",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "num-traits",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.19"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "BSD-3-Clause OR MIT OR Apache-2.0",
+      "name": "num_enum",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.7.6"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "BSD-3-Clause OR MIT OR Apache-2.0",
+      "name": "num_enum_derive",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.7.6"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "objc2",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.6.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "objc2-app-kit",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "objc2-cloud-kit",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "objc2-core-data",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "objc2-core-foundation",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "objc2-core-graphics",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "objc2-core-image",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "objc2-core-location",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "objc2-core-text",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "objc2-encode",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "4.1.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "objc2-exception-helper",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "objc2-foundation",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "objc2-io-surface",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "objc2-quartz-core",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "objc2-ui-kit",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "objc2-user-notifications",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "objc2-web-kit",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "once_cell",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.21.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MPL-2.0",
+      "name": "option-ext",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "pango",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "pango-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "parking_lot",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.12.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "parking_lot_core",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.9.12"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "percent-encoding",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "phf",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.13.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "phf_codegen",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.13.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "phf_generator",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.13.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "phf_macros",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.13.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "phf_shared",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.13.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "pin-project-lite",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.17"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "pkg-config",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.34"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "plist",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.10.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "png",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.18.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "portable-atomic",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.15.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "portable-atomic-util",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.8"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "potential_utf",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.6"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "powerfmt",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "precomputed-hash",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "proc-macro-crate",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.3.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "proc-macro-crate",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.0.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "proc-macro-crate",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "3.5.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "proc-macro-error",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "proc-macro-error-attr",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "proc-macro2",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.107"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "quick-xml",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.42.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "quote",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.47"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0 OR LGPL-2.1-or-later",
+      "name": "r-efi",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "5.3.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0 OR LGPL-2.1-or-later",
+      "name": "r-efi",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "6.0.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0 OR Zlib",
+      "name": "raw-window-handle",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.6.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "redox_syscall",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.5.18"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "redox_users",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.5.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "ref-cast",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.27"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "ref-cast-impl",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.27"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "regex",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.13.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "regex-automata",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.18"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "regex-syntax",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.11"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "reqwest",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.13.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "rustc-hash",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.1.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "rustc_version",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "rustversion",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.23"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unlicense/MIT",
+      "name": "same-file",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.6"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "schemars",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.22"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "schemars",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.9.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "schemars",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.2.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "schemars_derive",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.22"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "scopeguard",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.2.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MPL-2.0",
+      "name": "selectors",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.38.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "semver",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.28"
+    },
+    {
+      "evidence": "desktop/launcher/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serde",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.228"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serde",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.229"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serde-untagged",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.9"
+    },
+    {
+      "evidence": "desktop/launcher/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serde_core",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.228"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serde_core",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.229"
+    },
+    {
+      "evidence": "desktop/launcher/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serde_derive",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.228"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serde_derive",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.229"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serde_derive_internals",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.29.1"
+    },
+    {
+      "evidence": "desktop/launcher/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serde_json",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.151"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serde_json",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.154"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serde_repr",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.21"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serde_spanned",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.6.9"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serde_spanned",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.1.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serde_with",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "3.24.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serde_with_macros",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "3.24.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serialize-to-javascript",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "serialize-to-javascript-impl",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "servo_arc",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "sha2",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.10.9"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "shlex",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.0.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "simd-adler32",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.10"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "siphasher",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "slab",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.12"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "smallvec",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.16.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "socket2",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.6.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "softbuffer",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.8"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "soup3",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.5.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "soup3-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.5.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "stable_deref_trait",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.2.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0 OR Zlib",
+      "name": "static_vcruntime",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "3.0.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "string_cache",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.9.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "string_cache_codegen",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.6.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "strsim",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.11.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "BSD-3-Clause",
+      "name": "subtle",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.6.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "swift-rs",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.9"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "syn",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.109"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "syn",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.0.119"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "syn",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "3.0.9"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0",
+      "name": "sync_wrapper",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "synstructure",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.14.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "system-deps",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "6.2.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0",
+      "name": "tao",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.37.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "tao-macros",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "name": "target-lexicon",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.12.16"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "tauri",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.12.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "tauri-build",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.7.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "tauri-codegen",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.7.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "tauri-macros",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.7.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "tauri-runtime",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.12.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "tauri-runtime-wry",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.12.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "tauri-utils",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.10.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "tauri-winres",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.7"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "tendril",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.5.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "thiserror",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.69"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "thiserror",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.0.21"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "thiserror-impl",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.69"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "thiserror-impl",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.0.21"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "time",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.55"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "time-core",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.9"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "time-macros",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.32"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "tinystr",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "name": "tinyvec",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.13.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "tokio",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.54.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "tokio-util",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.7.20"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "toml",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "toml",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.2.0+spec-1.1.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "toml_datetime",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.6.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "toml_datetime",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.1.2+spec-1.1.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "toml_edit",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.19.15"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "toml_edit",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.20.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "toml_edit",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.25.18+spec-1.1.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "toml_parser",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.1.5+spec-1.1.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "toml_writer",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.2.0+spec-1.1.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "tower",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.5.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "tower-http",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.6.11"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "tower-layer",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "tower-service",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "tracing",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.44"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "tracing-core",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.36"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "tray-icon",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.25.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "try-lock",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "typeid",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "typenum",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.20.1"
+    },
+    {
+      "evidence": "desktop/launcher/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "(MIT OR Apache-2.0) AND Unicode-3.0",
+      "name": "unicode-ident",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.26"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "(MIT OR Apache-2.0) AND Unicode-3.0",
+      "name": "unicode-ident",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.27"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "unicode-segmentation",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.13.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "url",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.5.8"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "urlpattern",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.6.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "utf8_iter",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.1.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "utf_types",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "uuid",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.29.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "version-compare",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT/Apache-2.0",
+      "name": "version_check",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.9.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "vswhom",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "vswhom-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unlicense/MIT",
+      "name": "walkdir",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.5.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "want",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "name": "wasi",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.11.1+wasi-snapshot-preview1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "name": "wasip2",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.4+wasi-0.2.12"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "wasm-bindgen",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.130"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "wasm-bindgen-futures",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.80"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "wasm-bindgen-macro",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.130"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "wasm-bindgen-macro-support",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.130"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "wasm-bindgen-shared",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.130"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "wasm-streams",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.5.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "web-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.107"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "web-time",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.1.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "web_atoms",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.6"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "webkit2gtk",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.0.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "webkit2gtk-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.0.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "webview2-com",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.39.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "webview2-com-macros",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "webview2-com-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.39.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT/Apache-2.0",
+      "name": "winapi",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.9"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT/Apache-2.0",
+      "name": "winapi-i686-pc-windows-gnu",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unlicense OR MIT",
+      "name": "winapi-util",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.11"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT/Apache-2.0",
+      "name": "winapi-x86_64-pc-windows-gnu",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "window-vibrancy",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.62.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows-collections",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows-core",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.62.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows-future",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows-implement",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.60.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows-interface",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.59.3"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows-link",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows-numerics",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.3.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows-result",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.4.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows-strings",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.5.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.45.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows-sys",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.61.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows-targets",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.42.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows-threading",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows-version",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.7"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows_aarch64_gnullvm",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.42.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows_aarch64_msvc",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.42.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows_i686_gnu",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.42.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows_i686_msvc",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.42.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows_x86_64_gnu",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.42.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows_x86_64_gnullvm",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.42.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT OR Apache-2.0",
+      "name": "windows_x86_64_msvc",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.42.2"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "winnow",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.5.40"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "winnow",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "winreg",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.56.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "name": "wit-bindgen",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.57.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "WMM Personal and Internal Business Use License 1.0",
+      "name": "wmm-mission-control",
+      "shipped": true,
+      "source": "local workspace",
+      "status": "OWNERSHIP_REVIEW_OPEN",
+      "version": "0.1.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "WMM Personal and Internal Business Use License 1.0",
+      "name": "wmm-native-launcher",
+      "shipped": true,
+      "source": "local workspace",
+      "status": "OWNERSHIP_REVIEW_OPEN",
+      "version": "0.1.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "writeable",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.6.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Apache-2.0 OR MIT",
+      "name": "wry",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.57.1"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "x11",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.21.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "x11-dl",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "2.21.0"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "yoke",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "yoke-derive",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.8.4"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "zerofrom",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.8"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "zerofrom-derive",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.1.8"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "zerotrie",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.2.5"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "zerovec",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.11.9"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Unicode-3.0",
+      "name": "zerovec-derive",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.11.7"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "Zlib",
+      "name": "zlib-rs",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "0.6.8"
+    },
+    {
+      "evidence": "desktop/launcher/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "zmij",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.21"
+    },
+    {
+      "evidence": "desktop/src-tauri/Cargo.lock",
+      "kind": "rust-crate",
+      "license": "MIT",
+      "name": "zmij",
+      "shipped": true,
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "status": "DECLARED",
+      "version": "1.0.23"
+    },
+    {
+      "evidence": "Ubuntu dependency",
+      "kind": "system-or-build",
+      "license": "Bitstream Vera License / public domain components",
+      "name": "DejaVu fonts",
+      "shipped": true,
+      "source": "https://dejavu-fonts.github.io/License.html",
+      "status": "DECLARED",
+      "version": "system"
+    },
+    {
+      "evidence": "Ubuntu noble ffmpeg package and copyright file",
+      "kind": "system-or-build",
+      "license": "GPL-2.0-or-later for the default Ubuntu binary; libavcodec/libavfilter GPL-3+ flavor",
+      "name": "FFmpeg",
+      "shipped": true,
+      "source": "https://ffmpeg.org/legal.html",
+      "status": "SYSTEM_DEPENDENCY_NOT_BUNDLED",
+      "version": "7:6.1.1-3ubuntu5 (Ubuntu 24.04 noble)"
+    },
+    {
+      "evidence": "Windows system-provided",
+      "kind": "system-or-build",
+      "license": "Microsoft Software License Terms (WebView2 Runtime)",
+      "name": "Microsoft Edge WebView2 Runtime",
+      "shipped": true,
+      "source": "https://developer.microsoft.com/microsoft-edge/webview2/",
+      "status": "DECLARED",
+      "version": "system"
+    },
+    {
+      "evidence": "Ubuntu noble libwebkit2gtk-4.1-0 package and copyright file",
+      "kind": "system-or-build",
+      "license": "LGPL-2.1-or-later",
+      "name": "WebKitGTK",
+      "shipped": true,
+      "source": "https://webkitgtk.org/",
+      "status": "SYSTEM_DEPENDENCY_NOT_BUNDLED",
+      "version": "2.52.6-0ubuntu0.24.04.1"
+    },
+    {
+      "evidence": "docs/vendor/three/origin.json, docs/vendor/three/LICENSE",
+      "kind": "vendored-js",
+      "license": "MIT",
+      "name": "three.js",
+      "shipped": true,
+      "source": "https://registry.npmjs.org/three/-/three-0.187.0.tgz",
+      "status": "OBLIGATIONS_APPLY",
+      "version": "0.187.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "@cacheable/memory",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "2.2.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "@cacheable/utils",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "2.5.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "@eslint-community/eslint-utils",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "4.10.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "@eslint-community/regexpp",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "4.12.3"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@eslint/config-array",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "0.23.5"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@eslint/config-helpers",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "0.7.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@eslint/core",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "1.2.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@eslint/object-schema",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "3.0.5"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@eslint/plugin-kit",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "0.7.3"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@humanfs/core",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "0.19.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@humanfs/node",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "0.16.8"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@humanfs/types",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "0.15.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@humanwhocodes/module-importer",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "1.0.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@humanwhocodes/retry",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "0.4.3"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "@keyv/bigmap",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "1.3.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "@keyv/serialize",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "1.1.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "@types/esrecurse",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "4.3.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "@types/estree",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "1.0.10"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "@types/json-schema",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.15"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-aix-ppc64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-darwin-arm64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-darwin-x64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-freebsd-arm64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-freebsd-x64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-linux-arm",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-linux-arm64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-linux-loong64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-linux-mips64el",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-linux-ppc64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-linux-riscv64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-linux-s390x",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-linux-x64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-netbsd-arm64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-netbsd-x64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-openbsd-arm64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-openbsd-x64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-sunos-x64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-win32-arm64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "@typescript/typescript-win32-x64",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "acorn",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "8.19.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "acorn-jsx",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "5.3.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "ajv",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "6.15.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "balanced-match",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "4.0.4"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "brace-expansion",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "5.0.13"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "cacheable",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "2.5.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "cross-spawn",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.6"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "debug",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "4.4.3"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "deep-is",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "0.1.4"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "escape-string-regexp",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "4.0.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "eslint",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "10.14.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "BSD-2-Clause",
+      "name": "eslint-scope",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "9.1.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "eslint-visitor-keys",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "3.4.3"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "eslint-visitor-keys",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "5.0.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "BSD-2-Clause",
+      "name": "espree",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "11.2.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "BSD-3-Clause",
+      "name": "esquery",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "1.7.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "BSD-2-Clause",
+      "name": "esrecurse",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "4.3.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "BSD-2-Clause",
+      "name": "estraverse",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "5.3.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "BSD-2-Clause",
+      "name": "esutils",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "2.0.3"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "fast-deep-equal",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "3.1.3"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "fast-json-stable-stringify",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "2.1.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "fast-levenshtein",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "2.0.6"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "file-entry-cache",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "11.1.5"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "find-up",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "5.0.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "flat-cache",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "6.1.23"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "ISC",
+      "name": "flatted",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "3.4.4"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "fsevents",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "2.3.3"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "ISC",
+      "name": "glob-parent",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "6.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "hashery",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "1.5.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "hookified",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "1.15.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "hookified",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "2.2.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "ignore",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "5.3.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "imurmurhash",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "0.1.4"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "is-extglob",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "2.1.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "is-glob",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "4.0.3"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "ISC",
+      "name": "isexe",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "2.0.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "json-schema-traverse",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "0.4.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "json-stable-stringify-without-jsonify",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "1.0.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "keyv",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "5.6.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "levn",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "0.4.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "locate-path",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "6.0.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "BlueOak-1.0.0",
+      "name": "minimatch",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "10.2.6"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "ms",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "2.1.3"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "natural-compare",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "1.4.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "optionator",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "0.9.4"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "p-limit",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "3.1.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "p-locate",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "5.0.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "path-exists",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "4.0.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "path-key",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "3.1.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "prelude-ls",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "1.2.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "prettier",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "3.10.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "punycode",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "2.3.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "pyright",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "1.1.407"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "qified",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "0.10.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "shebang-command",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "2.0.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "shebang-regex",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "3.0.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "type-check",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "0.4.0"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "Apache-2.0",
+      "name": "typescript",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "7.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "BSD-2-Clause",
+      "name": "uri-js",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "4.4.1"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "ISC",
+      "name": "which",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "2.0.2"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "word-wrap",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "1.2.5"
+    },
+    {
+      "evidence": "package-lock.json",
+      "kind": "npm-package",
+      "license": "MIT",
+      "name": "yocto-queue",
+      "shipped": false,
+      "source": "npm",
+      "status": "BUILD_TEST_ONLY",
+      "version": "0.1.0"
+    },
+    {
+      "evidence": "https://raw.githubusercontent.com/jrsoftware/issrc/main/license.txt",
+      "kind": "system-or-build",
+      "license": "Inno Setup License (custom permissive; commercial use allowed with notice conditions)",
+      "name": "Inno Setup",
+      "shipped": false,
+      "source": "https://jrsoftware.org/isinfo.php",
+      "status": "BUILD_TOOL_REVIEWED",
+      "version": "6.x runner-provided; exact version not pinned"
+    },
+    {
+      "evidence": "Build/test only",
+      "kind": "system-or-build",
+      "license": "Apache-2.0",
+      "name": "Playwright",
+      "shipped": false,
+      "source": "https://playwright.dev/",
+      "status": "DECLARED",
+      "version": "build"
+    },
+    {
+      "evidence": "Docs preview video renderer",
+      "kind": "system-or-build",
+      "license": "Remotion License (commercial terms may apply)",
+      "name": "Remotion",
+      "shipped": false,
+      "source": "https://www.remotion.dev/license",
+      "status": "REVIEW_OPEN",
+      "version": "4.0.448"
+    }
+  ],
+  "counts_by_kind": {
+    "first-party-asset": 2,
+    "first-party-source": 1,
+    "npm-package": 101,
+    "python-package": 7,
+    "python-runtime": 1,
+    "rust-crate": 418,
+    "system-or-build": 7,
+    "vendored-js": 1
+  },
+  "license": "WMM Personal and Internal Business Use License 1.0 with retained Apache-2.0 grants",
+  "limits": [
+    "This is a component and license inventory, not a chain-of-title opinion.",
+    "Cargo license fields come from crates.io package metadata for the locked versions.",
+    "System packages are named by the Ubuntu/Windows distribution; exact binary build metadata remains open.",
+    "No contributor assignment, trademark clearance or commercial relicensing permission is established.",
+    "The per-file ledger records Git evidence, not copyright assignment; legal assignment remains OPEN for every file."
+  ],
+  "open_items": [
+    {
+      "id": "OWNERSHIP-CHAIN",
+      "question": "Per-file chain of title and contributor permission for commercial relicensing after the Apache-2.0 transition.",
+      "status": "OPEN"
+    },
+    {
+      "id": "AGENT-ASSISTED",
+      "question": "Substantive human contributions, tool terms, input sources and any copied material for agent-assisted work.",
+      "status": "OPEN"
+    },
+    {
+      "id": "REMOTION",
+      "question": "Confirm Remotion license terms for the docs preview video render.",
+      "status": "OPEN"
+    },
+    {
+      "id": "SHIPPED-SBOM",
+      "question": "Bind this inventory to the exact release candidate SBOM and shipped payload hashes; build-environment SBOM is not sufficient.",
+      "status": "OPEN"
+    }
+  ],
+  "per_file_ledger": {
+    "files": 1982,
+    "path": "docs/ip-file-ledger.json",
+    "sha256": "62364f82964b9370e97da671fd2e416f4a21bff2bb3685df00ee1645ac147976",
+    "status": "EVIDENCE_LEDGER_COMPLETE_LEGAL_ASSIGNMENT_OPEN"
+  },
+  "resolved_items": [
+    {
+      "evidence": "15ff283c726f6cb477d1c3349db910df9fd47531 (2026-11-06) added desktop/src-tauri/icons/icon.ico and icon.png by zrk222; no external source found",
+      "id": "ICON-PROVENANCE",
+      "status": "RESOLVED_TO_FIRST_PARTY_EVIDENCE"
+    },
+    {
+      "evidence": "Ubuntu 24.04 ffmpeg 7:6.1.1-3ubuntu5 default binary GPL-2+; libavcodec/libavfilter GPL-3+ flavor; optional system dependency, not bundled",
+      "id": "FFMPEG-BUILD",
+      "status": "LICENSE_IDENTIFIED"
+    },
+    {
+      "evidence": "Ubuntu 24.04 libwebkit2gtk-4.1-0 2.52.6-0ubuntu0.24.04.1 is LGPL-2.1+; system dependency, dynamically linked, not bundled",
+      "id": "WEBKIT-LGPL",
+      "status": "LICENSE_IDENTIFIED"
+    },
+    {
+      "evidence": "Inno Setup License permits commercial use and redistribution with copyright/notice conditions; generated installers retain Inno notices; exact compiler version should be pinned",
+      "id": "INNO-SETUP",
+      "status": "LICENSE_IDENTIFIED"
+    }
+  ],
+  "schema": "wmm.ip-inventory.v1",
+  "shipped_license_families": {
+    "(MIT": 2,
+    "0BSD": 1,
+    "Apache-2.0": 37,
+    "Apache-2.0 / MIT": 1,
+    "Apache-2.0 AND MIT": 1,
+    "Apache-2.0/MIT": 3,
+    "BSD-3-Clause": 6,
+    "BSD-3-Clause AND MIT": 1,
+    "BSD-3-Clause/MIT": 1,
+    "Bitstream Vera License / public domain components": 1,
+    "CC0-1.0": 1,
+    "Claimed first-party; no source receipt": 1,
+    "First-party synthetic captures; rendered output claimed by WMM": 1,
+    "GPL-2.0-or-later": 1,
+    "GPL-2.0-or-later or LGPL-2.1-or-later depending build": 1,
+    "ISC": 1,
+    "LGPL-2.1-or-later": 1,
+    "MIT": 303,
+    "MIT/Apache-2.0": 12,
+    "MPL-2.0": 5,
+    "Microsoft Software License Terms (WebView2 Runtime)": 1,
+    "PSF-2.0": 1,
+    "Unicode-3.0": 18,
+    "Unlicense": 9,
+    "Unlicense/MIT": 2,
+    "WMM Personal and Internal Business Use License 1.0": 2,
+    "WMM Personal and Internal Business Use License 1.0; prior Apache-2.0 grants retained": 1,
+    "Zlib": 19
+  },
+  "source_state": "working-tree",
+  "status": "COMPONENT_INVENTORY_AND_LICENSE_EVIDENCE_COMPLETE_OWNERSHIP_AND_AGENT_TERMS_OPEN"
+}

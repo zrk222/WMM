@@ -14,7 +14,9 @@ function fixture() {
       Date,
       state: { app: 'one', workspace: { app: { version: 1 }, identity: { principal: 'owner' } } },
       esc: (x) => String(x ?? '').replaceAll('<', '&lt;'),
-      button: () => '',
+      button: (label, action) => '<button data-action="' + action + '">' + label + '</button>',
+      campaignScopeReference: (id) => (id === exactScopeId ? id : null),
+      campaignStatus: async () => {},
       FormData: class {
         constructor(form) {
           return Object.assign(Object.entries(form.values || {}), {
@@ -24,9 +26,13 @@ function fixture() {
       },
     };
   nodes.set('#modal', { open: true, isConnected: true });
+  nodes.set('#modal-body', { firstElementChild: null, isConnected: true });
   c.$ = (x) => nodes.get(x);
   c.modal = (title, html) => {
-    for (const [key, node] of nodes) if (key !== '#modal') node.isConnected = false;
+    for (const [key, node] of nodes)
+      if (key !== '#modal' && key !== '#modal-body') node.isConnected = false;
+    nodes.get('#modal').open = true;
+    nodes.get('#modal-body').firstElementChild = {};
     for (const m of html.matchAll(/id="([^"]+)"/g))
       nodes.set('#' + m[1], {
         isConnected: true,
@@ -40,6 +46,7 @@ function fixture() {
   vm.runInContext(source, c);
   return { a: vm.runInContext('WMMCampaignMonitor', c), c, nodes, calls };
 }
+const exactScopeId = 'e5428d1b-7930-4851-9105-dc6e57a64bd5';
 const scope = { scope_id: 's', status: 'ACTIVE', expires_at: '2026-11-03T00:00:00Z' },
   rows = [{ id: 'i', scope_id: 's', request_hash: 'h', kind: 'AD' }],
   organic = { id: 'p', scope_id: 's', request_hash: 'ph' },
@@ -290,6 +297,43 @@ test('saved progress exposes unknown delivery and does not equate OFF with pause
   );
 });
 
+test('monitor opens only its saved scope and withholds broken evidence links', async () => {
+  const h = fixture(),
+    localReads = [],
+    links = [],
+    data = {
+      id: 'monitor',
+      effective_status: 'BLOCKED',
+      summary: { proposal: { scope_id: exactScopeId, targets: [], protective_conditions: [] } },
+    };
+  h.c.api = async (path, body) => {
+    localReads.push([path, body.monitor_id]);
+    return data;
+  };
+  h.c.campaignStatus = async (...args) => links.push(args);
+  await h.a.inspect('monitor');
+  assert.match(h.calls[0].html, /Open saved campaign receipts/);
+  const node = {
+    dataset: { action: 'campaign-monitor-receipts', id: 'wrong-scope' },
+    isConnected: true,
+  };
+  await h.a.action(node);
+  assert.deepEqual(links, [[exactScopeId, null, node]]);
+  assert.deepEqual(localReads, [['/api/apps/one/campaign-monitor/status', 'monitor']]);
+  assert.doesNotMatch(
+    h.a.progress({ ...data, evidence_unavailable: true }),
+    /Open saved campaign receipts/,
+  );
+  data.summary.proposal.scope_id = 'invalid<id>';
+  assert.doesNotMatch(h.a.progress(data), /Open saved campaign receipts/);
+  await h.a.action(node);
+  assert.equal(links.length, 1);
+  data.summary.proposal.scope_id = exactScopeId;
+  node.isConnected = false;
+  await h.a.action(node);
+  assert.equal(links.length, 1);
+});
+
 test('next step is consistent across the monitor and printable report', () => {
   const h = fixture();
   const base = {
@@ -326,6 +370,25 @@ test('late monitor inspection is single flight and cannot reopen a closed dialog
   h.nodes.get('#modal').open = false;
   resolve({});
   await first;
+  assert.equal(h.nodes.has('#monitor-progress'), false);
+});
+
+test('direct monitor review cannot replace a different dialog on the same app', async () => {
+  const h = fixture();
+  h.nodes.get('#modal').open = false;
+  let resolve,
+    count = 0;
+  h.c.api = () => {
+    count++;
+    return new Promise((r) => (resolve = r));
+  };
+  const pending = h.a.inspect('monitor');
+  await h.a.inspect('monitor');
+  assert.equal(count, 1);
+  h.c.modal('Current dialog', '<div id="unrelated"></div>');
+  resolve({});
+  await pending;
+  assert.equal(h.calls.at(-1).title, 'Current dialog');
   assert.equal(h.nodes.has('#monitor-progress'), false);
 });
 

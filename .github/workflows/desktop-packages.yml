@@ -178,6 +178,11 @@ jobs:
           fi
           python tools/publish_desktop_release.py receipt --platform "$platform" --sha "$GITHUB_SHA" --asset "$asset" --lifecycle "$lifecycle" --destination "release-assets/$platform.json"
           cp "$asset" release-assets/
+      - name: Generate exact shipped-component release SBOM
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then platform=Windows; else platform=Linux; fi
+          python tools/build_release_sbom.py --sha "${{ inputs.candidate_sha || github.sha }}" --platform "$platform" --output "release-assets/wmm-release-sbom-$platform.cdx.json"
       - name: Retain only passed release assets
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

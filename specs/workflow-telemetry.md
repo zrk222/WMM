@@ -57,3 +57,7 @@ Scenario: waiting_outcome
 MAX_JOBS = 100
 MAX_EVENTS = 200
 POLL_MS = 2000
+
+### Saved checks in Results
+- Experiment Results shall label the local worker check as a saved snapshot and show the last healthy check when known. Use the host observation timestamp and the live monitor's freshness rules, including its two-minute limit and its unconfirmed state for invalid or future timestamps.
+- The owner can open live Watch by selecting **Check live worker status**. Results shall not poll automatically or change worker state.

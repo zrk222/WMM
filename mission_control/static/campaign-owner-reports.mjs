@@ -356,6 +356,13 @@ const WMMOwnerReports = (() => {
         return '';
     }
   }
+  function joinedAdvice(report) {
+    const advice = report.joined_outcome_advice;
+    return advice
+      ? advice.reason + (advice.inputs?.length ? ' Inputs: ' + advice.inputs.join(', ') + '.' : '')
+      : '';
+  }
+
   function model(saved, base) {
     const r = saved.report;
     return {
@@ -402,7 +409,8 @@ const WMMOwnerReports = (() => {
         coverageText(r.kpi_coverage),
         ...(outcomeNote(r) ? [outcomeNote(r)] : []),
         ...(deliveryNote(r) ? [deliveryNote(r)] : []),
-        ...(measurementNextStep(r) ? [measurementNextStep(r)] : []),
+        ...(joinedAdvice(r) ? [joinedAdvice(r)] : []),
+        ...(!r.joined_outcome_advice && measurementNextStep(r) ? [measurementNextStep(r)] : []),
         'Saved provider readback: ' +
           r.campaign.provider_readback +
           '. Reported spend is unavailable in this snapshot.',
@@ -459,8 +467,13 @@ const WMMOwnerReports = (() => {
             .join('') +
           '</dl></section>'
         : '') +
-      (measurementNextStep(r) ? '<p>' + esc(measurementNextStep(r)) + '</p>' : '') +
+      (!r.joined_outcome_advice && measurementNextStep(r)
+        ? '<p>' + esc(measurementNextStep(r)) + '</p>'
+        : '') +
       (deliveryNote(r) ? '<p>' + esc(deliveryNote(r)) + '</p>' : '') +
+      (joinedAdvice(r)
+        ? '<p><strong>From the linked sources:</strong> ' + esc(joinedAdvice(r)) + '</p>'
+        : '') +
       '<p>Saved ' +
       esc(r.observed_at) +
       ' · ' +

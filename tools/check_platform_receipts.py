@@ -3,8 +3,8 @@
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import re
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 KINDS = {
@@ -19,6 +19,19 @@ KINDS = {
     "accessibility",
     "exports",
     "provider_boundary",
+}
+NATIVE_PR_PATHS = {
+    "ios/**",
+    "mission_control/**/*.py",
+    "mission_control/migrations/**",
+    "package/**",
+    "codemagic.yaml",
+    "specs/ios-client.md",
+    "plans/ios-client.md",
+    "tests/ios_acceptance.md",
+    "tools/check_platform_receipts.py",
+    "tests/test_platform_receipts.py",
+    ".github/workflows/platform-checks.yml",
 }
 
 
@@ -55,6 +68,12 @@ def source_inventory(root):
                 ".lock",
             }:
                 paths.add(relative.as_posix())
+    # Match the ordered SQL resources copied into the embedded engine.
+    paths.update(
+        path.relative_to(root).as_posix()
+        for path in (root / "mission_control/migrations").glob("[0-9][0-9][0-9][0-9]_*.sql")
+        if path.is_file() and path.suffix == ".sql"
+    )
     paths.update(
         (
             "codemagic.yaml",
@@ -153,7 +172,7 @@ def check(root, evidence):
                     kinds.add(artifact.get("kind"))
         if observed != required:
             errors.append(family + ": missing requirement observations")
-        if not KINDS <= kinds:
+        if not kinds >= KINDS:
             errors.append(family + ": missing artifact categories: " + ",".join(sorted(KINDS - kinds)))
     if seen != {"iphone", "ipad"}:
         errors.append("Both physical iPhone and iPad receipts are required")
@@ -167,6 +186,14 @@ def check(root, evidence):
     )
 
 
+def _native_trigger_matches(paths: object) -> bool:
+    return (
+        isinstance(paths, list)
+        and len(paths) == len(NATIVE_PR_PATHS)
+        and all(required in paths for required in NATIVE_PR_PATHS)
+    )
+
+
 def check_ci_contract(root):
     """Inspect declared build wiring only; never assert an Apple run occurred."""
     errors = []
@@ -177,8 +204,8 @@ def check_ci_contract(root):
     if "workflow_dispatch" not in value.get("on", {}):
         errors.append("Native verification needs an explicit dispatch entry")
     paths = value.get("on", {}).get("pull_request", {}).get("paths", [])
-    if not isinstance(paths, list) or not {"ios/**", "mission_control/**", "package/**"}.issubset(paths):
-        errors.append("Native pull-request checks must cover Swift and bundled shared engine changes")
+    if not _native_trigger_matches(paths):
+        errors.append("Native pull-request checks must target Swift, bundled shared engine inputs and native QA only")
     jobs = value.get("jobs", {})
     contract = jobs.get("contract", {})
     if not any(

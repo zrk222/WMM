@@ -69,6 +69,7 @@
 @media(max-width:760px){.sidebar #navigation{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible;align-items:start}.sidebar #navigation>.nav-item{min-width:0;width:100%;white-space:normal;justify-content:center;text-align:center;padding:10px 6px;gap:4px}.sidebar #navigation>details{grid-column:1/-1;margin:0}.sidebar #navigation>details>summary{justify-content:center}.sidebar #navigation>details .nav-item{min-width:0;white-space:normal}}
 
 .modal-content li,.modal-content small{overflow-wrap:anywhere}.modal-content fieldset{min-width:0}
+#campaign-scope-form input[type="datetime-local"]{min-width:0;width:100%;max-width:100%}
 
 /* Setup keeps the next task visible; optional settings retain every control. */
 .page-heading h1{font-size:28px;line-height:1.5;letter-spacing:-.5px}
@@ -115,6 +116,12 @@
 
 .campaign-review-copy { white-space: pre-wrap; overflow-wrap: anywhere; }
 .campaign-review-link { overflow-wrap: anywhere; }
+#campaign-schedule-form input[type="datetime-local"] { min-inline-size: 0; }
+@media (max-width: 380px) {
+  #campaign-schedule-form { padding-inline: 12px; }
+  #campaign-schedule-form .panel { padding-inline: 8px; }
+  #campaign-schedule-form input[type="datetime-local"] { padding-inline: 8px; }
+}
 .campaign-review-facts { display: grid; gap: 12px 20px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); }
 .campaign-review-facts dt { font-weight: 600; }
 .campaign-review-facts dd { margin: 0; overflow-wrap: anywhere; }

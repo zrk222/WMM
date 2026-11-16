@@ -5,6 +5,7 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -116,6 +117,24 @@ def run(browser, width):
         assert job is not None and job["status"] == "SUCCEEDED"
         with connection(f.store.path) as db:
             db.execute("UPDATE campaign_paid_intents SET status='UNKNOWN' WHERE id=?", (f.intent["id"],))
+        with (
+            patch.object(f.wire, "read_paid", side_effect=AssertionError("Receipt opened the provider")) as read_paid,
+            patch.object(
+                f.wire, "set_paid_status", side_effect=AssertionError("Receipt changed the provider")
+            ) as pause,
+        ):
+            with page.expect_request(lambda request: request.url.endswith("/campaigns/status")) as observed:
+                progress.get_by_role("button", name="Open saved campaign receipts", exact=True).press("Enter")
+            assert observed.value.post_data_json == {"scope_id": f.scope["scope_id"]}
+            recovery = page.locator("#campaign-progress")
+            expect(recovery).to_contain_text(f.intent["id"])
+            expect(recovery).to_contain_text("UNKNOWN")
+            expect(recovery.get_by_role("button", name="Read provider status")).to_be_visible()
+            expect(recovery.get_by_role("button", name="Pause owned paid campaign")).to_be_visible()
+            read_paid.assert_not_called()
+            pause.assert_not_called()
+        assert f.job() == job and page.evaluate("document.documentElement.scrollWidth<=innerWidth")
+        (OUT / f"monitor-receipt-{width}.html").write_text(page.content(), encoding="utf-8")
         page.locator("#close-modal").click()
         page.locator("#navigation > details > summary").click()
         page.locator("#navigation [data-view=weekly]").click()
@@ -142,6 +161,8 @@ def run(browser, width):
             worker_pause="SYNTHETIC_PAUSED_VERIFIED",
             private_report=True,
             allowance_next_step=True,
+            exact_local_receipt_opened_by_keyboard=True,
+            provider_reads_or_pauses_from_opening=0,
             owner_exception_recovery=True,
             signed_out_private_cache_hidden=True,
             off=True,

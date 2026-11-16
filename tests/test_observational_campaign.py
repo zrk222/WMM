@@ -337,6 +337,18 @@ class ObservationalCampaignTests(unittest.TestCase):
         current = self.invoke("report", binding)
         self.assertEqual(current["checkpoint"]["coverage_issues"], {"REGISTRATION": "COUNT_MISMATCH"})
         self.assertIsNone(current["checkpoint"]["ratio_counts"])
+        reconciled = current["source_reconciliation"]
+        self.assertEqual(reconciled["status"], "COUNT_CONFLICT")
+        self.assertIn("leave conversion unknown", reconciled["next_action"])
+        (conflict,) = reconciled["conflicts"]
+        self.assertEqual(
+            (conflict["event_kind"], conflict["collector"], conflict["provider_count"], conflict["wmm_count"]),
+            ("REGISTRATION", "wize-api", 1, 2),
+        )
+        self.assertEqual(
+            conflict["source_receipt_sha256"],
+            current["coverage"]["REGISTRATION"]["sources"][0]["source_receipt_sha256"],
+        )
         with connection(self.store.path) as db:
             db.execute("PRAGMA query_only=ON")
             self.assertNotIn("linked_registration_rate", _study_facts(db, APP, binding, self._now()))

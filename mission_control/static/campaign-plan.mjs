@@ -155,3 +155,98 @@ export const WMMCampaignPlan = (() => {
 
   return { build, markdown, missingInputs };
 })();
+
+/** @typedef {{scopeId: string, scopeHash: string, messages: string[], link: string|null}} CampaignReuseDraft */
+
+const settledBatches = new Set([
+  'DELIVERY_VERIFIED',
+  'OFF',
+  'APPROVAL_EXPIRED',
+  'APPROVAL_INACTIVE',
+]);
+const settledItems = new Set(['VERIFIED', 'BLOCKED', 'CANCELLED']);
+
+/** @param {unknown} value @returns {value is Record<string, unknown>} */
+function record(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** @param {unknown} value @returns {value is string|null} */
+function reusableLink(value) {
+  if (value === null) return true;
+  if (typeof value !== 'string' || value.length > 2048) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !!url.hostname && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
+/** @param {unknown} value @returns {CampaignReuseDraft|null} */
+function draft(value) {
+  if (!record(value) || value.evidence_unavailable) return null;
+  const { id, scope_id: scopeId, progress, items, summary } = value;
+  if (
+    typeof id !== 'string' ||
+    !id ||
+    typeof scopeId !== 'string' ||
+    !scopeId ||
+    typeof progress !== 'string' ||
+    !settledBatches.has(progress) ||
+    !record(summary) ||
+    summary.batch_id !== id ||
+    summary.scope_id !== scopeId ||
+    typeof summary.scope_hash !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(summary.scope_hash) ||
+    summary.kind === 'ADMITTED_ORGANIC_VIDEO_V1' ||
+    !Array.isArray(items) ||
+    !items.length ||
+    items.length > 20 ||
+    !Array.isArray(summary.items) ||
+    items.length !== summary.items.length
+  )
+    return null;
+
+  const receipts = new Set();
+  for (const item of items) {
+    if (
+      !record(item) ||
+      typeof item.item_id !== 'string' ||
+      !item.item_id ||
+      receipts.has(item.item_id) ||
+      typeof item.effective_status !== 'string' ||
+      !settledItems.has(item.effective_status)
+    )
+      return null;
+    receipts.add(item.item_id);
+  }
+  /** @type {string[]} */
+  const messages = [];
+  /** @type {string|null} */
+  let link = null;
+  let messageLength = 0;
+  for (const item of summary.items) {
+    if (!record(item) || typeof item.item_id !== 'string' || !receipts.delete(item.item_id))
+      return null;
+    if (item.operation !== undefined && item.operation !== 'campaign.publish') return null;
+    const request = item.request;
+    if (
+      !record(request) ||
+      typeof request.message !== 'string' ||
+      !request.message.trim() ||
+      request.message.length > 5000 ||
+      /\r?\n---\r?\n/.test(request.message) ||
+      !reusableLink(request.link) ||
+      (messages.length > 0 && request.link !== link)
+    )
+      return null;
+    messageLength += request.message.length + (messages.length ? 5 : 0);
+    if (messageLength > 50000) return null;
+    messages.push(request.message);
+    link = request.link;
+  }
+  return { scopeId, scopeHash: summary.scope_hash, messages, link };
+}
+
+export const WMMCampaignReuse = Object.freeze({ draft });

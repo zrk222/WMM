@@ -1,5 +1,6 @@
 """Allowlisted native analytics projection; no raw account, subject or connection data."""
 
+from .apple_analytics import CAMPAIGN_DOWNLOADS
 from .common import Invalid, digest
 
 COHORT_FIELDS = (
@@ -83,8 +84,8 @@ def snapshot(db, store, app_id, observed, *, include_handoffs=True, include_work
     keys = [
         {field: r[field] for field in KEY_FIELDS}
         for r in db.execute(
-            "SELECT * FROM apple_metric_partitions WHERE app_id=? AND store_app_id=? ORDER BY event_date,report_id",
-            (app_id, app["data"].get("store_app_id", "")),
+            "SELECT * FROM apple_metric_partitions WHERE app_id=? AND store_app_id=? AND report_family<>? ORDER BY event_date,report_id",
+            (app_id, app["data"].get("store_app_id", ""), CAMPAIGN_DOWNLOADS),
         )
     ]
     monitoring = monitoring_summary(db, app_id) if include_workflows else None

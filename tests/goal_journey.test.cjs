@@ -24,12 +24,14 @@ function fixture() {
     document: { querySelector: () => null },
     render: () => calls.push('render'),
     campaignOpen: () => calls.push('campaign'),
+    WMMAppleAnalytics: { open: (services) => calls.push(['apple-analytics', services]) },
+    growthReviewServices: () => 'current owner services',
     guidedNavigate: (v) => calls.push(v),
     guidedOpenTool: (v) => calls.push(v),
   };
   vm.createContext(c);
   vm.runInContext(src, c);
-  c.guidedNavigate = (v) => calls.push(v);
+  c.guidedNavigate = (v, target) => calls.push(target ? [v, target] : v);
   c.guidedOpenTool = (v) => calls.push(v);
   return { g: vm.runInContext('WMMGoalJourney', c), c, state, storage, values, calls };
 }
@@ -115,6 +117,46 @@ test('next action opens existing controls only after explicit user choice', () =
     h.c.goalAction({ dataset: { action: 'goal-next', goal: id, app: 'one', version: '1' } });
     assert.deepEqual(h.calls, [expected]);
   }
+});
+test('App Store goals open current Apple and Page repairs without granting authority', () => {
+  const h = fixture();
+  h.state.workspace.app.data.store_app_id = '123456';
+  const action = (goal, mode, extra = {}) =>
+    h.c.goalAction({
+      dataset: { action: 'goal-next', goal, mode, app: 'one', version: '1', ...extra },
+    });
+  assert.match(h.g.view(h.state.workspace, 'campaign', escape), /Connect Facebook for this app/);
+  assert.match(
+    h.g.view(h.state.workspace, 'measurement', escape),
+    /Review Apple download tracking/,
+  );
+  assert.doesNotMatch(
+    h.g.view(h.state.workspace, 'research', escape),
+    /App Store campaign downloads/,
+  );
+  assert.deepEqual(h.calls, []);
+  action('campaign', 'apple-facebook');
+  action('measurement', 'apple-analytics');
+  h.state.workspace.social_access.accounts = [
+    { provider: 'facebook', status: 'CONNECTED_READ_TESTED' },
+  ];
+  assert.match(h.g.view(h.state.workspace, 'campaign', escape), /Review Facebook campaign scope/);
+  action('campaign', 'apple-facebook');
+  assert.throws(() => action('measurement', 'apple-analytics', { app: 'two' }), /App changed/);
+  assert.throws(() => action('measurement', 'apple-analytics', { version: '2' }), /App changed/);
+  assert.throws(() => action('measurement', 'apple-facebook'), /available App Store setup action/);
+  assert.deepEqual(h.calls, [
+    ['connections', '#social-heading'],
+    ['apple-analytics', 'current owner services'],
+    'campaign',
+  ]);
+  h.state.workspace.social_access.accounts[0].reconnect_required = true;
+  assert.match(h.g.view(h.state.workspace, 'campaign', escape), /Connect Facebook for this app/);
+  h.state.workspace.app.data.store_app_id = 'com.example.android';
+  assert.doesNotMatch(
+    h.g.view(h.state.workspace, 'measurement', escape),
+    /Review Apple download tracking/,
+  );
 });
 test('three primary choices retain all advanced routes', () => {
   const html = fs.readFileSync(

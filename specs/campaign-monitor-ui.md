@@ -11,6 +11,8 @@ Owners review finite exact-intent monitoring and explicitly selected protective 
 - If app, owner, manifest or dialog changes during a request, the system shall reject stale follow-up actions through `context_binding`.
 - The system shall display saved monitor states, resource usage, job observations and OFF controls without claiming fresh provider results through `monitor_progress`.
 - A stopped monitor and its report shall give different next steps for expired approval, exhausted allowance, general approval or connection repair, and unconfirmed provider state; uncertainty takes priority.
+- Watch the work shall link the authenticated owner to the exact saved monitor when its approval or evidence needs attention. Unconfirmed results remain visible after OFF. Opening the monitor shall not request provider data, retry, resume, or pause a campaign.
+- On a saved monitor with valid scope evidence, **Open saved campaign receipts** shall open the exact saved scope using only its local status read. It shall not request provider data, pause, retry, widen scope or reopen a closed dialog. Missing or invalid scope evidence shall not offer this shortcut. An organic post shall not display a paid campaign pause control.
 - The system shall return a report containing only selected identifiers, states and resource counts without private content or credentials through `report_projection`.
 
 ### Acceptance criteria (Gherkin)

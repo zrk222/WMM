@@ -5,7 +5,7 @@ import sqlite3
 from contextvars import ContextVar
 from datetime import datetime, timezone
 
-from .campaign_contract import ad_data, post_data, scope_data
+from .campaign_contract import ad_data, paid_view, post_data, row_intent, scope_data
 from .campaign_destination import check_destination
 from .campaign_locks import CampaignLockBusy, paid_lock
 from .campaign_pause_receipts import confirm_paid_transition, pause_revision
@@ -13,6 +13,7 @@ from .campaign_pause_receipts import saved_pause_receipt as saved_pause_receipt
 from .campaign_transport import MetaTransport, Unconfirmed
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
+from .evidence_gate import assert_fresh_campaign_tag, assert_ready, scoped_tracking_tag
 from .review_access import member
 from .social_connections import Connections
 from .social_profiles import facebook, selected_page
@@ -137,54 +138,6 @@ def check_ad_limits(db, row, scope, body):
     return budget
 
 
-def row_intent(row):
-    if row is None:
-        raise Invalid("Campaign intent was not found")
-    return {
-        key: row[key]
-        for key in (
-            "id",
-            "scope_id",
-            "request_id",
-            "request_hash",
-            "content_hash",
-            "rights_hash",
-            "page_id",
-            "status",
-            "remote_id",
-            "created",
-            "updated",
-        )
-    } | {"result": json.loads(row["result"]) if row["result"] else None}
-
-
-def paid_view(row):
-    if row is None:
-        raise Invalid("Paid campaign intent was not found")
-    value = {
-        key: row[key]
-        for key in (
-            "id",
-            "scope_id",
-            "request_id",
-            "request_hash",
-            "account_id",
-            "currency",
-            "commitment",
-            "status",
-            "created",
-            "updated",
-        )
-    }
-    value.update(
-        kind="AD",
-        data=json.loads(row["data"]),
-        ids=json.loads(row["ids"]),
-        result=json.loads(row["result"]) if row["result"] else None,
-    )
-    return value
-
-
 class CampaignExecutionService:
     def __init__(self, store, policy_checker, transport=None):
         if not callable(policy_checker):
@@ -279,6 +232,10 @@ class CampaignExecutionService:
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
             role = member(db, app_id, principal, "OWNER")
+            plan = proposal.get("measurement_plan")
+            if plan:
+                scoped_tracking_tag(db, app_id, plan["link"])
+                assert_fresh_campaign_tag(db, app_id, plan["campaign_tag"])
             summary = dict(
                 proposal,
                 app_id=app_id,
@@ -411,6 +368,10 @@ class CampaignExecutionService:
             raise Invalid("Campaign review changed; prepare the exact scope again")
         if scope["owner_principal"] != owner:
             raise PermissionError("Only the scope owner may activate")
+        tag = scope.get("measurement_plan", {}).get("campaign_tag")
+        if tag is not None:
+            with connection(self.store.path) as db:
+                assert_fresh_campaign_tag(db, app_id, tag, scope_id=scope_id)
         self._preflight(app_id, owner, scope_id, "ACTIVATE", False)
         if scope["ad_account_id"]:
             if not PAID_EXECUTION_READY:
@@ -424,6 +385,9 @@ class CampaignExecutionService:
                 raise Invalid("Campaign review changed during verification")
             if iso_time(fresh["expires_at"]) <= datetime.now(timezone.utc):
                 raise Invalid("Campaign review expired")
+            assert_fresh_campaign_tag(
+                db, app_id, fresh.get("measurement_plan", {}).get("campaign_tag"), scope_id=scope_id
+            )
             db.execute(
                 "UPDATE campaign_scopes SET status='ACTIVE',updated=? WHERE app_id=? AND id=?",
                 (now(), app_id, scope_id),
@@ -501,6 +465,11 @@ class CampaignExecutionService:
             ).fetchone()[0]
             if count >= scope["max_posts"]:
                 raise PermissionError("Approved post count is exhausted")
+            tag = scoped_tracking_tag(db, app_id, post["link"])
+            assert_fresh_campaign_tag(db, app_id, tag, scope_id=scope_id)
+            retained = {"destination_check": destination_check} if destination_check else {}
+            if tag is not None:
+                retained["campaign_tag_hash"] = digest(tag)
             identity = uid()
             stamp = now()
             db.execute(
@@ -516,7 +485,7 @@ class CampaignExecutionService:
                     scope["page_id"],
                     "DISPATCHING",
                     None,
-                    canonical({"destination_check": destination_check}) if destination_check else None,
+                    canonical(retained) if retained else None,
                     stamp,
                     stamp,
                 ),
@@ -550,8 +519,9 @@ class CampaignExecutionService:
             if row["remote_id"] and remote_id and row["remote_id"] != remote_id:
                 raise Invalid("Campaign receipt identity changed")
             previous = json.loads(row["result"]) if row["result"] else {}
-            if "destination_check" in previous:
-                result = dict(result or {}, destination_check=previous["destination_check"])
+            for field in ("destination_check", "campaign_tag_hash"):
+                if field in previous:
+                    result = dict(result or {}, **{field: previous[field]})
             db.execute(
                 "UPDATE campaign_intents SET status=?,remote_id=COALESCE(?,remote_id),result=?,updated=? WHERE app_id=? AND id=?",
                 (status, remote_id, canonical(result) if result else None, now(), app_id, identity),
@@ -569,11 +539,10 @@ class CampaignExecutionService:
 
     def run_post(self, app_id, actor, scope_id, body):
         post = post_data(body)
-        from .evidence_gate import assert_ready
-
         scope = self.get_scope(app_id, scope_id)
         with connection(self.store.path) as db:
             self._check(db, app_id, actor, scope, "RUN_POST")
+            scoped_tracking_tag(db, app_id, post["link"])
         if scope.get("measurement_plan"):
             assert_ready(self.store, app_id, scope, request=post)
         scope, secret, token = self._preflight(app_id, actor, scope_id, "RUN_POST")

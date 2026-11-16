@@ -104,6 +104,17 @@ def access_error(value, grant):
     return "ACCESS_DENIED", "Check the app and your WMM access. Ask the owner to review access if this continues."
 
 
+def _campaign_review_required(value: dict[str, object], path: str, body: object) -> bool:
+    """Recognize fixed approval mismatches only on the routes that can raise them."""
+    if value == {"error": "Scheduled post is outside campaign approval"}:
+        return re.fullmatch(r"/api/apps/[a-z0-9-]+/campaigns/schedule-(?:prepare|activate)", path) is not None
+    if value != {"error": "Post content or rights attestation is outside the approved scope"}:
+        return False
+    if path == "/api/agent-operations/call":
+        return isinstance(body, dict) and body.get("operation") == "campaign.publish"
+    return re.fullmatch(r"/api/apps/[a-z0-9-]+/campaigns/publish", path) is not None
+
+
 class NoRedirect(HTTPRedirectHandler):
     """Never forward a session or POST to a redirected destination."""
 
@@ -194,6 +205,13 @@ def reject_http(error, path, body):
     finally:
         error.close()
     if error.code == 403:
+        if _campaign_review_required(value, path, body):
+            raise ClientError(
+                "CAMPAIGN_REVIEW_REQUIRED",
+                "The saved campaign approval does not cover this post. Ask the app owner to review the exact post "
+                "and its rights in a new campaign scope before continuing.",
+                error.code,
+            ) from None
         code, message = access_error(value, path.startswith("/api/agent-operations/"))
         raise ClientError(code, message, error.code) from None
     if (

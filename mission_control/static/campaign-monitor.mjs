@@ -1,5 +1,6 @@
 import { $, api, button, esc, state } from './app.mjs';
 import { modal } from './app-ui.mjs';
+import { campaignScopeReference, campaignStatus } from './campaign-execution.mjs';
 import { WMMPageReports } from './feature-apis.mjs';
 ('use strict');
 /* Exact owner monitoring preferences; domain services retain effect authority. */
@@ -14,6 +15,7 @@ const monitorPauseEvidence =
 
 const WMMCampaignMonitor = (() => {
   let active = null;
+  let inspection = null;
   const current = () => ({
     app: state.app,
     version: state.workspace.app.version,
@@ -269,6 +271,8 @@ const WMMCampaignMonitor = (() => {
     }
   }
   const needsRepair = (data) => data.evidence_unavailable || !data.summary?.proposal;
+  const receiptScope = (data) =>
+    needsRepair(data) ? null : campaignScopeReference(data.summary.proposal.scope_id);
   const repairNotice =
     'Saved monitor approval evidence is unavailable. Check campaign receipts before approving further monitoring.';
   function summary(data, rows = []) {
@@ -424,7 +428,17 @@ const WMMCampaignMonitor = (() => {
           ? '<p>Saved observations cannot be projected until the approval evidence is repaired.</p>'
           : '<p>No completed monitoring observation is recorded yet.</p>') +
       '<p>WMM must stay running. Inspect uncertainty before any retry; OFF stops future monitoring and does not pause ' +
-      'an already running ad. Campaign pause has its own control and readback.</p><p id="monitor-error" role="alert"></p>' +
+      'an already running ad. Campaign pause has its own control and readback.</p>' +
+      (receiptScope(data)
+        ? '<p class="description">Open saved receipts to see what WMM knows. Checking Meta or pausing a paid campaign takes a separate action.</p>' +
+          button(
+            'Open saved campaign receipts',
+            'campaign-monitor-receipts',
+            '',
+            data.effective_status === 'BLOCKED' ? 'primary' : 'outline',
+          )
+        : '') +
+      '<p id="monitor-error" role="alert"></p>' +
       button(
         'Refresh monitor receipts',
         'campaign-monitor-status',
@@ -435,28 +449,42 @@ const WMMCampaignMonitor = (() => {
     );
   }
   async function inspect(id) {
-    const old = active;
-    if (old && (!valid(old) || old.pending)) return;
-    const scope = current();
+    const old = active && valid(active) ? active : null;
+    if (old?.pending) return;
+    const remains = (request) =>
+      equal(request.scope, current()) &&
+      request.open === $('#modal').open &&
+      request.body === $('#modal-body').firstElementChild &&
+      request.view === state.view;
+    if (inspection && remains(inspection)) return;
+    const start = {
+      scope: current(),
+      open: $('#modal').open,
+      body: $('#modal-body').firstElementChild,
+      view: state.view,
+    };
+    inspection = start;
+    const sameView = () => inspection === start && remains(start) && (!old || valid(old));
     if (old) old.pending = true;
     try {
-      const data = await api('/api/apps/' + scope.app + '/campaign-monitor/status', {
+      const data = await api('/api/apps/' + start.scope.app + '/campaign-monitor/status', {
         monitor_id: id,
       });
-      if (!equal(scope, current()) || (old && !valid(old))) return;
+      if (!sameView()) return;
       modal(
         'Monitor saved work',
         '<div id="monitor-progress" class="modal-content">' + progress(data) + '</div>',
       );
-      active = { scope, node: $('#monitor-progress'), data };
+      active = { scope: start.scope, node: $('#monitor-progress'), data };
     } catch (e) {
-      if (old && valid(old)) {
+      if (old && sameView()) {
         const error = old.node.querySelector('#monitor-error');
         if (error) error.textContent = e.message;
         else old.node.textContent = e.message;
-      }
+      } else if (sameView()) throw e;
     } finally {
       if (old) old.pending = false;
+      if (inspection === start) inspection = null;
     }
   }
   function report(data, base) {
@@ -524,10 +552,15 @@ const WMMCampaignMonitor = (() => {
     if (kind === 'campaign-monitor-select') return choose(node.dataset.id);
     if (kind === 'campaign-monitor-status') return inspect(node.dataset.id);
     const t = active;
-    if (!t || !valid(t) || t.pending) return;
+    if (!t || !valid(t) || t.pending || node.isConnected === false) return;
     t.pending = true;
     node.disabled = true;
     try {
+      if (kind === 'campaign-monitor-receipts') {
+        const scope = receiptScope(t.data);
+        if (!scope) throw new Error('Saved campaign receipt link is unavailable for this monitor.');
+        return await campaignStatus(scope, null, node);
+      }
       if (kind === 'campaign-monitor-report')
         return WMMPageReports.openReport(report(t.data, WMMPageReports.model(state)), window);
       if (kind === 'campaign-monitor-activate')

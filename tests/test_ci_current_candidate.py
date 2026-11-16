@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BASELINES = {
     ".github/workflows/checks.yml": "e17530b08625e2fed876fa8ec83436dd83521061a00d975774328237bea97f5f",
     ".github/workflows/platform-checks.yml": "8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",
-    ".github/workflows/desktop-packages.yml": "f4b3dacc042207682a6513b21d22719e9a0f888972662a0f2612ad524a8738d6",
+    ".github/workflows/desktop-packages.yml": "bec9c46515b7bf94c9571992787a9bf51bb6a3df51e5d4c4a638bc2fc8d51e07",
 }
 GROUP = "${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
 

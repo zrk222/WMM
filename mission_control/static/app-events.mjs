@@ -189,9 +189,9 @@ async function formSubmit(event) {
     event.preventDefault();
     return WMMOneSignal.submit(form, growthReviewServices());
   }
-  if (formId === 'apple-analytics-form') {
+  if (formId === 'apple-analytics-form' || formId === 'apple-campaign-form') {
     event.preventDefault();
-    return WMMAppleAnalytics.submit(form, growthReviewServices());
+    return WMMAppleAnalytics.submit(form, growthReviewServices(), event.submitter?.value);
   }
   if (formId === 'agreement-form') {
     event.preventDefault();

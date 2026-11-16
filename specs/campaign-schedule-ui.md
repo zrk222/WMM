@@ -8,8 +8,10 @@ Expose existing owner campaign schedule services in protected campaign HTTP and 
 ### Requirements (EARS)
 - The system shall reject a scheduled batch mutation without fresh authenticated owner session, exact local origin and CSRF through `owner_http`.
 - The system shall display exact post content and due times before owner activation through `exact_batch_review`.
+- When the saved campaign approval does not cover the post or its rights, the browser and agent client shall direct the operator to owner review of the exact post. The rejection shall create no schedule or publish intent and shall not widen authority.
 - The system shall display saved batch status and job or intent identities without automatic replay through `durable_status`.
 - Saved progress and reports shall distinguish verified delivery, blocked work and uncertain provider effects. For an uncertain effect, direct the owner to check the provider receipt before retrying.
+- A batch that needs attention shall link to its exact saved campaign receipts when the campaign binding can be verified. Opening saved receipts shall not fetch live provider status, approve a retry, or start work.
 - When the owner selects OFF, the system shall cancel undispatched batch items and display dispatched uncertainty through `stop_control`.
 - The system shall reject paid schedule selection until paid scheduled execution is implemented through `no_paid_claim`.
 
@@ -38,5 +40,6 @@ Scenario: no_paid_claim
 ```
 
 ## SHOULD - Technical
+- Owners can reuse settled Facebook text batches as new drafts. Keep the previous delivery receipts; copy no request IDs, authority, schedules, rights approval or paid commitments. Unknown or running delivery must be reconciled first. When a previous link used a campaign tag, require a new tag; when the previous campaign required measurement, require a fresh measurement plan.
 - Reuse same protected campaign owner dispatcher and finite schedule capability. No new generic operation, provider transport, authority or worker engine.
 - Default scheduling disabled. No credentials in forms or reports. Expiry within existing campaign scope.

@@ -32,7 +32,12 @@ import { pmfOpen } from './pmf-workflow.mjs';
 import { publicStoreOpen } from './public-store-readback.mjs';
 import { rankingPanel } from './creative-ranking.mjs';
 import { renderForm } from './creative-rendering.mjs';
-import { WMMAgentControl, WMMCompleteAutomation, WMMPageReports } from './feature-apis.mjs';
+import {
+  WMMAgentControl,
+  WMMAppleAnalytics,
+  WMMCompleteAutomation,
+  WMMPageReports,
+} from './feature-apis.mjs';
 ('use strict');
 
 function guidedButton(tool, cls = 'outline') {
@@ -95,6 +100,39 @@ const WMMExceptionGuidance = (() => {
       action: 'Open the saved reviews to try again.',
       tool: 'rule-reviews',
     },
+    CAMPAIGN_SCHEDULE_NEEDS_RECONCILIATION: {
+      headline: 'Check whether scheduled work went live',
+    },
+    CAMPAIGN_SCHEDULE_APPROVAL_EXPIRED: {
+      headline: 'Schedule approval expired',
+    },
+    CAMPAIGN_SCHEDULE_APPROVAL_INACTIVE: {
+      headline: 'Schedule approval is off',
+    },
+    CAMPAIGN_SCHEDULE_NEEDS_REPAIR: {
+      headline: 'Saved schedule needs review',
+    },
+    CAMPAIGN_SCHEDULE_BLOCKED: {
+      headline: 'Scheduled work needs attention',
+    },
+    CAMPAIGN_MONITOR_NEEDS_RECONCILIATION: {
+      headline: 'Check the last monitoring result',
+    },
+    CAMPAIGN_MONITOR_APPROVAL_EXPIRED: {
+      headline: 'Monitoring approval expired',
+    },
+    CAMPAIGN_MONITOR_ALLOWANCE_USED: {
+      headline: 'Monitoring allowance used',
+    },
+    CAMPAIGN_MONITOR_PAUSE_UNAVAILABLE: {
+      headline: 'Protective pause is unavailable',
+    },
+    CAMPAIGN_MONITOR_APPROVAL_NEEDS_REVIEW: {
+      headline: 'Monitoring approval needs review',
+    },
+    CAMPAIGN_MONITOR_EVIDENCE_NEEDS_REPAIR: {
+      headline: 'Saved monitor needs review',
+    },
     WAITING_FOR_REPORTS: {
       headline: 'Report rows are not available yet',
       reason:
@@ -123,20 +161,52 @@ const WMMExceptionGuidance = (() => {
     'owner',
     'apple-analytics',
   ]);
-  function repairButton(tool) {
+  function repairButton(tool, batchId, monitorId) {
+    if (batchId)
+      return button(
+        'Review this scheduled batch',
+        'campaign-schedule-status',
+        `data-batch="${esc(batchId)}"`,
+      );
+    if (monitorId)
+      return button(
+        'Review this saved monitor',
+        'campaign-monitor-status',
+        `data-id="${esc(monitorId)}"`,
+      );
     if (tool === 'apple-analytics') return button('Review Apple analytics', 'apple-analytics-open');
     if (tool === 'rule-reviews')
       return button('Review scheduled rules', 'goal-repair', 'data-tool="rule-reviews"');
     return button(`Open ${tool} controls`, 'goal-repair', `data-tool="${esc(tool)}"`);
   }
+  const savedId = (value) =>
+    typeof value === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value)
+      ? value
+      : null;
   function normalize(row) {
     if (!row || typeof row !== 'object') return null;
     const status = String(row.state || row.status || '').toUpperCase();
-    const definition = definitions[status] || {
+    const batchId =
+      status.startsWith('CAMPAIGN_SCHEDULE_') &&
+      Object.hasOwn(definitions, status) &&
+      row.repair_route === 'campaign-schedule'
+        ? savedId(row.batch_id)
+        : null;
+    const monitorId =
+      status.startsWith('CAMPAIGN_MONITOR_') &&
+      Object.hasOwn(definitions, status) &&
+      row.repair_route === 'campaign-monitor'
+        ? savedId(row.monitor_id)
+        : null;
+    const fallback = {
       headline: 'Work needs review',
       reason: 'WMM received a state it cannot safely classify.',
       action: 'Open the saved evidence and review the current scope.',
       tool: 'agreement',
+    };
+    const definition = {
+      ...fallback,
+      ...(Object.hasOwn(definitions, status) ? definitions[status] : {}),
     };
     const refs = Array.isArray(row.evidence_refs)
       ? row.evidence_refs.filter((v) => typeof v === 'string')
@@ -153,6 +223,8 @@ const WMMExceptionGuidance = (() => {
       reason: typeof row.reason === 'string' ? row.reason : definition.reason,
       action: typeof row.next_action === 'string' ? row.next_action : definition.action,
       tool,
+      batchId,
+      monitorId,
       evidence_refs: refs,
       source: typeof row.source === 'string' ? row.source : null,
       observed_at: typeof row.observed_at === 'string' ? row.observed_at : null,
@@ -163,7 +235,7 @@ const WMMExceptionGuidance = (() => {
     if (!Array.isArray(rows) || !rows.length) return '';
     const cards = rows.map(normalize).filter(Boolean);
     if (!cards.length) return '';
-    return `<section class="panel" aria-label="Workflow exceptions"><h2>Workflow updates</h2><p>See what WMM observed and what to do next.</p><div class="guided-exceptions">${cards.map((c) => `<article class="panel guided-exception" data-exception-state="${esc(c.status)}"><h3>${esc(c.headline)}</h3><p>${esc(c.reason)}</p><p><strong>Next:</strong> ${esc(c.action)}</p>${c.observed_at || c.next_due ? `<p><small>${c.observed_at ? `Observed: ${esc(c.observed_at)}` : ''}${c.next_due ? `${c.observed_at ? ' · ' : ''}next due ${esc(c.next_due)}` : ''}</small></p>` : ''}${c.evidence_refs.length ? `<p><small>Evidence: ${c.evidence_refs.map(esc).join(', ')}</small></p>` : ''}${c.source ? `<p><small>Source: ${esc(c.source)}</small></p>` : ''}${repairButton(c.tool)}</article>`).join('')}</div></section>`;
+    return `<section class="panel" aria-label="Workflow exceptions"><h2>Workflow updates</h2><p>See what WMM observed and what to do next.</p><div class="guided-exceptions">${cards.map((c) => `<article class="panel guided-exception" data-exception-state="${esc(c.status)}"><h3>${esc(c.headline)}</h3><p>${esc(c.reason)}</p><p><strong>Next:</strong> ${esc(c.action)}</p>${c.observed_at || c.next_due ? `<p><small>${c.observed_at ? `Observed: ${esc(c.observed_at)}` : ''}${c.next_due ? `${c.observed_at ? ' · ' : ''}next due ${esc(c.next_due)}` : ''}</small></p>` : ''}${c.evidence_refs.length ? `<p><small>Evidence: ${c.evidence_refs.map(esc).join(', ')}</small></p>` : ''}${c.source ? `<p><small>Source: ${esc(c.source)}</small></p>` : ''}${repairButton(c.tool, c.batchId, c.monitorId)}</article>`).join('')}</div></section>`;
   }
   return { normalize, panel, definitions };
 })();
@@ -360,6 +432,11 @@ const WMMGoalJourney = (() => {
       next: 'Add a research reference',
       view: 'research',
       need: 'Research references and authentic app facts',
+      readiness: {
+        label: 'Check your research sources',
+        view: 'evidence',
+        anchor: '#creative-source-library-heading',
+      },
     },
     creative: {
       title: 'Produce or revise a video',
@@ -369,6 +446,11 @@ const WMMGoalJourney = (() => {
       next: 'Open creative production',
       view: 'research',
       need: 'Approved brief, cleared media and production tools',
+      readiness: {
+        label: 'Check video tools',
+        view: 'research',
+        anchor: '#creative-rendering-heading',
+      },
     },
     campaign: {
       title: 'Run an approved campaign',
@@ -386,6 +468,11 @@ const WMMGoalJourney = (() => {
       next: 'Review measurement evidence',
       view: 'results',
       need: 'Your analytics connection or an actual results import',
+      readiness: {
+        label: 'Check what you can measure',
+        view: 'results',
+        anchor: '#analytics-overview-heading',
+      },
     },
   });
   const key = (app) => 'wmm-goal-choice:' + app;
@@ -422,6 +509,20 @@ const WMMGoalJourney = (() => {
     if (account.status === 'CONNECTED_READ_TESTED') return 'Read check recorded';
     return 'Check connection';
   }
+  function applePath(workspace, goal) {
+    const app = workspace?.app;
+    if (
+      !['campaign', 'measurement'].includes(goal) ||
+      typeof app?.data?.store_app_id !== 'string' ||
+      !/^[0-9]{1,30}$/.test(app.data.store_app_id)
+    )
+      return null;
+    const hasSavedPage = (workspace.social_access?.accounts || []).some(
+      (account) =>
+        account.provider === 'facebook' && savedConnectionStatus(account) === 'Read check recorded',
+    );
+    return { hasSavedPage };
+  }
   function model(workspace, id) {
     const goal = choices[fixed(id)];
     return {
@@ -429,6 +530,7 @@ const WMMGoalJourney = (() => {
       version: workspace.app.version,
       objective: workspace.app.data.job || '',
       goal: goal ? { id, ...goal } : null,
+      apple: applePath(workspace, id),
       accounts: (workspace.social_access?.accounts || [])
         .filter((a) => Object.hasOwn(channels, a.provider))
         .map((a) => ({
@@ -471,8 +573,13 @@ const WMMGoalJourney = (() => {
       g?.id === 'campaign'
         ? '<p>For one organic post, set up measurement before you publish. Your app website, tagged link and measurement source belong to this app.</p><button type="button" class="button outline" data-action="observational-campaign-open">Plan a tracked organic post</button>'
         : '';
+    const appleButton = (mode, label) =>
+      `<button type="button" class="button outline" data-action="goal-next" data-goal="${g.id}" data-mode="${mode}" data-app="${html(m.app_id)}" data-version="${m.version}">${label}</button>`;
+    const apple = m.apple
+      ? `<section aria-label="App Store campaign downloads"><h3>App Store campaign downloads</h3><p>Use this app’s Apple campaign link and check its report access. Missing counts stay unknown.${g.id === 'campaign' ? ' Then review one organic Facebook post with no media spend.' : ''}</p><div class="toolbar">${appleButton('apple-analytics', 'Review Apple download tracking')}${g.id === 'campaign' ? appleButton('apple-facebook', m.apple.hasSavedPage ? 'Review Facebook campaign scope' : 'Connect Facebook for this app') : ''}</div></section>`
+      : '';
     const next = g
-      ? `<section class="panel" aria-label="Your selected goal"><h2>${html(g.title)}</h2><p>${html(g.description)}</p><p><strong>Bring:</strong> ${html(g.need)}.</p>${accounts}<p>Account setup is not execution approval. Existing workflow and campaign checks still apply.</p><div class="toolbar"><button type="button" class="button" data-action="goal-next" data-goal="${g.id}" data-app="${html(m.app_id)}" data-version="${m.version}">${html(g.next)}</button><button type="button" class="button outline" data-action="goal-readiness">Check connections for this goal</button><button type="button" class="button outline" data-view="agents">Connect your agent</button></div>${tracking}</section>`
+      ? `<section class="panel" aria-label="Your selected goal"><h2>${html(g.title)}</h2><p>${html(g.description)}</p><p><strong>Bring:</strong> ${html(g.need)}.</p>${accounts}<p>Account setup is not execution approval. Existing workflow and campaign checks still apply.</p><div class="toolbar"><button type="button" class="button" data-action="goal-next" data-goal="${g.id}" data-app="${html(m.app_id)}" data-version="${m.version}">${html(g.next)}</button><button type="button" class="button outline" data-action="goal-readiness">${html(g.readiness?.label || 'Check connections for this goal')}</button><button type="button" class="button outline" data-view="agents">Connect your agent</button></div>${g.readiness ? '<details><summary>Advanced readiness options</summary><p>Check specific agent permissions and connections only if you want WMM to manage the work.</p><button type="button" class="button outline" data-action="goal-readiness" data-mode="managed">Check managed automation</button></details>' : ''}${apple}${tracking}</section>`
       : '<p>Choose one goal to see the relevant tools. This selection starts no work and grants no permission.</p>';
     return `<section class="panel" aria-label="Choose your marketing goal" id="goal-journey"><h2>What would you like to accomplish?</h2><p>Start with one useful result. Your agent and you use the same saved app facts, tools and approval checks.</p><p><strong>Your app purpose:</strong> ${html(m.objective || 'Add the problem your app solves in App setup.')}</p><div class="goal-choice-grid" role="group" aria-label="Marketing goals">${cards}</div><p id="goal-message" role="status" aria-live="polite"></p></section>${next}`;
   }
@@ -483,7 +590,7 @@ const WMMGoalJourney = (() => {
       return null;
     }
   }
-  return { read, save, model, view, choices, browserStorage };
+  return { read, save, model, view, choices, browserStorage, applePath };
 })();
 
 function goalProofIllustration() {
@@ -649,7 +756,7 @@ function goalOverview() {
 
 function goalAction(node) {
   if (node.dataset.action === 'goal-agreement') return WMMAgreement.open();
-  if (node.dataset.action === 'goal-readiness') return WMMGoalReadiness.open();
+  if (node.dataset.action === 'goal-readiness') return WMMGoalReadiness.open(node.dataset.mode);
   if (node.dataset.action === 'goal-repair') return WMMGoalReadiness.repair(node.dataset.tool);
   if (
     node.dataset.app !== state.app ||
@@ -673,6 +780,16 @@ function goalAction(node) {
     return;
   }
   if (node.dataset.action !== 'goal-next') throw new Error('Unknown goal action.');
+  if (node.dataset.mode) {
+    const apple = WMMGoalJourney.applePath(state.workspace, id);
+    if (apple && node.dataset.mode === 'apple-analytics')
+      return WMMAppleAnalytics.open(growthReviewServices());
+    if (apple && id === 'campaign' && node.dataset.mode === 'apple-facebook')
+      return apple.hasSavedPage
+        ? campaignOpen(node)
+        : guidedNavigate('connections', '#social-heading');
+    throw new Error('Choose an available App Store setup action for this app.');
+  }
   if (id === 'campaign') return guidedNavigate('connections');
   if (id === 'creative') return guidedNavigate('research');
   if (id === 'research') return guidedOpenTool('sources');
@@ -823,6 +940,8 @@ const WMMGoalReadiness = (() => {
       return ['Review organic publication', 'organic-publication'];
     if (blockers.has('EXACT_OWNER_CAMPAIGN_SCOPE_REQUIRED'))
       return ['Review campaign scope', 'campaign'];
+    if (blockers.has('LOCAL_MEDIA_RUNTIME_VERIFICATION_REQUIRED'))
+      return ['Review local video tools', 'video-tools'];
     if (inventory.scope_status === 'READY_FOR_SCOPE_REVIEW' && !credentials.length)
       return ['Review automation agreement', 'combined-agreement'];
     return null;
@@ -942,9 +1061,13 @@ const WMMGoalReadiness = (() => {
       '</p></details>'
     );
   }
-  function open() {
+  function open(mode = 'goal') {
+    if (!state.app || state.workspace?.app?.id !== state.app)
+      throw new Error('Wait for the selected app to finish loading, then check again.');
     const saved = snapshot();
     if (!presets[saved.goal]) throw new Error('Choose a goal first.');
+    const route = WMMGoalJourney.choices[saved.goal].readiness;
+    if (route && mode !== 'managed') return guidedNavigate(route.view, route.anchor);
     if (!owner()) {
       modal(
         'Connect your accounts',
@@ -1096,6 +1219,7 @@ const WMMGoalReadiness = (() => {
     }
     if (tool === 'campaign') return campaignOpen();
     if (tool === 'social-accounts') return guidedNavigate('connections', '#social-heading');
+    if (tool === 'video-tools') return guidedNavigate('research', '#creative-rendering-heading');
     if (tool === 'combined-agreement') return WMMAgreement.open();
     if (tool === 'agreement')
       return WMMCompleteAutomation.action(
@@ -1382,7 +1506,7 @@ const WMMAgreement = (() => {
       families +
       '</dd></div><div><dt>Scheduled items</dt><dd>' +
       (s.schedule?.items.length || 0) +
-      '</dd></div><div><dt>Retained media commitment</dt><dd>' +
+      '</dd></div><div><dt>Held by this approval</dt><dd>' +
       esc(
         s.campaign
           ? s.campaign.commitment_held_minor + ' minor ' + s.campaign.approval.currency
@@ -1525,6 +1649,11 @@ const WMMAgreement = (() => {
       '</ul></details>'
     );
   }
+  function campaignBudgetBoundary(approval) {
+    return approval?.ad_account_id
+      ? 'Other commitments on the same Meta ad account and in the same currency can reduce how much of this ceiling is available. WMM checks that limit before launch.'
+      : '';
+  }
   function campaignReportNotes(c) {
     const a = c.approval || {};
     return [
@@ -1539,6 +1668,7 @@ const WMMAgreement = (() => {
         (a.max_total_minor ?? 'Unavailable') +
         ' minor ' +
         (a.currency || 'Unknown'),
+      ...[campaignBudgetBoundary(a)].filter(Boolean),
       ...fingerprintLabels(a).map(([label, values]) => label + ': ' + fingerprintValue(values)),
     ];
   }
@@ -1576,7 +1706,8 @@ const WMMAgreement = (() => {
     const s = data.summary,
       l = s.local_work,
       c = s.campaign,
-      b = s.schedule;
+      b = s.schedule,
+      budgetBoundary = campaignBudgetBoundary(c?.approval);
     return (
       overview(s) +
       '<h3>' +
@@ -1622,9 +1753,12 @@ const WMMAgreement = (() => {
           esc(c.approval.max_total_minor ?? 'Unavailable') +
           ' minor ' +
           esc(c.approval.currency) +
-          '; held ' +
+          ' (approved ceiling).</p><p>Held by this approval: ' +
           esc(c.commitment_held_minor) +
+          ' minor ' +
+          esc(c.approval.currency) +
           '.</p>' +
+          (budgetBoundary ? '<p>' + esc(budgetBoundary) + '</p>' : '') +
           fingerprintMarkup(c.approval) +
           '<p>Scopes ' +
           esc((c.account.reported_scopes || []).join(', ')) +
@@ -1751,10 +1885,10 @@ const WMMAgreement = (() => {
           source: 'Current owner agreement snapshot',
         },
         {
-          label: 'Retained media commitment',
+          label: 'Held by this approval',
           value: c?.commitment_held_minor ?? null,
           unit: c ? 'minor ' + c.approval.currency : 'unavailable',
-          source: 'Saved campaign intents',
+          source: 'Saved intents for this approval',
         },
       ],
       cohorts: [],
