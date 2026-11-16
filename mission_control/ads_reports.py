@@ -1,6 +1,7 @@
 """Native Apple keyword observations, without campaign mutation or ROI inference."""
 
 import re
+
 from .common import Invalid, digest
 
 REPORT_PATHS = {"keyword_report": "keywords", "search_term_report": "searchterms"}
@@ -47,7 +48,11 @@ def row_identity(row, binding, options):
         raise Invalid("Granular report metrics are malformed")
     if options["operation"] == "keyword_report":
         return (campaign, group, keyword_identity(m, campaign, account, group))
-    term = text(m.get("searchTermText"))
+    if "searchTermText" not in m:
+        raise Invalid("Search term identity is missing")
+    # Apple may aggregate low-volume queries into an unnamed row. Preserve the
+    # row for paid reporting without inventing a candidate or weakening scope.
+    term = None if m["searchTermText"] is None else text(m["searchTermText"])
     source = text(m.get("searchTermSource"))
     keyword = m.get("keyword")
     kid = None if keyword is None else keyword_identity(keyword, campaign, account, group)
@@ -87,6 +92,13 @@ def read_keywords(reader, binding, options, query, page_check):
         if offset >= total:
             break
     search = options["operation"] == "search_term_report"
+    term_coverage = {}
+    if search:
+        suppressed = sum(row["metadata"]["searchTermText"] is None for row in rows)
+        term_coverage = {
+            "visible_search_term_rows": len(rows) - suppressed,
+            "suppressed_search_term_rows": suppressed,
+        }
     return {
         "operation": options["operation"],
         "api_version": "PLATFORM_V1",
@@ -98,9 +110,12 @@ def read_keywords(reader, binding, options, query, page_check):
         "privacy_suppression_possible": search,
         "coverage_scope": "PROVIDER_DECLARED_ROWS_ONLY",
         "interpretation": (
-            "Account reporting timezone (ORTZ). Low-volume queries may be suppressed or aggregated; fetched rows are not total demand. "
+            "Account reporting timezone (ORTZ). Visible queries are paid observations. "
+            "Low-volume terms may be suppressed; unnamed rows do not support keyword recommendations. "
+            "Fetched rows are not total demand or organic rank. "
             if search
             else "UTC report window. "
         )
         + "Page cap may limit coverage. Missing metrics remain unavailable; attributed installs do not prove paid customers or ROI.",
+        **term_coverage,
     }

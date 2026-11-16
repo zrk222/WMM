@@ -1,15 +1,43 @@
 """Native report behavior using supplied synthetic Apple observations only."""
 
-import copy, json, os, tempfile, time, unittest
+import copy
+import json
+import os
+import tempfile
+import time
+import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import NotRequired, TypedDict, cast
 from unittest.mock import patch
+
 from mission_control.common import Invalid
-from mission_control.provider_reports import read_report, report_options, Reader
+from mission_control.provider_reports import Reader, read_report, report_options
 from mission_control.providers import report_request
-from mission_control.store import Store
 from mission_control.service import Service
-from mission_control.worker import run_once, enqueue, jobs
+from mission_control.store import Store
+from mission_control.worker import enqueue, jobs, run_once
+
+
+class _AdsFixtureRow(TypedDict):
+    metadata: dict[str, object]
+    totalMetrics: dict[str, object]
+
+
+class _AdsFixtureReport(TypedDict):
+    operation: str
+    reporting_timezone: str
+    coverage: str
+    coverage_scope: str
+    rows: list[_AdsFixtureRow]
+    page_source_hashes: list[str]
+    external_writes: bool
+    privacy_suppression_possible: bool
+    interpretation: str
+    declared_rows: int
+    visible_search_term_rows: NotRequired[int]
+    suppressed_search_term_rows: NotRequired[int]
+    pages: int
 
 
 def options(operation="keyword_report"):
@@ -89,7 +117,8 @@ class AdsReports(unittest.TestCase):
             "mission_control.provider_reports.report_request", side_effect=[{"result": [campaign()]}, *pages]
         ) as request:
             result = read_report(self.binding, "sample-one", options(operation))
-        return result, request
+        assert isinstance(result, dict)
+        return cast(_AdsFixtureReport, result), request
 
     def connect(self):
         return self.service.evidence(
@@ -137,13 +166,42 @@ class AdsReports(unittest.TestCase):
         self.assertIn("suppressed", result["interpretation"])
         self.assertIsNone(result["rows"][0]["metadata"]["keyword"])
 
+    def test_suppressed_search_rows_do_not_hide_visible_paid_query_evidence(self) -> None:
+        hidden = row(1, search=True)
+        hidden["metadata"]["searchTermText"] = None
+        visible = row(2, search=True)
+        result, _ = self.read([page([hidden, visible])], "search_term_report")
+        self.assertEqual(result["coverage"], "COMPLETE")
+        self.assertEqual(result["declared_rows"], 2)
+        self.assertEqual(result.get("visible_search_term_rows"), 1)
+        self.assertEqual(result.get("suppressed_search_term_rows"), 1)
+        self.assertIsNone(result["rows"][0]["metadata"]["searchTermText"])
+        self.assertEqual(result["rows"][1]["metadata"]["searchTermText"], "synthetic question 2")
+        self.assertEqual(result["rows"][0]["totalMetrics"], hidden["totalMetrics"])
+        self.assertIn("not total demand or organic rank", result["interpretation"])
+
+    def test_suppressed_search_rows_still_require_exact_scope_and_unique_identity(self) -> None:
+        hidden = row(search=True)
+        hidden["metadata"]["searchTermText"] = None
+        foreign = copy.deepcopy(hidden)
+        foreign["metadata"]["adAccountId"] = 999
+        with self.assertRaisesRegex(Invalid, "another campaign or account"):
+            self.read([page([foreign])], "search_term_report")
+        with self.assertRaisesRegex(Invalid, "Repeated keyword report entity"):
+            self.read([page([hidden, copy.deepcopy(hidden)])], "search_term_report")
+        del hidden["metadata"]["searchTermText"]
+        with self.assertRaisesRegex(Invalid, "Search term identity is missing"):
+            self.read([page([hidden])], "search_term_report")
+
     def test_single_day_omits_granularity_and_no_empty_demand_claim(self):
         one = options("search_term_report")
         one["start"] = one["end"]
         with patch(
             "mission_control.provider_reports.report_request", side_effect=[{"result": [campaign()]}, page([])]
         ) as request:
-            result = read_report(self.binding, "sample-one", one)
+            readout = read_report(self.binding, "sample-one", one)
+        assert isinstance(readout, dict)
+        result = cast(_AdsFixtureReport, readout)
         self.assertNotIn("granularity", request.call_args.args[2]["timeRange"])
         self.assertEqual(result["rows"], [])
         self.assertTrue(result["privacy_suppression_possible"])

@@ -1,5 +1,6 @@
 # Automatically enrolled source; entries only grow.
 ios/Build/run_simulators.py
+mission_control/ads_reports.py
 mission_control/agent_access.py
 mission_control/agent_context.py
 mission_control/agent_contract.py
@@ -113,6 +114,7 @@ mission_control/weekly_rule_exception.py
 mission_control/worker.py
 tests/campaign_paid_schedule_browser.py
 tests/dashboard_fixture.py
+tests/test_ads_reports.py
 tests/test_agent_context_tasks.py
 tests/test_agent_control_ui.py
 tests/test_agent_review_dispatch.py
@@ -165,6 +167,7 @@ tests/test_ledger_grouping.py
 tests/test_licensing_plain.py
 tests/test_linkedin_render_contract.py
 tests/test_linux_vault.py
+tests/test_market_growth_next_action.py
 tests/test_measurement_economics.py
 tests/test_meta_windowed_spend.py
 tests/test_migrations.py
