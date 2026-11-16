@@ -336,6 +336,98 @@ def view(db, row):
     )
 
 
+_WATCH_MONITOR_COPY = {
+    "VERIFY_PROVIDER": (
+        "NEEDS_RECONCILIATION",
+        "The last monitoring result is unconfirmed, even if monitoring is off.",
+        "Open the saved monitor and check the campaign receipt before retrying or assuming the campaign paused.",
+    ),
+    "REVIEW_EXPIRY": (
+        "APPROVAL_EXPIRED",
+        "The approval for this monitor expired.",
+        "Open the saved monitor to check its last result before approving any new monitoring.",
+    ),
+    "REVIEW_ALLOWANCE": (
+        "ALLOWANCE_USED",
+        "This monitor used its approved checks.",
+        "Open the saved results and review the allowance before deciding whether to approve more checks.",
+    ),
+    "REVIEW_PAUSE_ELIGIBILITY": (
+        "PAUSE_UNAVAILABLE",
+        "The selected targets do not include a paid campaign that can be paused.",
+        "Review the saved targets. Facebook Page posts can be checked but cannot be paused.",
+    ),
+    "CHECK_APPROVAL": (
+        "APPROVAL_NEEDS_REVIEW",
+        "WMM could not continue under the saved monitor approval.",
+        "Open the saved monitor to check its connection, targets, and approval before continuing.",
+    ),
+    "NEEDS_REPAIR": (
+        "EVIDENCE_NEEDS_REPAIR",
+        "WMM cannot verify the saved monitor evidence.",
+        "Review the saved monitor and campaign receipts before taking another action.",
+    ),
+}
+
+
+def _watch_monitor_attention(db: Connection, row: Row) -> str | None:
+    saved = view(db, row)
+    if row["status"] == "OFF":
+        if not row["last_job"]:
+            return None
+        if saved.get("evidence_unavailable"):
+            return "NEEDS_REPAIR"
+        summary = cast(_RetainedMonitorSummary, saved["summary"])
+        attention = monitor_attention(row, summary["proposal"], "BLOCKED", saved["last_observation"])
+        return "VERIFY_PROVIDER" if attention == "VERIFY_PROVIDER" else None
+    if saved["effective_status"] == "NEEDS_REPAIR":
+        return "NEEDS_REPAIR"
+    attention = saved.get("attention")
+    return attention if isinstance(attention, str) else None
+
+
+def watch_monitor_exceptions(db: Connection, app_id: str, principal: str) -> list[dict[str, str]]:
+    """Show bounded, exact owner review links without touching the provider or queue."""
+    try:
+        member(db, app_id, principal, "OWNER")
+    except PermissionError:
+        return []
+    if not monitor_table_exists(db):
+        return []
+    cards: list[dict[str, str]] = []
+    observed = now()
+    for row in db.execute(
+        """SELECT * FROM campaign_monitors
+           WHERE app_id=? AND owner=? AND (status IN ('BLOCKED','ACTIVE') OR (status='OFF' AND last_job IS NOT NULL))
+           ORDER BY updated DESC,id DESC LIMIT 8""",
+        (app_id, principal),
+    ):
+        try:
+            identity = reference(row["id"])
+        except Invalid:
+            continue
+        try:
+            attention = _watch_monitor_attention(db, row)
+        except (ValueError, KeyError, TypeError, OverflowError, RecursionError):
+            attention = "NEEDS_REPAIR"
+        if attention is None or attention not in _WATCH_MONITOR_COPY:
+            continue
+        state, reason, next_action = _WATCH_MONITOR_COPY[attention]
+        cards.append(
+            dict(
+                state="CAMPAIGN_MONITOR_" + state,
+                source="Saved Facebook and Meta monitoring",
+                reason=reason,
+                next_action=next_action,
+                repair_route="campaign-monitor",
+                monitor_id=identity,
+                observed_at=observed,
+            )
+        )
+    cards.sort(key=lambda card: card["state"] != "CAMPAIGN_MONITOR_NEEDS_RECONCILIATION")
+    return cards[:3]
+
+
 def last_observation(db, row, summary):
     """Project only exact owned monitor-job receipts, never arbitrary raw results."""
     if not row["last_job"]:

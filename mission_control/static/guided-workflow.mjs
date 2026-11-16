@@ -110,6 +110,24 @@ const WMMExceptionGuidance = (() => {
     CAMPAIGN_SCHEDULE_BLOCKED: {
       headline: 'Scheduled work needs attention',
     },
+    CAMPAIGN_MONITOR_NEEDS_RECONCILIATION: {
+      headline: 'Check the last monitoring result',
+    },
+    CAMPAIGN_MONITOR_APPROVAL_EXPIRED: {
+      headline: 'Monitoring approval expired',
+    },
+    CAMPAIGN_MONITOR_ALLOWANCE_USED: {
+      headline: 'Monitoring allowance used',
+    },
+    CAMPAIGN_MONITOR_PAUSE_UNAVAILABLE: {
+      headline: 'Protective pause is unavailable',
+    },
+    CAMPAIGN_MONITOR_APPROVAL_NEEDS_REVIEW: {
+      headline: 'Monitoring approval needs review',
+    },
+    CAMPAIGN_MONITOR_EVIDENCE_NEEDS_REPAIR: {
+      headline: 'Saved monitor needs review',
+    },
     WAITING_FOR_REPORTS: {
       headline: 'Report rows are not available yet',
       reason:
@@ -138,28 +156,42 @@ const WMMExceptionGuidance = (() => {
     'owner',
     'apple-analytics',
   ]);
-  function repairButton(tool, batchId) {
+  function repairButton(tool, batchId, monitorId) {
     if (batchId)
       return button(
         'Review this scheduled batch',
         'campaign-schedule-status',
         `data-batch="${esc(batchId)}"`,
       );
+    if (monitorId)
+      return button(
+        'Review this saved monitor',
+        'campaign-monitor-status',
+        `data-id="${esc(monitorId)}"`,
+      );
     if (tool === 'apple-analytics') return button('Review Apple analytics', 'apple-analytics-open');
     if (tool === 'rule-reviews')
       return button('Review scheduled rules', 'goal-repair', 'data-tool="rule-reviews"');
     return button(`Open ${tool} controls`, 'goal-repair', `data-tool="${esc(tool)}"`);
   }
+  const savedId = (value) =>
+    typeof value === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value)
+      ? value
+      : null;
   function normalize(row) {
     if (!row || typeof row !== 'object') return null;
     const status = String(row.state || row.status || '').toUpperCase();
     const batchId =
       status.startsWith('CAMPAIGN_SCHEDULE_') &&
       Object.hasOwn(definitions, status) &&
-      row.repair_route === 'campaign-schedule' &&
-      typeof row.batch_id === 'string' &&
-      /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(row.batch_id)
-        ? row.batch_id
+      row.repair_route === 'campaign-schedule'
+        ? savedId(row.batch_id)
+        : null;
+    const monitorId =
+      status.startsWith('CAMPAIGN_MONITOR_') &&
+      Object.hasOwn(definitions, status) &&
+      row.repair_route === 'campaign-monitor'
+        ? savedId(row.monitor_id)
         : null;
     const fallback = {
       headline: 'Work needs review',
@@ -187,6 +219,7 @@ const WMMExceptionGuidance = (() => {
       action: typeof row.next_action === 'string' ? row.next_action : definition.action,
       tool,
       batchId,
+      monitorId,
       evidence_refs: refs,
       source: typeof row.source === 'string' ? row.source : null,
       observed_at: typeof row.observed_at === 'string' ? row.observed_at : null,
@@ -197,7 +230,7 @@ const WMMExceptionGuidance = (() => {
     if (!Array.isArray(rows) || !rows.length) return '';
     const cards = rows.map(normalize).filter(Boolean);
     if (!cards.length) return '';
-    return `<section class="panel" aria-label="Workflow exceptions"><h2>Workflow updates</h2><p>See what WMM observed and what to do next.</p><div class="guided-exceptions">${cards.map((c) => `<article class="panel guided-exception" data-exception-state="${esc(c.status)}"><h3>${esc(c.headline)}</h3><p>${esc(c.reason)}</p><p><strong>Next:</strong> ${esc(c.action)}</p>${c.observed_at || c.next_due ? `<p><small>${c.observed_at ? `Observed: ${esc(c.observed_at)}` : ''}${c.next_due ? `${c.observed_at ? ' · ' : ''}next due ${esc(c.next_due)}` : ''}</small></p>` : ''}${c.evidence_refs.length ? `<p><small>Evidence: ${c.evidence_refs.map(esc).join(', ')}</small></p>` : ''}${c.source ? `<p><small>Source: ${esc(c.source)}</small></p>` : ''}${repairButton(c.tool, c.batchId)}</article>`).join('')}</div></section>`;
+    return `<section class="panel" aria-label="Workflow exceptions"><h2>Workflow updates</h2><p>See what WMM observed and what to do next.</p><div class="guided-exceptions">${cards.map((c) => `<article class="panel guided-exception" data-exception-state="${esc(c.status)}"><h3>${esc(c.headline)}</h3><p>${esc(c.reason)}</p><p><strong>Next:</strong> ${esc(c.action)}</p>${c.observed_at || c.next_due ? `<p><small>${c.observed_at ? `Observed: ${esc(c.observed_at)}` : ''}${c.next_due ? `${c.observed_at ? ' · ' : ''}next due ${esc(c.next_due)}` : ''}</small></p>` : ''}${c.evidence_refs.length ? `<p><small>Evidence: ${c.evidence_refs.map(esc).join(', ')}</small></p>` : ''}${c.source ? `<p><small>Source: ${esc(c.source)}</small></p>` : ''}${repairButton(c.tool, c.batchId, c.monitorId)}</article>`).join('')}</div></section>`;
   }
   return { normalize, panel, definitions };
 })();

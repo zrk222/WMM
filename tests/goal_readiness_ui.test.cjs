@@ -462,6 +462,29 @@ test('campaign warning opens only the exact saved schedule for review', () => {
   }
 });
 
+test('monitor warning opens only an exact saved monitor and never a mutation', () => {
+  const { g } = fixture();
+  const id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const row = {
+    state: 'CAMPAIGN_MONITOR_NEEDS_RECONCILIATION',
+    repair_route: 'campaign-monitor',
+    monitor_id: id,
+    next_action: 'Check the saved receipt before assuming the campaign paused.',
+  };
+  const html = g.panel([row]);
+  assert.match(html, /Check the last monitoring result/);
+  assert.match(html, /before assuming the campaign paused/);
+  assert.match(html, new RegExp('data-action="campaign-monitor-status" data-id="' + id + '"'));
+  assert.doesNotMatch(html, /data-action="campaign-monitor-(activate|off)"/);
+  for (const change of [
+    { monitor_id: '<script>' },
+    { repair_route: 'unknown' },
+    { state: 'CAMPAIGN_MONITOR_UNKNOWN' },
+  ]) {
+    assert.doesNotMatch(g.panel([{ ...row, ...change }]), /campaign-monitor-status|<script>/);
+  }
+});
+
 test('missing Facebook credential replaces the historical verified label with a repair', () => {
   const { w } = fixture();
   const data = {

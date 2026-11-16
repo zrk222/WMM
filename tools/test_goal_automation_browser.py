@@ -89,6 +89,35 @@ def verify_changed_schedule(page: Page, width: int, out: Path) -> None:
     assert page.locator("#modal").evaluate("(modal) => modal.scrollWidth <= modal.clientWidth"), (width, overflow)
 
 
+def verify_monitor_watch(page: Page, width: int, out: Path, path: Path, monitor_id: str) -> None:
+    from mission_control.common import canonical, digest
+    from mission_control.db import connection
+
+    with connection(path) as db:
+        row = db.execute("SELECT summary FROM campaign_monitors WHERE id=?", (monitor_id,)).fetchone()
+        assert row is not None
+        summary = json.loads(row["summary"])
+        summary["proposal"]["expires_at"] = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+        db.execute(
+            "UPDATE campaign_monitors SET status='BLOCKED',summary=?,summary_hash=? WHERE id=?",
+            (canonical(summary), digest(summary), monitor_id),
+        )
+    page.reload()
+    page.get_by_role("button", name="Watch the work", exact=True).press("Enter")
+    card = page.get_by_role("article").filter(has_text="Monitoring approval expired")
+    expect(card).to_contain_text("before approving any new monitoring")
+    (out / f"watch-monitor-review-{width}.html").write_text(rendered_page(page), encoding="utf-8")
+    for _ in range(2):
+        with page.expect_request("**/api/apps/sample-one/campaign-monitor/status") as review:
+            card.get_by_role("button", name="Review this saved monitor", exact=True).press("Enter")
+        assert review.value.post_data_json == {"monitor_id": monitor_id}
+        progress = page.get_by_role("dialog", name="Monitor saved work")
+        expect(progress).to_contain_text("This monitoring approval expired")
+        assert progress.evaluate("(modal) => modal.scrollWidth <= modal.clientWidth")
+        page.keyboard.press("Escape")
+        expect(progress).to_be_hidden()
+
+
 def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
     from mission_control.db import connection
     from mission_control.operator_client import ClientError, OperatorClient
@@ -472,6 +501,12 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         expect(page.locator("#campaign-schedule-progress")).to_contain_text(batch_id)
         assert f.wire.posts == 0
         assert not jobs(f.store, "sample-one")
+        before = len(posts)
+        verify_monitor_watch(page, width, out, f.store.path, monitor_id)
+        assert [url for url in posts[before:] if "/campaign-monitor/" in url] == [
+            f.origin + "/api/apps/sample-one/campaign-monitor/status"
+        ] * 2
+        assert f.wire.posts == 0 and not jobs(f.store, "sample-one")
         saved_runs = (
             ("campaign_post", "Publish approved Facebook post", "BLOCKED"),
             ("campaign_ad", "Launch approved Meta ad", "BLOCKED"),
@@ -512,6 +547,7 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
             expired_schedule_from_watch_keyboard_read_only=True,
             exact_campaign_receipts_from_schedule_keyboard_read_only=True,
             exact_monitor_conditions_and_report=True,
+            stopped_monitor_from_watch_keyboard_read_only=True,
             exact_post_link_visible_in_private_review=True,
             no_effect_before_due=True,
             off=True,
