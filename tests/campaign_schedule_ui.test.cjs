@@ -44,6 +44,22 @@ function fixture() {
   vm.runInContext(src, c);
   return { c, calls, panels, modals };
 }
+test('unavailable reuse gives an action beside settled and unfinished receipts', () => {
+  const { c } = fixture();
+  assert.match(
+    c.campaignScheduleReuseHelp({ evidence_unavailable: true }, false),
+    /Refresh the receipts/,
+  );
+  assert.match(
+    c.campaignScheduleReuseHelp({ items: [{ effective_status: 'RUNNING' }] }, false),
+    /Wait until the scheduled items finish/,
+  );
+  assert.match(
+    c.campaignScheduleReuseHelp({ items: [{ effective_status: 'VERIFIED' }] }, false),
+    /5,000 characters.*HTTPS link/,
+  );
+  assert.equal(c.campaignScheduleReuseHelp({ items: [] }, true), '');
+});
 const scope = {
   scope_id: 'scope',
   status: 'ACTIVE',

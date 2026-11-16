@@ -283,6 +283,19 @@ const WMMObservationalCampaign = (() => {
     const gaps = Object.entries(c.coverage_issues || {}).map(
       ([kind, issue]) => (names[kind] || kind) + ': ' + (issues[issue] || issue),
     );
+    const reconciliation = report.source_reconciliation;
+    const conflicts = (reconciliation?.conflicts || []).map(
+      (row) =>
+        (names[row.event_kind] || row.event_kind) +
+        ' (' +
+        row.collector +
+        '): collector ' +
+        row.provider_count +
+        ' vs WMM recount ' +
+        row.wmm_count +
+        '. Receipt: ' +
+        row.source_receipt_sha256,
+    );
     const counts = c.ratio_counts;
     const ratio =
       c.state === 'DESCRIPTIVE_READY' && counts && counts.eligible_landings > 0
@@ -300,13 +313,16 @@ const WMMObservationalCampaign = (() => {
       .filter(([, count]) => count > 0)
       .map(([key, count]) => key.toLowerCase().replaceAll('_', ' ') + ': ' + count);
     return {
-      title,
-      next,
-      rule,
+      title: conflicts.length ? 'Source counts disagree' : title,
+      next: conflicts.length ? reconciliation.next_action : next,
+      rule: conflicts.length
+        ? 'Compare exact dates, tag and exclusions before using a conversion rate.'
+        : rule,
       ratio,
       notes: [
         ...(c.collector_source_id ? ['Collector: ' + c.collector_source_id] : []),
         ...gaps,
+        ...conflicts,
         ...observations,
         ...(excluded.length ? ['Excluded events: ' + excluded.join(', ')] : []),
       ],

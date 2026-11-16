@@ -268,6 +268,8 @@ class CampaignExecutionService:
         self.policy_checker(app_id, actor, scope, action)
 
     def prepare_scope(self, app_id, owner, body):
+        from .evidence_gate import assert_fresh_campaign_tag
+
         proposal = scope_data(body)
         app = self.store.app(app_id)
         selected = self.connections.get(app_id, proposal["connection_id"])
@@ -279,6 +281,7 @@ class CampaignExecutionService:
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
             role = member(db, app_id, principal, "OWNER")
+            assert_fresh_campaign_tag(db, app_id, proposal.get("measurement_plan", {}).get("campaign_tag"))
             summary = dict(
                 proposal,
                 app_id=app_id,
@@ -406,11 +409,17 @@ class CampaignExecutionService:
         return scope, secret, token
 
     def activate_scope(self, app_id, owner, scope_id, approval_hash):
+        from .evidence_gate import assert_fresh_campaign_tag
+
         scope = self.get_scope(app_id, scope_id)
         if scope["status"] != "DRAFT" or scope["approval_hash"] != approval_hash:
             raise Invalid("Campaign review changed; prepare the exact scope again")
         if scope["owner_principal"] != owner:
             raise PermissionError("Only the scope owner may activate")
+        tag = scope.get("measurement_plan", {}).get("campaign_tag")
+        if tag is not None:
+            with connection(self.store.path) as db:
+                assert_fresh_campaign_tag(db, app_id, tag, scope_id=scope_id)
         self._preflight(app_id, owner, scope_id, "ACTIVATE", False)
         if scope["ad_account_id"]:
             if not PAID_EXECUTION_READY:
@@ -424,6 +433,9 @@ class CampaignExecutionService:
                 raise Invalid("Campaign review changed during verification")
             if iso_time(fresh["expires_at"]) <= datetime.now(timezone.utc):
                 raise Invalid("Campaign review expired")
+            assert_fresh_campaign_tag(
+                db, app_id, fresh.get("measurement_plan", {}).get("campaign_tag"), scope_id=scope_id
+            )
             db.execute(
                 "UPDATE campaign_scopes SET status='ACTIVE',updated=? WHERE app_id=? AND id=?",
                 (now(), app_id, scope_id),
@@ -474,6 +486,8 @@ class CampaignExecutionService:
         return dict(scope, pause_results=pauses)
 
     def _reserve_post(self, app_id, actor, scope_id, post, destination_check=None):
+        from .evidence_gate import assert_fresh_campaign_tag, tracking_campaign_tag
+
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
             scope = row_scope(self._row(db, app_id, scope_id))
@@ -501,6 +515,11 @@ class CampaignExecutionService:
             ).fetchone()[0]
             if count >= scope["max_posts"]:
                 raise PermissionError("Approved post count is exhausted")
+            tag = tracking_campaign_tag(post["link"])
+            assert_fresh_campaign_tag(db, app_id, tag, scope_id=scope_id)
+            retained = {"destination_check": destination_check} if destination_check else {}
+            if tag is not None:
+                retained["campaign_tag_hash"] = digest(tag)
             identity = uid()
             stamp = now()
             db.execute(
@@ -516,7 +535,7 @@ class CampaignExecutionService:
                     scope["page_id"],
                     "DISPATCHING",
                     None,
-                    canonical({"destination_check": destination_check}) if destination_check else None,
+                    canonical(retained) if retained else None,
                     stamp,
                     stamp,
                 ),
@@ -550,8 +569,9 @@ class CampaignExecutionService:
             if row["remote_id"] and remote_id and row["remote_id"] != remote_id:
                 raise Invalid("Campaign receipt identity changed")
             previous = json.loads(row["result"]) if row["result"] else {}
-            if "destination_check" in previous:
-                result = dict(result or {}, destination_check=previous["destination_check"])
+            for field in ("destination_check", "campaign_tag_hash"):
+                if field in previous:
+                    result = dict(result or {}, **{field: previous[field]})
             db.execute(
                 "UPDATE campaign_intents SET status=?,remote_id=COALESCE(?,remote_id),result=?,updated=? WHERE app_id=? AND id=?",
                 (status, remote_id, canonical(result) if result else None, now(), app_id, identity),

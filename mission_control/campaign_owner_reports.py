@@ -7,7 +7,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from .campaign_execution import saved_pause_receipt, scope_view
-from .campaign_metric_definitions import definitions, historical_measurement, object_data
+from .campaign_metric_definitions import definitions, historical_measurement, joined_outcome_advice, object_data
 from .campaign_monitor import actor, last_observation, whole
 from .campaign_report_pause import pause_guidance
 from .common import Invalid, canonical, digest, identifier, iso_time, now, uid
@@ -384,8 +384,16 @@ def build(db, store, app_id, owner, chosen):
         value["delivery_evidence"] = matched_post(
             db, app_id, chosen["scope_id"], approved, value["first_party_outcomes"]
         )
+        value["joined_outcome_advice"] = joined_outcome_advice(
+            value["delivery_evidence"], value["first_party_outcomes"]["report"]
+        )
     value["next_action"] = next_action(
-        campaign, monitor_view, experiment, value.get("delivery_evidence"), value.get("primary_outcome")
+        campaign,
+        monitor_view,
+        experiment,
+        value.get("delivery_evidence"),
+        value.get("primary_outcome"),
+        value.get("joined_outcome_advice"),
     )
     value["source_hash"] = digest(
         dict(
@@ -477,7 +485,7 @@ def has_campaign_tag(url: object, campaign: str) -> bool:
         return False
 
 
-def next_action(campaign, monitor, experiment, delivery=None, outcome=None):
+def next_action(campaign, monitor, experiment, delivery=None, outcome=None, advice=None):
     if guidance := pause_guidance(campaign["receipts"]):
         return guidance
     uncertain = ("UNKNOWN", "DISPATCHING", "ACKNOWLEDGED", "VERIFYING")
@@ -486,6 +494,11 @@ def next_action(campaign, monitor, experiment, delivery=None, outcome=None):
     observation = monitor["last_observation"]
     if observation and observation.get("status") == "BLOCKED":
         return "Inspect the blocked monitor and reconcile its saved campaign receipts; do not replay mutations."
+    if advice and not experiment:
+        guidance = advice["next_action"]
+        if _historical(campaign):
+            return guidance + " This report does not renew expired or OFF execution authority."
+        return guidance
     if _historical(campaign):
         guidance = historical_measurement(campaign, delivery, outcome)
         return guidance + " This historical report does not renew expired or OFF execution authority."

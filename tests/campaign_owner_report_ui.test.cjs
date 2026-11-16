@@ -183,7 +183,14 @@ test('pause readback survives projection with explicit effective uncertainty and
       experiment: null,
     },
   };
+  saved.report.next_action = 'Test one change to the upgrade prompt.';
+  saved.report.joined_outcome_advice = {
+    reason: '17 paid out of 55 trial starters.',
+    inputs: ['PostHog', 'RevenueCat'],
+  };
   const notes = JSON.stringify(a.model(saved, {}));
+  assert.match(notes, /17 paid out of 55 trial starters/);
+  assert.match(a.markup(saved), /Test one change to the upgrade prompt/);
   assert.match(notes, /configured PAUSED · effective ACTIVE/);
   assert.match(notes, /retained-hash/);
   assert.match(notes, /charges may arrive later/);

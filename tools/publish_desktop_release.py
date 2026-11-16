@@ -154,10 +154,14 @@ def require_windows_signature(folder, expected_thumbprint):
         raise ValueError("Missing verified Windows installer and uninstaller publisher signatures")
 
 
+def validate_unsigned_preview(tag):
+    if tag not in {"v0.1.0-preview.11", "v0.1.0-preview.11.1"}:
+        raise ValueError("Unsigned Windows publication is limited to Preview 11 and its review patch")
+
+
 def windows_release_notice(folder, tag):
     if os.environ.get("WMM_UNSIGNED_WINDOWS_PREVIEW11") == "true":
-        if tag != "v0.1.0-preview.11":
-            raise ValueError("Unsigned Windows publication is limited to Preview 11")
+        validate_unsigned_preview(tag)
         lifecycle = json.loads((Path(folder) / "Windows.json").read_text(encoding="utf-8"))["lifecycle"]
         if lifecycle.get("publisher_signature") is not None:
             raise ValueError("Expected an unsigned Windows lifecycle receipt")

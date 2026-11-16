@@ -282,7 +282,7 @@ async function campaignSubmit(form) {
       throw new Error('Set a new measurement window and campaign tag for this run.');
     if (form.dataset.originalCampaignTag) {
       const tag = link && new URL(link).searchParams.get('utm_campaign');
-      if (!tag || tag === form.dataset.originalCampaignTag)
+      if (!tag || tag.toLowerCase() === form.dataset.originalCampaignTag.toLowerCase())
         throw new Error('Add a tracking link with a new campaign tag for this run.');
     }
     let measurementPlan = null;
@@ -1023,6 +1023,17 @@ function campaignScheduleCopy(data) {
   );
 }
 
+function campaignScheduleReuseHelp(data, canReuse) {
+  if (canReuse) return '';
+  if (data.evidence_unavailable)
+    return 'Saved post details are unavailable. Refresh the receipts before copying any post.';
+  if (
+    data.items.some((item) => !['VERIFIED', 'BLOCKED', 'CANCELLED'].includes(item.effective_status))
+  )
+    return 'Wait until the scheduled items finish, or turn this batch off, before copying posts.';
+  return 'These posts cannot be copied as a batch. Start a new campaign with up to 20 text posts, each at most 5,000 characters, and one shared HTTPS link or no link.';
+}
+
 async function campaignScheduleStatus(batch, source = null, isCurrent = () => true) {
   const app = state.app,
     version = state.workspace.app.version,
@@ -1037,6 +1048,7 @@ async function campaignScheduleStatus(batch, source = null, isCurrent = () => tr
   )
     return;
   const [title, explanation] = campaignScheduleCopy(data);
+  const canReuse = !!WMMCampaignReuse.draft(data);
   modal(
     'Scheduled campaign progress',
     '<div id="campaign-schedule-progress" class="modal-content" data-app="' +
@@ -1067,8 +1079,10 @@ async function campaignScheduleStatus(batch, source = null, isCurrent = () => tr
       ) +
       button('Turn scheduled batch OFF', 'campaign-schedule-off') +
       button('Report / Save PDF', 'campaign-schedule-report') +
-      '<div id="schedule-reuse-action"' +
-      (WMMCampaignReuse.draft(data) ? '' : ' hidden') +
+      '<p id="schedule-reuse-help" role="status">' +
+      esc(campaignScheduleReuseHelp(data, canReuse)) +
+      '</p><div id="schedule-reuse-action"' +
+      (canReuse ? '' : ' hidden') +
       '>' +
       button('Reuse posts in a new campaign', 'campaign-schedule-reuse') +
       '</div>' +
@@ -1127,7 +1141,10 @@ function campaignScheduleWatch(panel) {
           .join('');
         panel.querySelector('#schedule-live-stage').textContent = data.repair || explanation;
         const reuse = panel.querySelector('#schedule-reuse-action');
-        if (reuse) reuse.hidden = !WMMCampaignReuse.draft(data);
+        const canReuse = !!WMMCampaignReuse.draft(data);
+        if (reuse) reuse.hidden = !canReuse;
+        const help = panel.querySelector('#schedule-reuse-help');
+        if (help) help.textContent = campaignScheduleReuseHelp(data, canReuse);
       }
     } catch {
       failures++;

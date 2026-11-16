@@ -227,6 +227,53 @@ def _measurement_checkpoint(study, coverage, as_of):
     return {"state": state, "collector_source_id": collector, "coverage_issues": issues, "ratio_counts": ratio_counts}
 
 
+def reconcile_source_counts(coverage: dict, ends_at: str, as_of: str, checkpoint: dict) -> dict[str, object]:
+    """Compare declared totals with WMM's recount of the exact saved stream."""
+    end = iso_time(ends_at)
+    conflicts = [
+        dict(
+            event_kind=kind,
+            collector=row["source_id"],
+            provider_count=row["reported_count"],
+            wmm_count=row["stored_count"],
+            source_receipt_sha256=row["source_receipt_sha256"],
+            observed_at=row["observed_at"],
+        )
+        for kind, facts in coverage.items()
+        for row in facts["sources"]
+        if iso_time(as_of) >= end
+        and iso_time(row["observed_at"]) >= end
+        and row["claimed_complete"]
+        and row["reported_count"] != row["stored_count"]
+    ]
+    if conflicts:
+        return {
+            "status": "COUNT_CONFLICT",
+            "conflicts": conflicts,
+            "next_action": (
+                "Re-export the tagged event stream for the exact saved dates and compare missing pages, "
+                "duplicates and exclusions. Use WMM's recount to audit the saved rows; "
+                "leave conversion unknown until the sources reconcile."
+            ),
+        }
+    if checkpoint["state"] == "DESCRIPTIVE_READY":
+        return {
+            "status": "RECONCILED_SAVED_STREAM",
+            "conflicts": [],
+            "next_action": (
+                "Use the reconciled tagged landing-to-registration result for the recorded decision. "
+                "Check store downloads and paid subscriptions separately."
+            ),
+        }
+    return {
+        "status": "INSUFFICIENT_MATCHED_COVERAGE",
+        "conflicts": [],
+        "next_action": (
+            "Collect both event exports for the same tag and exact dates after the observation window closes."
+        ),
+    }
+
+
 def report_in_snapshot(db, app_id, study, app, as_of):
     """Project the selected study without opening another transaction or writing."""
     events = _effective_events(db, app_id, study["id"])
@@ -303,6 +350,7 @@ def report_in_snapshot(db, app_id, study, app, as_of):
                 {
                     "source_id": source_id,
                     "complete": valid_complete,
+                    "claimed_complete": bool(row["complete"]),
                     "reported_count": row["source_event_count"],
                     "stored_count": actual,
                     "source_receipt_sha256": row["receipt_hash"],
@@ -328,6 +376,7 @@ def report_in_snapshot(db, app_id, study, app, as_of):
     return {
         "schema": "growth.observational-campaign-report.v1",
         "checkpoint": checkpoint,
+        "source_reconciliation": reconcile_source_counts(coverage, study["data"]["ends_at"], as_of, checkpoint),
         "study_id": study["id"],
         "study_hash": study["hash"],
         "app_id": app_id,

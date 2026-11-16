@@ -56,6 +56,68 @@ def measurement_plan(value: Any, *, retained: bool = False) -> dict[str, Any]:
     return dict(value, starts_at=starts.isoformat(), ends_at=ends.isoformat(), utm_campaign=tag)
 
 
+def tracking_campaign_tag(link: str | None) -> str | None:
+    """Normalize a single organization-controlled attribution tag, when present."""
+    if link is None:
+        return None
+    tags = parse_qs(urlsplit(link).query, keep_blank_values=True).get("utm_campaign")
+    if tags is None:
+        return None
+    if len(tags) != 1 or not tags[0].strip():
+        raise Invalid("Use exactly one nonempty campaign tag in the tracking link")
+    return tags[0].casefold()
+
+
+def assert_fresh_campaign_tag(db: sqlite3.Connection, app_id: str, tag: str | None, *, scope_id: str = "") -> None:
+    """Keep distinct approved runs from contributing to the same measurement tag."""
+    if tag is None:
+        return
+    message = "This tracking tag belongs to an earlier campaign. Use a new tag and update the tracking link."
+    claimed = db.execute(
+        """SELECT 1 FROM campaign_scopes
+        WHERE app_id=? AND id<>? AND status<>'DRAFT'
+          AND lower(json_extract(summary,'$.measurement_plan.campaign_tag'))=?
+        LIMIT 1""",
+        (app_id, scope_id, tag),
+    ).fetchone()
+    dispatched = db.execute(
+        """SELECT 1 FROM campaign_intents
+        WHERE app_id=? AND scope_id<>? AND json_extract(result,'$.campaign_tag_hash')=?
+        LIMIT 1""",
+        (app_id, scope_id, digest(tag)),
+    ).fetchone()
+    if claimed or dispatched:
+        raise Invalid(message)
+    for link in saved_tracking_links(db, app_id, scope_id):
+        try:
+            previous = parse_qs(urlsplit(link).query).get("utm_campaign", [])
+        except ValueError:
+            continue
+        if any(value.casefold() == tag for value in previous):
+            raise Invalid(message)
+
+
+def saved_tracking_links(db: sqlite3.Connection, app_id: str, scope_id: str) -> list[str]:
+    """Recover tags from prior destination checks and activated schedule items."""
+    links = db.execute(
+        """SELECT DISTINCT json_extract(result,'$.destination_check.final_url')
+        FROM campaign_intents WHERE app_id=? AND scope_id<>?
+          AND json_type(result,'$.destination_check.final_url')='text'""",
+        (app_id, scope_id),
+    ).fetchall()
+    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='campaign_schedule_items'").fetchone():
+        links.extend(
+            db.execute(
+                """SELECT DISTINCT json_extract(i.body,'$.request.link')
+            FROM campaign_schedule_items i JOIN campaign_schedule_batches b ON b.id=i.batch_id
+            WHERE b.app_id=? AND b.scope_id<>? AND b.status<>'DRAFT'
+              AND json_type(i.body,'$.request.link')='text'""",
+                (app_id, scope_id),
+            )
+        )
+    return [link for (link,) in links]
+
+
 def provider_set(store: Any, app_id: str) -> set[str]:
     """Use saved successful reads for the current source revisions, never connection labels."""
     from .db import connection
