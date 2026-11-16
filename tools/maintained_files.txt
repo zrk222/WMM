@@ -132,6 +132,7 @@ tests/test_app_launch_status.py
 tests/test_apple_ads_economics.py
 tests/test_apple_analytics.py
 tests/test_apple_campaign_attribution.py
+tests/test_apple_metrics_http_route.py
 tests/test_architecture_gates.py
 tests/test_automation_agreement.py
 tests/test_automation_profiles_browser.py

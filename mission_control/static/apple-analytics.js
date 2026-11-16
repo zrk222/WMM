@@ -92,14 +92,15 @@
     const report = data.reports?.find((r) => r.name === detailedName && r.coverage === 'COMPLETE');
     if (!report)
       return '<p>For campaign downloads, generate the Apple campaign link in App Store Connect and refresh the inventory until App Downloads Detailed is available.</p>';
-    const days = (report.daily || [])
-      .slice()
-      .reverse()
-      .map((day) => `<option value="${esc(day.id)}">${esc(day.processing_date)}</option>`)
-      .join('');
+    const days = (report.daily || []).map((day) => day.processing_date).sort();
+    const latest = days.at(-1);
+    const recommended = days.find((day) => Date.parse(latest) - Date.parse(day) <= 6 * 86400000);
     const collect =
-      canRead(data) && days
-        ? `<div class="field"><label for="apple-campaign-instance">Apple processing date</label><select id="apple-campaign-instance" name="instance_id">${days}</select></div><button class="button outline" type="submit" value="collect" formnovalidate>Collect Detailed file</button>`
+      canRead(data) && data.inventory?.job_id && latest
+        ? `<p id="apple-campaign-processing-note">Choose up to 31 Apple file processing days. Files may include earlier download dates or corrections.</p>
+<div class="field"><label for="apple-campaign-file-start">File processing start</label><input id="apple-campaign-file-start" name="file_start" type="date" value="${esc(recommended)}" min="${esc(days[0])}" max="${esc(latest)}" aria-describedby="apple-campaign-processing-note"></div>
+<div class="field"><label for="apple-campaign-file-end">File processing end (included)</label><input id="apple-campaign-file-end" name="file_end" type="date" value="${esc(latest)}" min="${esc(days[0])}" max="${esc(latest)}"></div>
+<button class="button outline" type="submit" value="collect" formnovalidate>Collect Detailed files</button>`
         : '<p>No daily Detailed file is ready to collect with this connection.</p>';
     return `<details><summary>Measure App Store campaign downloads</summary><p>Use the link Apple generated for this app. Apple may suppress low-volume results. First-time downloads are not website sessions or first opens.</p><form id="apple-campaign-form"><div class="field"><label for="apple-campaign-link">Apple campaign link</label><input id="apple-campaign-link" name="link" type="url" required maxlength="2048"></div>${collect}<div class="field"><label for="apple-campaign-territory">Storefront country code (two letters)</label><input id="apple-campaign-territory" name="territory" maxlength="2" pattern="[A-Za-z]{2}" placeholder="CA" required></div><div class="field"><label for="apple-campaign-start">Start date</label><input id="apple-campaign-start" name="start" type="date" required></div><div class="field"><label for="apple-campaign-end">End date (included)</label><input id="apple-campaign-end" name="end" type="date" required></div><button type="submit" class="button" value="review">Review saved downloads</button></form><div id="apple-campaign-results"></div></details>`;
   }
@@ -326,13 +327,16 @@
     const values = new d.FormData(form),
       collecting = mode === 'collect';
     const link = String(values.get('link') || '').trim();
-    if (!report || !link || (collecting && !canRead(t.data))) {
+    if (!report || !link || (collecting && (!canRead(t.data) || !t.data.inventory?.job_id))) {
       fail(t, Error('Choose this app’s Apple campaign link and an available Detailed report.'));
       return;
     }
     const body = { manifest_version: t.scope.version, report_id: report.id, link };
-    if (collecting) body.instance_id = values.get('instance_id');
-    else {
+    if (collecting) {
+      body.inventory_id = t.data.inventory.job_id;
+      body.start = values.get('file_start');
+      body.end = values.get('file_end');
+    } else {
       body.territory = String(values.get('territory') || '')
         .trim()
         .toUpperCase();
@@ -341,19 +345,24 @@
     }
     busy(t, true);
     try {
-      const path = collecting ? 'campaign-collect' : 'campaign-results';
+      const path = collecting ? 'campaign-collect-window' : 'campaign-results';
       const result = await d.api(
         '/api/apps/' + encodeURIComponent(t.scope.app) + '/apple-analytics/' + path,
         body,
       );
       if (!current(t)) return;
+      if (result.app_id !== t.scope.app) throw Error('App changed. Reopen Apple analytics.');
       if (collecting) {
+        const failed = result.jobs.filter((job) =>
+          ['FAILED', 'BLOCKED', 'CANCELLED'].includes(job.status),
+        ).length;
         t.node.querySelector('#apple-analytics-status').textContent =
-          'Apple Detailed read queued. Check Activity for job ' +
-          result.job_id +
-          ', then review the saved downloads.';
+          result.jobs.length +
+          ' Apple file reads queued or already recorded. Check Activity, then review saved downloads.' +
+          (failed
+            ? ' Refresh Apple inventory before retrying the ' + failed + ' unsuccessful reads.'
+            : '');
       } else {
-        if (result.app_id !== t.scope.app) throw Error('App changed. Reopen Apple analytics.');
         t.node.querySelector('#apple-campaign-results').innerHTML = campaignResults(result);
         t.node.querySelector('#apple-analytics-status').textContent =
           'Saved Apple campaign results reviewed.';
