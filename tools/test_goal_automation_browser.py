@@ -302,7 +302,9 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         assert OWNER_TOKEN not in report.locator("body").inner_text()
         report.close()
         with connection(f.store.path) as db:
-            scheduled_batch = db.execute("SELECT id FROM campaign_schedule_batches").fetchone()[0]
+            scheduled_batch, scheduled_scope = db.execute(
+                "SELECT id,scope_id FROM campaign_schedule_batches"
+            ).fetchone()
         page.locator("#close-modal").click()
         before = len(posts)
         with patch("mission_control.campaign_schedule.datetime", wraps=datetime) as clock:
@@ -322,7 +324,20 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
                 card.get_by_role("button", name="Review this scheduled batch").press("Enter")
             assert exact_batch.value.post_data_json == {"batch_id": scheduled_batch}
             expect(page.locator("#schedule-batch-state")).to_have_text("Approval expired")
-        assert not [url for url in posts[before:] if "/campaigns/" in url and not url.endswith("/schedule-status")]
+            receipt_link = page.get_by_role("button", name="Open saved campaign receipts", exact=True)
+            expect(receipt_link).to_be_visible()
+            (out / f"schedule-receipt-link-{width}.html").write_text(rendered_page(page), encoding="utf-8")
+            assert page.locator("#modal").evaluate("(modal) => modal.scrollWidth <= modal.clientWidth")
+            with page.expect_request("**/api/apps/sample-one/campaigns/status") as exact_scope:
+                receipt_link.press("Enter")
+            assert exact_scope.value.post_data_json == {"scope_id": scheduled_scope}
+            expect(page.locator("#campaign-progress")).to_contain_text("No effects have been dispatched")
+            page.locator("#close-modal").click()
+            card.get_by_role("button", name="Review this scheduled batch").press("Enter")
+            expect(page.locator("#schedule-batch-state")).to_have_text("Approval expired")
+        assert not [
+            url for url in posts[before:] if "/campaigns/" in url and not url.endswith(("/schedule-status", "/status"))
+        ]
         assert f.wire.posts == 0 and not jobs(f.store, "sample-one")
         page.get_by_role("button", name="Turn scheduled batch OFF", exact=True).click()
         expect(page.locator("#campaign-schedule-progress")).to_contain_text("CANCELLED")
@@ -454,6 +469,7 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
             exact_schedule_review=True,
             exact_schedule_recovery_link=True,
             expired_schedule_from_watch_keyboard_read_only=True,
+            exact_campaign_receipts_from_schedule_keyboard_read_only=True,
             exact_monitor_conditions_and_report=True,
             exact_post_link_visible_in_private_review=True,
             no_effect_before_due=True,

@@ -568,6 +568,47 @@ test('saved schedule progress distinguishes delivery, expired permission and unc
   );
 });
 
+test('schedule recovery reads only the current batch’s exact saved campaign', async () => {
+  const h = fixture();
+  h.c.modal = (title, html) => h.modals.push({ title, html });
+  const scopeId = '11111111-1111-4111-8111-111111111111';
+  const err = { textContent: '' };
+  const data = {
+    status: 'OFF',
+    progress: 'NEEDS_RECONCILIATION',
+    scope_id: scopeId,
+    summary: { scope_id: scopeId },
+  };
+  const panel = {
+    dataset: { app: 'one', version: '1', principal: 'owner' },
+    campaign: data,
+    isConnected: true,
+    querySelector: () => err,
+  };
+  h.panels['#campaign-schedule-progress'] = panel;
+  h.panels['#campaign-progress'] = { dataset: {} };
+  h.c.api = async (path, body) => {
+    h.calls.push([path, body.scope_id]);
+    return { scope: { scope_id: scopeId, status: 'OFF' }, intents: [] };
+  };
+  const btn = { dataset: { action: 'campaign-schedule-receipts' }, isConnected: true };
+  await h.c.campaignAction(btn);
+  assert.deepEqual(h.calls, [['/api/apps/one/campaigns/status', scopeId]]);
+  assert.match(h.modals[0].html, /No effects have been dispatched/);
+  for (const changed of [
+    { progress: 'DELIVERY_VERIFIED' },
+    { summary: { scope_id: 'other-app' } },
+    { summary: { scope_id: scopeId, kind: 'ADMITTED_ORGANIC_VIDEO_V1' } },
+    { evidence_unavailable: true },
+    { scope_id: '"><script>' },
+  ]) {
+    panel.campaign = { ...data, ...changed };
+    await h.c.campaignAction(btn);
+    assert.equal(h.calls.length, 1);
+    assert.match(err.textContent, /no longer has an available campaign receipt link/);
+  }
+});
+
 test('campaign status refresh recovers without obscuring a delivery error or requesting another effect', async () => {
   const h = fixture(),
     timers = [],
