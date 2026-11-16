@@ -3,20 +3,23 @@
 import copy
 import json
 import os
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
+from typing import Any
 from unittest.mock import patch
-from mission_control.apple_analytics import BASE, collection, read_analytics
+
+from mission_control.apple_analytics import BASE, CAMPAIGN_DOWNLOADS, REPORTS, collection, read_analytics
 from mission_control.common import Invalid
-from mission_control.provider_reports import Reader as BoundedReader, read_report, report_options
+from mission_control.provider_reports import Reader as BoundedReader
+from mission_control.provider_reports import read_report, report_options
 from mission_control.providers import report_destination
 from mission_control.service import Service
 from mission_control.store import Store
 from mission_control.worker import run_once
 
 
-def request():
+def request() -> dict:
     return dict(
         id="request-1",
         type="analyticsReportRequests",
@@ -24,13 +27,13 @@ def request():
     )
 
 
-def report():
+def report() -> dict:
     return dict(
         id="report-1", type="analyticsReports", attributes=dict(name="App Downloads Standard", category="COMMERCE")
     )
 
 
-def instance():
+def instance() -> dict:
     return dict(
         id="instance-1",
         type="analyticsReportInstances",
@@ -38,7 +41,7 @@ def instance():
     )
 
 
-def pages(instances=None):
+def pages(instances: list | None = None) -> list:
     return [
         dict(data=dict(id="123", type="apps")),
         dict(data=[request()], links={}),
@@ -66,7 +69,10 @@ class AnalyticsTests(unittest.TestCase):
         self.assertIsNone(result["metric_observations"])
         self.assertEqual(result["rows"], [])
         self.assertEqual(result["coverage"], "COMPLETE")
-        self.assertEqual(len(result["missing_report_types"]), 4)
+        self.assertEqual(
+            set(result["missing_report_types"]), {name for name in REPORTS if name != "App Downloads Standard"}
+        )
+        self.assertIn(CAMPAIGN_DOWNLOADS, result["missing_report_types"])
         self.assertEqual(len(reader.calls), 4)
 
     def test_instance_keeps_date_and_granularity_without_claiming_download(self):
@@ -104,7 +110,7 @@ class AnalyticsTests(unittest.TestCase):
 
     def test_partial_request_inventory_cannot_imply_new_setup_is_needed(self):
         path = "/v1/apps/123/analyticsReportRequests"
-        values = [dict(data=dict(id="123", type="apps"))]
+        values: list[dict[str, Any]] = [dict(data=dict(id="123", type="apps"))]
         for index in range(3):
             row = request()
             row["id"] = "snapshot-" + str(index)
@@ -263,5 +269,6 @@ class AnalyticsTests(unittest.TestCase):
                 "sample-one",
                 dict(operation="analytics_reports"),
             )
+        assert isinstance(result, dict)
         self.assertEqual(result["store_app_id"], "123")
         self.assertIsNone(result["metric_observations"])

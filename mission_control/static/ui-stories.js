@@ -379,6 +379,12 @@
     'Choose a refresh interval, save it and inspect the latest result. Pause future reads here whenever you need.',
   );
   define(
+    'apple-campaign-form',
+    'See how many first-time App Store downloads Apple reported for one campaign.',
+    'You get daily counts for the selected storefront. Apple may omit small counts, so missing rows stay unknown.',
+    'Paste this app’s Apple campaign link, collect a Detailed file, then review the dates you want to measure.',
+  );
+  define(
     'payment-setup-form payment-action-form',
     'Connect payment evidence to the exact account and app.',
     'Supported setup or reads retain payment-source facts and their verification state.',

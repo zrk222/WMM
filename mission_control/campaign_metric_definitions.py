@@ -3,6 +3,7 @@
 import json
 import re
 from collections.abc import Mapping
+from itertools import pairwise
 from sqlite3 import Connection
 
 from .common import Invalid, digest
@@ -91,6 +92,65 @@ def _cohort_definition(value: dict[str, object]) -> dict[str, object]:
         "subscription_map",
     )
     return {key: value.get(key) for key in fields}
+
+
+def joined_outcome_advice(delivery: object, report: object) -> dict[str, object]:
+    """One test or repair based on an exact delivery and a compatible retained outcome join."""
+    evidence = {"inputs": ["Facebook delivery readback", "PostHog product events", "RevenueCat billing events"]}
+    if not isinstance(delivery, dict) or delivery.get("status") != "EXACT_TAGGED_POST_READBACK":
+        return dict(
+            evidence,
+            status="REPAIR_DELIVERY",
+            reason="This outcome receipt cannot be tied to one verified post.",
+            next_action="Verify a single post and use a unique campaign tag before judging its creative.",
+        )
+    if not isinstance(report, dict) or report.get("coverage") != "DECLARED_COMPLETE":
+        return dict(
+            evidence,
+            status="COLLECT_MATCHED_WINDOW",
+            reason="The product and billing inputs do not both cover the full campaign window.",
+            next_action="Collect both sources through the declared maturity date in the same app identity namespace.",
+        )
+    counts = report.get("counts")
+    stages: list[int] = []
+    if isinstance(counts, dict):
+        for key in ("INSTALL", "ACTIVATION", "TRIAL_START", "PURCHASE"):
+            n = counts.get(key)
+            if type(n) is int and n >= 0:
+                stages.append(n)
+    if len(stages) != 4 or stages[0] < 20:
+        return dict(
+            evidence,
+            status="COLLECT_MORE",
+            reason="This review uses a descriptive floor of 20 eligible first opens and needs all ordered stage counts.",
+            next_action="Verify the tagged store-to-first-open handoff, then collect a larger sample before changing the offer.",
+        )
+    steps = (
+        ("ACTIVATION", "first opens", "activated", "Test one shorter route to the app's first useful action."),
+        ("TRIAL", "activated", "started a trial", "Test one clearer description of what the trial unlocks."),
+        ("PAID", "trial starters", "paid", "Review trial-to-paid and test one change to the upgrade prompt."),
+    )
+    if any(later > earlier for earlier, later in pairwise(stages)):
+        raise Invalid("Joined campaign stage counts do not reconcile")
+    losses = [earlier - later for earlier, later in pairwise(stages)]
+    index = max(range(len(losses)), key=losses.__getitem__)
+    if losses[index] == 0:
+        return dict(
+            evidence,
+            status="COMPARE_CONTROL",
+            reason="The retained funnel has no observed drop between these stages.",
+            next_action="Compare against a matched, preregistered control before crediting the campaign.",
+        )
+    stage, denominator, outcome, action = steps[index]
+    return dict(
+        evidence,
+        status="REVIEW_" + stage,
+        reason=(
+            f"The largest observed drop by people was {stages[index + 1]} {outcome} out of {stages[index]} {denominator}. "
+            "These counts require each prior stage in order. Coverage is source-declared; this is not verified lift."
+        ),
+        next_action=action + " Keep the rest fixed and require a fresh approval before launch.",
+    )
 
 
 def historical_measurement(campaign: Mapping[str, object], delivery: object, outcome: object) -> str:

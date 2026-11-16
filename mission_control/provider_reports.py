@@ -9,7 +9,7 @@ from urllib.parse import urlencode, urlsplit
 
 from .ads_reports import REPORT_PATHS, read_keywords
 from .apple_ads_economics import campaign_costs
-from .apple_analytics import DISCOVERY, DOWNLOADS, read_analytics
+from .apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, DOWNLOADS, read_analytics
 from .apple_analytics import identity as analytics_identity
 from .apple_metrics import parse_partitions
 from .apple_segments import read_instance_segments
@@ -157,7 +157,13 @@ def report_options(provider, options):
     if (
         operation == "analytics_metrics"
         and provider == "app_store"
-        and set(options) == {"operation", "report_id", "instance_id"}
+        and (
+            set(options) == {"operation", "report_id", "instance_id"}
+            or (
+                set(options) == {"operation", "report_id", "instance_id", "report_family"}
+                and options["report_family"] == CAMPAIGN_DOWNLOADS
+            )
+        )
     ):
         analytics_identity(options["report_id"])
         analytics_identity(options["instance_id"])
@@ -296,7 +302,7 @@ def prepare_analytics_metrics(reader, binding, app_id, store_id, options, connec
         raise Invalid("Apple analytics read requires the current connection version")
     inventory: dict[str, Any] = read_analytics(reader, store_id)
     report = next((item for item in inventory["reports"] if item["id"] == options["report_id"]), None)
-    family = DISCOVERY if options.get("report_family") == DISCOVERY else DOWNLOADS
+    family = options.get("report_family", DOWNLOADS)
     if (
         inventory["coverage"] != "COMPLETE"
         or report is None

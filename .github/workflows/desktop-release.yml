@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       unsigned_windows_preview11:
-        description: Explicitly allow unsigned Windows for Preview 11 only
+        description: Explicitly allow unsigned Windows for Preview 11 or its review patch
         type: boolean
         default: false
       candidate_sha:
@@ -50,7 +50,7 @@ jobs:
         if: ${{ inputs.unsigned_windows_preview11 }}
         env:
           TAG: ${{ inputs.tag }}
-        run: test "$TAG" = v0.1.0-preview.11
+        run: python -c "import os, runpy; runpy.run_path('tools/publish_desktop_release.py')['validate_unsigned_preview'](os.environ['TAG'])"
       - name: Require publisher browser sign-in configuration
         env:
           WMM_GITHUB_DEVICE_CLIENT_ID: ${{ vars.WMM_GITHUB_DEVICE_CLIENT_ID }}

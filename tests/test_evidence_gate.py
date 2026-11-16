@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from mission_control.campaign_contract import scope_data
 from mission_control.campaign_execution import SCHEMA
+from mission_control.campaign_metric_definitions import joined_outcome_advice
 from mission_control.campaign_transport import MetaTransport, Unconfirmed
 from mission_control.common import Invalid, canonical, digest, now
 from mission_control.db import connection
@@ -85,6 +86,82 @@ class EvidenceGateTests(unittest.TestCase):
             self.assertRaises(Unconfirmed),
         ):
             fixture.service.run_post("sample", "owner", scope_id, post)
+        self.assertEqual(fixture.transport.posts, 0)
+
+    def test_new_scope_cannot_claim_a_prior_measurement_tag(self) -> None:
+        fixture: Any = test_campaign_execution.CampaignTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        approved = plan()
+        body = dict(fixture.body, measurement_plan=approved)
+        first = fixture.service.prepare_scope("sample", "owner", body)
+        second = fixture.service.prepare_scope("sample", "owner", body)
+        fixture.service.activate_scope("sample", "owner", first["scope_id"], first["approval_hash"])
+        for rejected in (
+            lambda: fixture.service.prepare_scope("sample", "owner", body),
+            lambda: fixture.service.activate_scope("sample", "owner", second["scope_id"], second["approval_hash"]),
+        ):
+            with self.assertRaisesRegex(Invalid, "tag belongs to an earlier campaign"):
+                rejected()
+        self.assertEqual(fixture.service.get_scope("sample", second["scope_id"])["status"], "DRAFT")
+        retained = fixture.service.get_scope("sample", first["scope_id"])
+        self.assertEqual((retained["status"], retained["approval_hash"]), ("ACTIVE", first["approval_hash"]))
+        replacement = dict(approved, campaign_tag="launch-b", link=approved["link"].replace("launch-a", "launch-b"))
+        fresh = fixture.service.prepare_scope("sample", "owner", dict(body, measurement_plan=replacement))
+        activated = fixture.service.activate_scope("sample", "owner", fresh["scope_id"], fresh["approval_hash"])
+        self.assertEqual(activated["status"], "ACTIVE")
+        self.assertEqual(fixture.transport.posts, 0)
+        # Dropping the plan in a raw API request still cannot publish under a conflicting tag.
+        post = dict(fixture.post, link=approved["link"])
+        post["content_hash"] = digest({"message": post["message"], "link": post["link"]})
+        unmeasured = fixture.service.prepare_scope(
+            "sample", "owner", dict(fixture.body, approved_content_hashes=[post["content_hash"]])
+        )
+        fixture.service.activate_scope("sample", "owner", unmeasured["scope_id"], unmeasured["approval_hash"])
+        with (
+            patch("mission_control.campaign_execution.check_destination", return_value={"status": "REACHABLE"}),
+            self.assertRaisesRegex(Invalid, "tag belongs to an earlier campaign"),
+        ):
+            fixture.service.run_post("sample", "owner", unmeasured["scope_id"], post)
+        self.assertEqual(fixture.transport.posts, 0)
+        self.assertEqual(fixture.service.list_intents("sample", unmeasured["scope_id"]), [])
+
+    def test_joined_advice_distinguishes_missing_data_from_a_testable_drop(self) -> None:
+        delivery = {"status": "EXACT_TAGGED_POST_READBACK"}
+        report = {
+            "coverage": "DECLARED_COMPLETE",
+            "counts": {"INSTALL": 70, "ACTIVATION": 67, "TRIAL_START": 55, "PURCHASE": 17},
+        }
+        result = joined_outcome_advice(delivery, report)
+        self.assertEqual(result["status"], "REVIEW_PAID")
+        self.assertIn("17 paid out of 55 trial starters", str(result["reason"]))
+        self.assertIn("fresh approval", str(result["next_action"]))
+        self.assertEqual(joined_outcome_advice({}, report)["status"], "REPAIR_DELIVERY")
+        self.assertEqual(
+            joined_outcome_advice(delivery, dict(report, coverage="PARTIAL"))["status"], "COLLECT_MATCHED_WINDOW"
+        )
+        self.assertEqual(joined_outcome_advice(delivery, dict(report, counts=None))["status"], "COLLECT_MORE")
+
+    def test_legacy_scheduled_link_reserves_campaign_tag_case_insensitively(self) -> None:
+        from mission_control.campaign_schedule import initialize
+
+        fixture: Any = test_campaign_execution.CampaignTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        initialize(fixture.store)
+        stamp = now()
+        item = {"request": {"link": "https://example.test/app?utm_campaign=Launch-A"}}
+        with connection(fixture.store.path) as db:
+            db.execute(
+                "INSERT INTO campaign_schedule_batches VALUES(?,?,?,?,?,?,?,?,?,?)",
+                ("old", "sample", "owner", fixture.scope["scope_id"], "{}", digest({}), "OFF", 1, stamp, stamp),
+            )
+            db.execute(
+                "INSERT INTO campaign_schedule_items VALUES(?,?,?,?,?,?,?,?,?)",
+                ("prior-item", "old", 1, canonical(item), digest(item), "VERIFIED", None, stamp, stamp),
+            )
+        with self.assertRaisesRegex(Invalid, "tag belongs to an earlier campaign"):
+            fixture.service.prepare_scope("sample", "owner", dict(fixture.body, measurement_plan=plan()))
         self.assertEqual(fixture.transport.posts, 0)
 
     def test_plan_binds_tagged_link_and_window(self):

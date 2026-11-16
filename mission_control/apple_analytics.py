@@ -1,17 +1,21 @@
 """Read-only, app-scoped Apple analytics readiness; metadata is never a metric."""
 
-from datetime import date
 import re
+from datetime import date
+from typing import Any
 from urllib.parse import urlsplit
+
 from .common import Invalid, required
 
 BASE = "https://api.appstoreconnect.apple.com"
 DOWNLOADS = "App Downloads Standard"
+CAMPAIGN_DOWNLOADS = "App Downloads Detailed"
 DISCOVERY = "App Store Discovery and Engagement Standard"
-METRIC_REPORTS = frozenset((DOWNLOADS, DISCOVERY))
+METRIC_REPORTS = frozenset((DOWNLOADS, DISCOVERY, CAMPAIGN_DOWNLOADS))
 REPORTS = frozenset(
     (
         DOWNLOADS,
+        CAMPAIGN_DOWNLOADS,
         "App Sessions Standard",
         "App Store Purchases Standard",
         DISCOVERY,
@@ -167,7 +171,7 @@ def read_analytics(reader, store_id):
         reader, "/v1/apps/" + store_id + "/analyticsReportRequests", "analyticsReportRequests"
     )
     selected = active_request(requests, store_id)
-    result = dict(
+    result: dict[str, Any] = dict(
         operation="analytics_reports",
         request_id=selected,
         reports=[],

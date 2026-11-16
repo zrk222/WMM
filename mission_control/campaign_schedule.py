@@ -13,6 +13,7 @@ from .campaign_contract import ad_data, post_data
 from .campaign_execution import CampaignExecutionService
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
+from .evidence_gate import assert_fresh_campaign_tag, scoped_tracking_tag
 from .review_access import member
 from .store import Store
 
@@ -397,16 +398,17 @@ class CampaignSchedules:
             _check_deadline(summary, scope["expires_at"])
             rows = db.execute("SELECT * FROM campaign_schedule_items WHERE batch_id=?", (batch_id,)).fetchall()
             validate_items(rows, summary)
-            if scope.get("measurement_plan"):
-                for item in cast(list[Mapping[str, object]], summary["items"]):
-                    check_measurement_schedule(
-                        db,
-                        app_id,
-                        scope,
-                        cast(str, item.get("operation", "campaign.publish")),
-                        cast(Mapping[str, object], item["request"]),
-                        iso_time(item["due_at"]),
-                    )
+            tags: set[str] = set()
+            for item in cast(list[Mapping[str, object]], summary["items"]):
+                operation = cast(str, item.get("operation", "campaign.publish"))
+                request = cast(Mapping[str, object], item["request"])
+                if operation == "campaign.publish":
+                    tag = scoped_tracking_tag(db, app_id, cast(str | None, request.get("link")))
+                    if tag is not None and tag not in tags:
+                        assert_fresh_campaign_tag(db, app_id, tag, scope_id=cast(str, row["scope_id"]))
+                        tags.add(tag)
+                if scope.get("measurement_plan"):
+                    check_measurement_schedule(db, app_id, scope, operation, request, iso_time(item["due_at"]))
             db.execute(
                 "UPDATE campaign_schedule_batches SET status='ACTIVE',version=version+1,updated=? WHERE id=?",
                 (now(), batch_id),

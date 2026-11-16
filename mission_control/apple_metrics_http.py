@@ -1,11 +1,17 @@
 """Fresh-owner Apple analytics inventory and schedule controls for one app."""
 
-from datetime import datetime
 import json
+import re
 import secrets
+from datetime import date, datetime, timedelta
+from typing import Any
+from urllib.parse import urlsplit
 
-from .apple_analytics import DISCOVERY, DOWNLOADS, REPORTS, identity
+from .aeo_transport import public_url
+from .apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, DOWNLOADS, REPORTS, identity
+from .apple_campaign_links import campaign_parts
 from .apple_metrics_schedule import AppleMetricsSchedules, public_row
+from .apple_metrics_store import read_in_snapshot
 from .common import Invalid, digest, identifier, uid
 from .connection_setup import Connections
 from .db import connection
@@ -17,6 +23,8 @@ FIELDS = {
     "view": set(),
     "inventory": {"manifest_version", "connection_id", "connection_version"},
     "impressions": {"manifest_version", "report_id"},
+    "campaign-collect": {"manifest_version", "report_id", "link", "instance_id"},
+    "campaign-results": {"manifest_version", "report_id", "link", "territory", "start", "end"},
 }
 INVENTORY_STATES = {
     "REPORT_SETUP_REQUIRED",
@@ -111,9 +119,18 @@ def inventory(db, app_id, version, store_id, record):
                     return None, []
                 ids.add(report_id)
                 names.add(report["name"])
-                projected.append(
-                    dict(id=report_id, name=report["name"], instance_count=len(instances), coverage=report["coverage"])
+                item: dict[str, Any] = dict(
+                    id=report_id, name=report["name"], instance_count=len(instances), coverage=report["coverage"]
                 )
+                if report["name"] == CAMPAIGN_DOWNLOADS:
+                    item["daily"] = [
+                        dict(id=identity(i["id"]), processing_date=date.fromisoformat(i["processing_date"]).isoformat())
+                        for i in instances
+                        if i.get("granularity") == "DAILY"
+                    ]
+                    if len({i["id"] for i in item["daily"]}) != len(item["daily"]):
+                        return None, []
+                projected.append(item)
             return dict(job_id=identity(row["id"]), status=result["status"], observed_at=timestamp), projected
         except (ValueError, TypeError, AttributeError, KeyError):
             return None, []
@@ -207,11 +224,125 @@ def view(store, app_id):
         )
 
 
+def apple_campaign_read(service: Any, app_id: str, action: str, body: dict[str, Any]) -> dict[str, Any]:
+    """Queue only the selected app's Detailed instance, or read its retained dated rows."""
+    report_id = identity(body["report_id"])
+    if report_id != body["report_id"]:
+        raise Invalid("Select the exact Apple campaign report identity")
+    apple = campaign_parts(urlsplit(public_url(body["link"], allow_tracking=True)))
+    collecting = action == "campaign-collect"
+
+    def snapshot(db: Any, readiness: Any = None) -> tuple:
+        current = check_source(
+            db,
+            app_id,
+            body["manifest_version"],
+            report_id=report_id,
+            report_family=CAMPAIGN_DOWNLOADS,
+            readiness_store=readiness,
+        )
+        if apple is None or apple[0] != current[1]:
+            raise Invalid("Paste the Apple campaign link for this app's App Store listing")
+        return current
+
+    with connection(service.store.path) as db:
+        db.execute("BEGIN")
+        expected = snapshot(db, service.store if collecting else None)
+        key = dict(
+            app_id=app_id,
+            store_app_id=expected[1],
+            connection_id=expected[2],
+            connection_version=expected[3],
+            report_id=report_id,
+            report_family=CAMPAIGN_DOWNLOADS,
+            granularity="DAILY",
+        )
+        if not collecting:
+            assert apple is not None
+            return apple_campaign_results(db, key, apple[1], body)
+        instance = identity(body["instance_id"])
+        if instance != body["instance_id"]:
+            raise Invalid("Select the exact Apple report instance")
+        version, store_id, record = source(db, app_id)
+        _, reports = inventory(db, app_id, version, store_id, record)
+        if not any(r["id"] == report_id and any(i["id"] == instance for i in r.get("daily", [])) for r in reports):
+            raise Invalid("Select an available daily Apple campaign report file")
+
+    def check(db: Any) -> None:
+        if snapshot(db) != expected:
+            raise Invalid("Apple analytics source changed; reload before collecting")
+
+    data = dict(
+        manifest_version=expected[0],
+        connection_id=expected[2],
+        connection_version=expected[3],
+        connection_hash=expected[4],
+        options=dict(
+            operation="analytics_metrics", report_id=report_id, report_family=CAMPAIGN_DOWNLOADS, instance_id=instance
+        ),
+    )
+    job = service.queue(app_id, dict(action="sync", data=data, request_key=uid()), commit_check=check)
+    return dict(job_id=job["id"], status=job["status"])
+
+
+def apple_campaign_results(db: Any, key: dict, token: str, body: dict[str, Any]) -> dict[str, Any]:
+    """Do not sum incomplete days into a campaign total or join to first opens."""
+    territory = body["territory"]
+    try:
+        start, end = (date.fromisoformat(body[name]) for name in ("start", "end"))
+    except (TypeError, ValueError):
+        raise Invalid("Use start and end dates for the Apple campaign") from None
+    if (
+        not isinstance(territory, str)
+        or not re.fullmatch("[A-Z]{2}", territory)
+        or not 0 <= (end - start).days < 31
+        or body["start"] != start.isoformat()
+        or body["end"] != end.isoformat()
+    ):
+        raise Invalid("Choose a storefront and up to 31 calendar days")
+    token_hash = digest(token)
+    observations = []
+    for offset in range((end - start).days + 1):
+        day = (start + timedelta(days=offset)).isoformat()
+        saved = read_in_snapshot(db, dict(key, event_date=day))
+        matches = (
+            [
+                row["count"]
+                for row in saved["instance"]["rows"]
+                if row["type"] == "first_download"
+                and row["dimensions"].get("campaign_sha256") == token_hash
+                and row["dimensions"].get("territory") == territory
+            ]
+            if saved
+            else []
+        )
+        observations.append(
+            dict(
+                date=day,
+                first_time_downloads=sum(matches) if matches else None,
+                source_sha256=digest(saved["instance"]["sources"]) if saved else None,
+            )
+        )
+    return dict(
+        app_id=key["app_id"],
+        territory=territory,
+        campaign_sha256=token_hash,
+        rows=observations,
+        status="APPLE_REPORTED_ROWS"
+        if any(row["first_time_downloads"] is not None for row in observations)
+        else "UNAVAILABLE_OR_SUPPRESSED",
+        next_action="Collect the Detailed files for missing dates or extend the window if Apple suppresses low-volume rows.",
+        external_writes=False,
+    )
+
+
 def dispatch(service, app_id, action, body):
     if not isinstance(body, dict):
         raise Invalid("Use the exact Apple analytics fields")
     if action in FIELDS and set(body) != FIELDS[action]:
         raise Invalid("Use the exact Apple analytics fields")
+    if action in {"campaign-collect", "campaign-results"}:
+        return apple_campaign_read(service, app_id, action, body)
     if action == "view":
         return view(service.store, app_id)
     if action == "inventory":
@@ -314,7 +445,7 @@ def post(handler, parts):
         len(parts) != 5
         or parts[:2] != ["api", "apps"]
         or parts[3] != "apple-analytics"
-        or parts[4] not in {"view", "inventory", "impressions", "schedule"}
+        or parts[4] not in {"view", "inventory", "impressions", "schedule", "campaign-collect", "campaign-results"}
     ):
         raise Invalid("Use the exact Apple analytics address")
     identifier(parts[2])
