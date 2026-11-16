@@ -7,8 +7,11 @@ import ssl
 import sys
 import threading
 import time
+from collections.abc import Callable, Mapping
+from typing import cast
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPSHandler, Request, build_opener
+
 from .common import Invalid, now
 from .providers import NoRedirect
 
@@ -152,3 +155,15 @@ class Identities:
             if not row:
                 raise PermissionError("Sign in before looking up a reviewer")
             return github_read("/users/" + login, row["token"])
+
+
+AutomationOwnerSession = tuple[Mapping[str, str], Callable[[], object]]
+
+
+def local_owner_session(session: str, identities: Identities) -> AutomationOwnerSession:
+    """Pin the local session without touching a provider or the credential vault."""
+    public = identities.public(session)
+    if public.get("status") != "AUTHENTICATED":
+        raise PermissionError("Sign in as this app's owner to use automation rules")
+    user = cast(Mapping[str, str], identities.local(session, public["principal"]))
+    return user, lambda: identities.local(session, user["principal"], user["session_generation"])

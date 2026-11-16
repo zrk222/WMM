@@ -9,7 +9,7 @@ import re
 import secrets
 import socket
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -18,9 +18,10 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from .common import Invalid, canonical, digest
 from .db import connection
+from .device_signin import DeviceSignIns
 from .http_types import AppVersionRow, DesktopProof, DomainPost, JsonObject, Webhook, WorkerHealthHook
 from .operation_outcome import EffectUncertain
-from .operator_identity import Identities
+from .operator_identity import AutomationOwnerSession, Identities, local_owner_session
 from .service import Service
 from .store import Store
 from .worker import Runner
@@ -237,7 +238,7 @@ class Handler(BaseHTTPRequestHandler):
         """Dispatch write requests only after host, session and CSRF validation."""
         self.dispatch(True)
 
-    def dispatch(self, write: bool) -> None:
+    def dispatch(self, write: bool) -> object:
         """Return clear input errors and preserve existing state on operational failure."""
         try:
             path = urlparse(self.path).path
@@ -293,7 +294,7 @@ class Handler(BaseHTTPRequestHandler):
         )
         return next((handler for pattern, handler in routes if re.fullmatch(pattern, path)), None)
 
-    def get(self, path: str, token: str | None) -> None:
+    def get(self, path: str, token: str | None) -> object:
         """Serve the fixed UI routes and app-scoped read endpoints."""
         callback = self.callback_page(path)
         if callback:
@@ -417,7 +418,7 @@ class Handler(BaseHTTPRequestHandler):
         )
         return self.send_asset(file, content_type + "; charset=utf-8")
 
-    def get_weekly_review(self):
+    def get_weekly_review(self) -> object:
         """Parse only the closed portfolio offset before a bounded saved-evidence read."""
         from .weekly_inbox import review
 
@@ -448,7 +449,7 @@ class Handler(BaseHTTPRequestHandler):
             )
         return None
 
-    def get_app(self, path):
+    def get_app(self, path: str) -> object:
         """Resolve only the selected workspace, snapshot or validated image identifier."""
         parts = path.strip("/").split("/")
         if len(parts) < 3:
@@ -587,7 +588,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.get_social_progress(app_id, parts[5])
         histories = {("aeo", "history"): "aeo", ("attribution", "history"): "attribution"}
         if tuple(parts[3:]) in histories:
-            return self.get_history(app_id, histories[tuple(parts[3:])])
+            return self.get_history(app_id, histories[cast(tuple[str, str], tuple(parts[3:]))])
         scoped = {
             "renders": self.get_video,
             "hypit-renders": self.get_hypit_video,
@@ -605,7 +606,7 @@ class Handler(BaseHTTPRequestHandler):
             return ordinary[parts[3]]()
         raise KeyError(path)
 
-    def get_setup_discovery(self, parts):
+    def get_setup_discovery(self, parts: list[str]) -> object:
         """Expose local setup detail with no request target or network side effect."""
         from .setup_http import get
 
@@ -613,7 +614,7 @@ class Handler(BaseHTTPRequestHandler):
             raise Invalid("Use the exact setup proposal address")
         return self.send(200, get(self.server.service.store, parts[2], parts[4:]))
 
-    def get_instrumentation(self, parts):
+    def get_instrumentation(self, parts: list[str]) -> object:
         """Download the exact reviewed app-owned package without provider or install authority."""
         from .instrumentation import archive, prepare
         from .instrumentation_state import record_download
@@ -635,7 +636,7 @@ class Handler(BaseHTTPRequestHandler):
             filename="wmm-" + cast(str, value["experiment_id"]) + "-instrumentation.zip",
         )
 
-    def get_social_progress(self, app_id, identity):
+    def get_social_progress(self, app_id: str, identity: str) -> object:
         """Keep exact social progress validation separate from general app routing."""
         from .social_flows import Flows, public
 
@@ -643,7 +644,7 @@ class Handler(BaseHTTPRequestHandler):
             raise Invalid("Use the exact social progress address")
         return self.send(200, public(Flows(self.server.service.store, self.server.server_port).get(app_id, identity)))
 
-    def get_asset(self, parts):
+    def get_asset(self, parts: list[str]) -> object:
         """Read only one validated image within the selected existing app."""
         if len(parts) != 5:
             raise KeyError(self.path)
@@ -655,7 +656,7 @@ class Handler(BaseHTTPRequestHandler):
         file = store.path.parent / "files" / app_id / parts[4]
         return self.send(200, file.read_bytes(), cast(str, mimetypes.guess_type(file.name)[0]))
 
-    def get_activity(self, app_id):
+    def get_activity(self, app_id: str) -> object:
         """Serve one bounded, filtered page of joined app-owned local records."""
         from .activity_timeline import read as activity_read
 
@@ -678,7 +679,7 @@ class Handler(BaseHTTPRequestHandler):
         )
         return self.send(200, value, filename=app_id + "-activity-history.json")
 
-    def get_history(self, app_id, kind):
+    def get_history(self, app_id: str, kind: str) -> object:
         """Export only registered app-scoped histories through exact addresses."""
         from .aeo_portable import export_aeo
         from .attribution_portable import export_attribution
@@ -692,7 +693,7 @@ class Handler(BaseHTTPRequestHandler):
             value = exporters[kind](db, app_id)
         return self.send(200, value, filename=app_id + "-" + kind + "-history.json")
 
-    def get_measurement(self, app_id):
+    def get_measurement(self, app_id: str) -> object:
         """Preserve the existing optional as-of measurement query."""
         from .ledger import Ledger
 
@@ -701,13 +702,13 @@ class Handler(BaseHTTPRequestHandler):
         query = parse_qs(urlparse(self.path).query)
         return self.send(200, Ledger(store.path).reports(app_id, query.get("as_of", [None])[0]))
 
-    def get_video(self, parts):
+    def get_video(self, parts: list[str]) -> object:
         """Require the finite app-owned video preview/download route shape."""
         if len(parts) != 6 or parts[5] not in ("preview", "download"):
             raise KeyError("Video route not found")
         return self.video(parts[2], parts[4], parts[5] == "download")
 
-    def get_hypit_video(self, parts):
+    def get_hypit_video(self, parts: list[str]) -> object:
         """Expose app-owned history or the exact Hypit preview/download route."""
         from .hypit_jobs import HypitRenders
 
@@ -719,7 +720,9 @@ class Handler(BaseHTTPRequestHandler):
             raise KeyError("Hypit video route not found")
         return self.video(parts[2], parts[4], parts[5] == "download", hypit=True)
 
-    def video(self, app_id, render_id, download=False, hypit=False, edited=False):
+    def video(
+        self, app_id: str, render_id: str, download: bool = False, hypit: bool = False, edited: bool = False
+    ) -> object:
         """Serve hash-validated app-owned video with actual seeking and download support."""
         from .creative_rendering import artifact_file
 
@@ -795,7 +798,7 @@ class Handler(BaseHTTPRequestHandler):
         parts = path.strip("/").split("/")
         return self.send(200, Notifications(self.server.service.store).ingest(parts[2], parts[3], raw))
 
-    def post(self, path: str) -> None:
+    def post(self, path: str) -> object:
         """Parse finite object requests or process a bounded image upload."""
         service = self.server.service
         parts = path.strip("/").split("/")
@@ -957,7 +960,7 @@ class Handler(BaseHTTPRequestHandler):
             raise Invalid("Attribution request is truncated")
         return raw
 
-    def agent_access(self, app_id, parts, body):
+    def agent_access(self, app_id: str, parts: list[str], body: JsonObject) -> object:
         """Finite app-owned access operations cannot accept arbitrary commands."""
         from .agent_access import AgentAccess, detect
         from .agent_contract import exact
@@ -986,7 +989,7 @@ class Handler(BaseHTTPRequestHandler):
             raise KeyError("Agent connection action not found")
         return actions[parts[0]]()
 
-    def post_app(self, parts, data):
+    def post_app(self, parts: list[str], data: JsonObject) -> object:
         """Dispatch only registered app-scoped write actions."""
         service = self.server.service
         if parts[3] == "social-access":
@@ -1002,7 +1005,9 @@ class Handler(BaseHTTPRequestHandler):
             from .app_launch_history import declare
 
             user, recheck = self.automation_owner_session()
-            return self.send(201, declare(service.store.path, app_id, user["principal"], data, commit_check=recheck))
+            return self.send(
+                201, declare(service.store.path, app_id, cast(str, user["principal"]), data, commit_check=recheck)
+            )
         if action == "studio":
             from .hypit_studio_routes import human
 
@@ -1112,7 +1117,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, exact[key]())
         raise KeyError("route")
 
-    def post_tracking(self, parts, data):
+    def post_tracking(self, parts: list[str], data: JsonObject) -> object:
         """Prepare exact tracking reads, approve their owned jobs or stop one saved run."""
         from .experiment_tracking import Tracking
 
@@ -1136,7 +1141,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(201, action(self.server.service.store, parts[2], parts[4], body, user=user))
         raise Invalid("Use a current tracking proposal, approval, lifecycle or cancellation address")
 
-    def post_install_import(self, parts, data):
+    def post_install_import(self, parts: list[str], data: JsonObject) -> object:
         """Preview or confirm one mapped MMP install export for the signed-in owner."""
         from .install_attribution import preview_batch, record_batch
         from .install_import import map_rows, parse_text
@@ -1201,22 +1206,15 @@ class Handler(BaseHTTPRequestHandler):
         result = record_batch(store, parts[2], user, normalized, preview_id=data["preview_id"])
         return self.send(201, dict(result=result, checklist=checklist))
 
-    def automation_owner_session(self):
-        """Pin the local session without touching a provider or the credential vault."""
-        session = self.session()
-        identities = self.server.identities
-        public = identities.public(session)
-        if public.get("status") != "AUTHENTICATED":
-            raise PermissionError("Sign in as this app's owner to use automation rules")
-        user = identities.local(session, public["principal"])
-        return user, lambda: identities.local(session, user["principal"], user["session_generation"])
+    def automation_owner_session(self) -> AutomationOwnerSession:
+        return local_owner_session(self.session(), self.server.identities)
 
-    def post_automation(self, parts, data):
+    def post_automation(self, parts: list[str], data: JsonObject) -> object:
         from .automation_http import post
 
         return post(self, parts, data)
 
-    def post_cloud_connection(self, parts, data):
+    def post_cloud_connection(self, parts: list[str], data: JsonObject) -> object:
         """Owner-only optional personal cloud setup; local mode remains the default."""
         if len(parts) != 5 or parts[4] not in ("save", "test", "remove") or urlparse(self.path).query:
             raise Invalid("Use the exact personal cloud save, test or remove address")
@@ -1240,7 +1238,7 @@ class Handler(BaseHTTPRequestHandler):
             raise Invalid("Removing the connection sends no fields")
         return self.send(200, clouds.remove(parts[2]))
 
-    def post_sequence(self, parts, data):
+    def post_sequence(self, parts: list[str], data: JsonObject) -> object:
         """Approve exact reviewed actions or stop owned work in the selected app only."""
         from .sequence_store import Sequences
 
@@ -1253,7 +1251,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, service.cancel(parts[2], parts[4], data))
         raise Invalid("Use a current sequence approval or cancellation address")
 
-    def post_resolution(self, parts, data):
+    def post_resolution(self, parts: list[str], data: JsonObject) -> object:
         """Approve one exact app-bound read proposal; no arbitrary agent commands."""
         from .resolutions import Resolutions
 
@@ -1263,7 +1261,7 @@ class Handler(BaseHTTPRequestHandler):
             201, Resolutions(self.server.service.store, self.server.service.operator).start(parts[2], data)
         )
 
-    def post_pmf_research(self, parts, data):
+    def post_pmf_research(self, parts: list[str], data: JsonObject) -> object:
         """Preserve the fixed research kinds and explicit preview behavior."""
         from .pmf_research import Research
 
@@ -1277,7 +1275,7 @@ class Handler(BaseHTTPRequestHandler):
         )
         return self.send(200 if kind == "preview" else 201, result)
 
-    def post_followup(self, parts, data):
+    def post_followup(self, parts: list[str], data: JsonObject) -> object:
         """Keep exact follow-up preparation/download/save routing and limits."""
         from .followup import Followup
 
@@ -1290,7 +1288,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, workflow.download(parts[2], data.get("id")))
         return self.send(201, workflow.save(parts[2], parts[4], data))
 
-    def post_aeo(self, parts, data):
+    def post_aeo(self, parts: list[str], data: JsonObject) -> object:
         """Accept only the previously supported exact read-only AEO run action."""
         from .aeo_workflows import Checks
 
@@ -1298,7 +1296,7 @@ class Handler(BaseHTTPRequestHandler):
             raise Invalid("Use the exact app AEO run address")
         return self.send(201, Checks(self.server.service.store).run(parts[2], data))
 
-    def post_insights(self, parts, data):
+    def post_insights(self, parts: list[str], data: JsonObject) -> object:
         """Local trusted operator consent and normal CSRF protect read-only analytics setup."""
         if urlparse(self.path).query:
             raise Invalid("Use the exact analytics action address without a query")
@@ -1315,7 +1313,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, insights.disconnect(parts[2], parts[4], data))
         raise KeyError("Analytics route not found")
 
-    def post_storekit(self, parts, data):
+    def post_storekit(self, parts: list[str], data: JsonObject) -> object:
         """Fresh app owner/maker identity protects source setup, manual verification and disconnect."""
         from .storekit_ingestion import Notifications
         from .storekit_sources import Sources
@@ -1358,7 +1356,7 @@ class Handler(BaseHTTPRequestHandler):
         )
         return self.send(200, result)
 
-    def post_attribution(self, parts, data):
+    def post_attribution(self, parts: list[str], data: JsonObject) -> object:
         """Fresh app roles protect declarations, immutable maps and explicit one-shot reads."""
         from .attribution_adservices import AdServices
         from .attribution_ingestion import Observations
@@ -1381,7 +1379,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(201, AdServices(store).read(parts[2], parts[5], user, data))
         raise KeyError("Attribution action route not found")
 
-    def post_identity(self, parts, data):
+    def post_identity(self, parts: list[str], data: JsonObject) -> object:
         """Bind identity credentials to this existing CSRF-protected local session."""
         identities = self.server.identities
         session = self.session()
@@ -1397,7 +1395,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.post_device_signin(device, session, parts[3], data)
         raise KeyError("Identity route not found")
 
-    def post_device_signin(self, device, session, action, data):
+    def post_device_signin(self, device: DeviceSignIns, session: str, action: str, data: JsonObject) -> object:
         """Keep desktop browser sign-in bound to one current app revision."""
         fields = {
             "begin": set(),
@@ -1433,7 +1431,7 @@ class Handler(BaseHTTPRequestHandler):
             result = {"status": "CANCELLED"}
         return self.send(200, result)
 
-    def post_agent_grants(self, parts, data):
+    def post_agent_grants(self, parts: list[str], data: JsonObject) -> object:
         """Bind delegation controls to a freshly verified app owner, never request names."""
         if urlparse(self.path).query or self.path != "/" + "/".join(parts):
             raise Invalid("Use the exact agent grant action address")
@@ -1455,7 +1453,7 @@ class Handler(BaseHTTPRequestHandler):
             ),
         )
 
-    def post_agent_reviews(self, parts, data):
+    def post_agent_reviews(self, parts: list[str], data: JsonObject) -> object:
         """Keep human approval outside bearer tools with fresh verified session identity."""
         from .agent_review_http import human
 
@@ -1464,7 +1462,7 @@ class Handler(BaseHTTPRequestHandler):
         user = self.server.identities.fresh(self.session())
         return self.send(200, human(self.server.service.store, parts[2], parts[4:], user, data))
 
-    def post_access(self, parts, data):
+    def post_access(self, parts: list[str], data: JsonObject) -> object:
         """Require fresh authenticated identity before app-scoped owner/member changes."""
         from .review_access import Access
 
@@ -1480,7 +1478,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, access.save(parts[2], user, target, data))
         raise KeyError("Access route not found")
 
-    def post_verified_review(self, parts, data):
+    def post_verified_review(self, parts: list[str], data: JsonObject) -> object:
         """Pass verified session identity, never body-supplied maker/checker names."""
         from .verified_reviews import Reviews
 
@@ -1492,7 +1490,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, reviews.approve(parts[2], parts[4], user, data))
         raise KeyError("Verified review route not found")
 
-    def post_release_selection(self, parts, data):
+    def post_release_selection(self, parts: list[str], data: JsonObject) -> object:
         """Dispatch one bounded app-owned local release selection action."""
         from .release_selection import choose
 
@@ -1500,7 +1498,7 @@ class Handler(BaseHTTPRequestHandler):
             raise Invalid("Use the exact selected-release action address")
         return self.send(200, choose(self.server.service.store, parts[2], data))
 
-    def post_connection(self, parts, data):
+    def post_connection(self, parts: list[str], data: JsonObject) -> object:
         """Handle only explicit protected setup and local disconnect operations."""
         from .connection_setup import Connections
 
@@ -1511,25 +1509,25 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, connections.disconnect(parts[2], parts[4], data.get("version")))
         raise KeyError("Protected connection route not found")
 
-    def post_setup_discovery(self, parts, data):
+    def post_setup_discovery(self, parts: list[str], data: JsonObject) -> object:
         """Use strict app-owned discover/apply/delete actions behind normal CSRF checks."""
         from .setup_http import post
 
         return self.send(200, post(self.server.service.store, parts[2], parts[4:], data))
 
-    def post_play(self, parts, data):
+    def post_play(self, parts: list[str], data: JsonObject) -> object:
         """Keep Play setup and reads inside the normal app/session/CSRF boundary."""
         from .play_http import post
 
         return self.send(200, post(self.server.service.store, parts[2], parts[4:], data, self.server.server_port))
 
-    def play_callback(self, data):
+    def play_callback(self, data: JsonObject) -> object:
         """Consume an exact single-use consent proof without accepting a return URL."""
         from .play_http import finish
 
         return self.send(200, finish(self.server.service.store, data, self.server.server_port))
 
-    def post_inspection(self, parts, data):
+    def post_inspection(self, parts: list[str], data: JsonObject) -> object:
         """Closed CSRF-protected native actions; no client results or arbitrary commands."""
         from .audit_runtime import Inspections
         from .audit_tools import capability
@@ -1557,7 +1555,7 @@ class Handler(BaseHTTPRequestHandler):
             raise Invalid("Unknown inspection action")
         return self.send(201, getattr(flow, operation)(parts[2], data))
 
-    def post_provider_action(self, parts, data):
+    def post_provider_action(self, parts: list[str], data: JsonObject) -> object:
         """Authenticate finite exact-change operations; ordinary reviews cannot authorize them."""
         from .provider_outbox import Outbox
 
@@ -1575,7 +1573,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, getattr(outbox, parts[5])(parts[2], parts[4], user, data))
         raise KeyError("Provider action route not found")
 
-    def post_payments(self, parts, data):
+    def post_payments(self, parts: list[str], data: JsonObject) -> object:
         """Require fresh owner/maker identity on ordinary CSRF-protected setup/read actions."""
         from .payment_sources import Sources
         from .signed_payments import Payments
@@ -1590,7 +1588,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, Payments(store).reconcile(parts[2], parts[5], user, data))
         raise KeyError("Payment action not found")
 
-    def post_learning(self, parts, data):
+    def post_learning(self, parts: list[str], data: JsonObject) -> object:
         """Separate operator joins from freshly authenticated local guidance actions."""
         from .outcome_learning import Learning
         from .outcome_links import Links
@@ -1607,7 +1605,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, learning.act(parts[2], parts[4], user, parts[5], data))
         raise KeyError("Local learning route not found")
 
-    def post_experiment(self, parts, data):
+    def post_experiment(self, parts: list[str], data: JsonObject) -> object:
         """Expose bounded local registration, evaluation and explicit lifecycle actions."""
         from .experiments import Experiments
 
@@ -1632,7 +1630,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, Schedules(store).save(parts[2], parts[4], data, owner=user["principal"]))
         raise KeyError("Experiment route not found")
 
-    def post_reference(self, parts, data):
+    def post_reference(self, parts: list[str], data: JsonObject) -> object:
         """Scope source save, preview and explicit import to the chosen workspace."""
         from .creative_library import Library
 
@@ -1647,7 +1645,7 @@ class Handler(BaseHTTPRequestHandler):
             )
         raise KeyError("Source library route not found")
 
-    def post_ranking(self, parts, data):
+    def post_ranking(self, parts: list[str], data: JsonObject) -> object:
         """Expose only explicit scoped relevance, policy and saved ranking actions."""
         from .creative_ranking import Rankings
 
@@ -1659,7 +1657,7 @@ class Handler(BaseHTTPRequestHandler):
         raise KeyError("Ranking route not found")
 
     @staticmethod
-    def asset_rights_assertion(data):
+    def asset_rights_assertion(data: JsonObject) -> object:
         """Recognize explicit claims that a human reviewed a creative still."""
         fields = data.get("data") if isinstance(data, dict) else None
         return (
@@ -1669,7 +1667,7 @@ class Handler(BaseHTTPRequestHandler):
             and (fields.get("authentic") is True or fields.get("rights_cleared") is True)
         )
 
-    def save_owner_asset(self, parts, app_id, data, save):
+    def save_owner_asset(self, parts: list[str], app_id: str, data: JsonObject, save: Callable[..., object]) -> object:
         """Bind direct local asset assertions to the current app owner's session."""
         from .operation_authority import bound_owner, protected
 
@@ -1684,7 +1682,9 @@ class Handler(BaseHTTPRequestHandler):
         ):
             return self.send(201, save())
 
-    def owner_creative_write(self, parts, data, operation, save):
+    def owner_creative_write(
+        self, parts: list[str], data: JsonObject, operation: str, save: Callable[..., object]
+    ) -> object:
         """Protect legacy creative evidence writes with current owner authority."""
         from .operation_authority import bound_owner, protected
 
@@ -1697,7 +1697,7 @@ class Handler(BaseHTTPRequestHandler):
         with bound_owner(store, envelope, self.server.identities, session, user), protected(store, envelope):
             return self.send(201, save())
 
-    def post_production(self, parts, data):
+    def post_production(self, parts: list[str], data: JsonObject) -> object:
         """Accept only scoped inspection and original brief preparation actions."""
         from .creative_analysis import Analyses
         from .creative_briefs import Briefs
@@ -1762,7 +1762,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, HypitRenders(store).reuse(parts[2], data))
         raise KeyError("Creative production route not found")
 
-    def post_acquisition(self, parts, data):
+    def post_acquisition(self, parts: list[str], data: JsonObject) -> object:
         """Accept guided source-bound preparation and explicit evidence attachment only."""
         from .acquisition_workflows import Acquisition
 
@@ -1778,7 +1778,7 @@ class Handler(BaseHTTPRequestHandler):
         raise KeyError("Acquisition route not found")
 
 
-def check_timezone_support():
+def check_timezone_support() -> None:
     """Fail before startup if Windows lacks the declared timezone prerequisite."""
     from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -1790,7 +1790,7 @@ def check_timezone_support():
         ) from exc
 
 
-def main():
+def main() -> None:
     """Start the loopback-only local service and close its worker cleanly."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8765)
