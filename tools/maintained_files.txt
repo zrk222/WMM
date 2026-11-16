@@ -163,6 +163,7 @@ tests/test_http.py
 tests/test_http_benchmark.py
 tests/test_install_attribution.py
 tests/test_integrity_drill.py
+tests/test_ip_inventory.py
 tests/test_kpi_data_gaps.py
 tests/test_kpi_gaps.py
 tests/test_ledger_grouping.py
@@ -204,6 +205,7 @@ tests/test_rejected_http_response.py
 tests/test_release_attestation_assets.py
 tests/test_release_inventory.py
 tests/test_release_provenance.py
+tests/test_release_sbom.py
 tests/test_repo_hygiene.py
 tests/test_sbom_reproducibility.py
 tests/test_schedule_authority_boundary.py
@@ -229,6 +231,7 @@ tests/test_workflow_telemetry.py
 tools/benchmark_http.py
 tools/branch_hygiene.py
 tools/build_desktop.py
+tools/build_release_sbom.py
 tools/check_authority_coverage.py
 tools/check_complexity.py
 tools/check_distribution.py

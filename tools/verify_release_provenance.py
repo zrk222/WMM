@@ -48,9 +48,16 @@ def payload_names() -> set[str]:
     for platform, name in assets.items():
         if not isinstance(name, str) or Path(name).name != name or "/" in name or "\\" in name:
             raise ValueError("Unsafe publisher payload name")
-        names.update((name, platform + ".json", "sbom-" + platform + ".json"))
-    if len(names) != 6:
-        raise ValueError("Expected six publisher payloads")
+        names.update(
+            (
+                name,
+                platform + ".json",
+                "sbom-" + platform + ".json",
+                "wmm-release-sbom-" + platform + ".cdx.json",
+            )
+        )
+    if len(names) != 8:
+        raise ValueError("Expected eight publisher payloads")
     return names
 
 
@@ -59,7 +66,7 @@ def staged_files(folder: Path) -> list[Path]:
         raise ValueError("Expected a regular staging directory")
     paths = sorted(folder.iterdir())
     if {path.name for path in paths} != payload_names():
-        raise ValueError("Stage exactly the six publisher payloads before checksum creation")
+        raise ValueError("Stage exactly the eight publisher payloads before checksum creation")
     for path in paths:
         info = path.lstat()
         if not stat.S_ISREG(info.st_mode) or info.st_size == 0:

@@ -40,12 +40,12 @@ class AttestationAssetsTests(unittest.TestCase):
     def test_new_release_checksums_cover_full_bundle_and_receipt_without_self_reference(self):
         desktop.add_provenance(self.folder)
         paths = release.validate_assets(self.folder, SHA, require_provenance=True)
-        self.assertEqual(len(paths), 9)
+        self.assertEqual(len(paths), 11)
         manifest = offline.verify_release.checksums(self.folder / "SHA256SUMS.txt")
         self.assertNotIn("SHA256SUMS.txt", manifest)
         self.assertEqual(set(manifest), offline.verify_release.PAYLOADS | offline.verify_release.PROVENANCE)
         value = offline.verify_release.verify_files(paths, SHA)
-        self.assertEqual(value["files"], 8)
+        self.assertEqual(value["files"], 10)
         self.assertIn("CRYPTOGRAPHIC_VERIFICATION_NOT_RUN", value["provenance"])
 
     def test_resealed_changed_bundle_or_receipt_is_rejected(self):
