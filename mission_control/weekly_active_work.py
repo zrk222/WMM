@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from .common import Invalid, digest, iso_time, now
 
 if TYPE_CHECKING:
-    from .store import Store
+    from .store import AppView, Store
 
 EXPIRY_HORIZON = timedelta(days=7)
 
@@ -149,7 +149,7 @@ def _active_work_items(db, app, tables):
     )
 
 
-def active_work(store: Store, app: dict, user: object) -> list[dict]:
+def active_work(store: Store, app: AppView, user: object) -> list[dict]:
     """Read only bounded owner-scoped work; anonymous, maker and checker callers see none."""
     principal = trusted_principal(user)
     if principal is None or not hasattr(store, "path"):
