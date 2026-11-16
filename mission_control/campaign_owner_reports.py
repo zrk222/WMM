@@ -1,17 +1,20 @@
 """Private source-bound owner reports; no provider reads or outbound delivery."""
 
+import re
 import secrets
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from .apple_owner_outcome import apple_owner_outcome
 from .campaign_execution import saved_pause_receipt, scope_view
 from .campaign_metric_definitions import definitions, historical_measurement, joined_outcome_advice, object_data
 from .campaign_monitor import actor, last_observation, whole
+from .campaign_report_delivery import matched_post
 from .campaign_report_pause import pause_guidance
 from .common import Invalid, canonical, digest, identifier, iso_time, now, uid
 from .db import connection
-from .evidence_gate import has_campaign_tag
+from .evidence_gate import is_apple_plan, measurement_plan
 from .experiments import lookup as lookup_experiment
 from .first_party_outcomes import normalized_batch
 from .first_party_receipts import HASH, for_campaign, primary_outcome, require_first_party_plan, retain
@@ -42,8 +45,16 @@ def initialize(store):
 
 def selection(body):
     """Existing exact resources and an explicit review window, no implicit attribution."""
-    if not isinstance(body, dict) or set(body) not in (set(SELECTION), set(SELECTION) | {"outcome_receipt_sha256"}):
+    if not isinstance(body, dict) or set(body) not in (
+        set(SELECTION),
+        set(SELECTION) | {"outcome_receipt_sha256"},
+        set(SELECTION) | {"apple_storefront"},
+    ):
         raise Invalid("Use the exact private owner report fields")
+    if "apple_storefront" in body and (
+        not isinstance(body["apple_storefront"], str) or not re.fullmatch("[A-Z]{2}", body["apple_storefront"])
+    ):
+        raise Invalid("Choose an App Store storefront using a two-letter country code")
     if "outcome_receipt_sha256" in body and (
         not isinstance(body["outcome_receipt_sha256"], str) or not HASH.fullmatch(body["outcome_receipt_sha256"])
     ):
@@ -334,6 +345,7 @@ def build(db, store, app_id, owner, chosen):
             experiment_hash=source["experiment_hash"],
             metric_definitions=metric_hash,
             window=chosen["measurement_window"],
+            **({"apple_storefront": chosen["apple_storefront"]} if "apple_storefront" in chosen else {}),
         )
     )
     business = [
@@ -387,6 +399,19 @@ def build(db, store, app_id, owner, chosen):
         value["joined_outcome_advice"] = joined_outcome_advice(
             value["delivery_evidence"], value["first_party_outcomes"]["report"]
         )
+    else:
+        approved = object_data(owned_resource(db, "campaign_scopes", app_id, owner, chosen["scope_id"])["summary"])
+        plan = approved.get("measurement_plan")
+        if is_apple_plan(plan):
+            value["apple_downloads"] = apple_owner_outcome(
+                db,
+                app_id,
+                measurement_plan(plan, retained=True),
+                chosen,
+                lambda outcome: matched_post(db, app_id, chosen["scope_id"], approved, outcome),
+            )
+        elif "apple_storefront" in chosen:
+            raise Invalid("Select an approved Apple download campaign to use this storefront")
     value["next_action"] = next_action(
         campaign,
         monitor_view,
@@ -394,6 +419,7 @@ def build(db, store, app_id, owner, chosen):
         value.get("delivery_evidence"),
         value.get("primary_outcome"),
         value.get("joined_outcome_advice"),
+        value.get("apple_downloads"),
     )
     value["source_hash"] = digest(
         dict(
@@ -404,78 +430,13 @@ def build(db, store, app_id, owner, chosen):
             experiment=experiment,
             **({"outcome_receipt_sha256": chosen["outcome_receipt_sha256"]} if "first_party_outcomes" in value else {}),
             **({"delivery_evidence": value["delivery_evidence"]} if "delivery_evidence" in value else {}),
+            **({"apple_downloads": value["apple_downloads"]} if "apple_downloads" in value else {}),
         )
     )
     return value, key
 
 
-def matched_post(db, app_id, scope_id, approved, outcome):
-    """Trace one exact tagged Page post to a window-bound outcome receipt."""
-    unknown = {"status": "NO_EXACT_DELIVERY_RECEIPT"}
-    plan = approved.get("measurement_plan")
-    if not isinstance(plan, dict) or not isinstance(plan.get("link"), str):
-        return unknown
-    link_hash = digest(plan["link"])
-    rows = db.execute(
-        """SELECT id, content_hash, rights_hash, page_id, status, remote_id, result, created, updated FROM campaign_intents
-        WHERE app_id=? AND scope_id=? AND CASE WHEN json_valid(result)
-        THEN json_extract(result,'$.destination_check.approved_link_sha256')=? ELSE 0 END
-        ORDER BY id LIMIT 2""",
-        (app_id, scope_id, link_hash),
-    ).fetchall()
-    if len(rows) != 1:
-        return {"status": "MULTIPLE_POSTS_SHARE_TAG"} if rows else unknown
-    row = rows[0]
-    if (
-        row["status"] != "VERIFIED"
-        or not row["remote_id"]
-        or row["page_id"] != approved["page_id"]
-        or row["content_hash"] not in approved["approved_content_hashes"]
-        or row["rights_hash"] not in approved["approved_rights_hashes"]
-    ):
-        return unknown
-    result = object_data(row["result"])
-    if result.get("id") != row["remote_id"]:
-        return unknown
-    report = outcome["report"]
-    if (
-        not iso_time(report["starts_at"])
-        <= iso_time(row["created"])
-        <= iso_time(row["updated"])
-        < iso_time(report["ends_at"])
-    ):
-        return {"status": "DELIVERY_OUTSIDE_ACQUISITION_WINDOW"}
-    # Another approved post can send traffic into the same tagged cohort.
-    # Check within this app without including the other scope's data in the report.
-    candidates = db.execute(
-        """SELECT json_extract(i.result,'$.destination_check.final_url') AS url,
-        json_extract(i.result,'$.destination_check.approved_link_sha256') AS link_hash,
-        CASE WHEN json_valid(s.summary) THEN json_extract(s.summary,'$.measurement_plan.campaign_tag') END AS plan_tag
-        FROM campaign_intents i LEFT JOIN campaign_scopes s
-        ON s.app_id=i.app_id AND s.id=i.scope_id
-        WHERE i.app_id=? AND i.id<>? AND i.status='VERIFIED' AND i.remote_id IS NOT NULL
-        AND json_valid(i.result)""",
-        (app_id, row["id"]),
-    )
-    for candidate in candidates:
-        if candidate["link_hash"] == link_hash or (
-            candidate["link_hash"] is not None
-            and (has_campaign_tag(candidate["url"], report["campaign"]) or candidate["plan_tag"] == report["campaign"])
-        ):
-            return {"status": "MULTIPLE_POSTS_SHARE_TAG"}
-    return dict(
-        status="EXACT_TAGGED_POST_READBACK",
-        intent_id=row["id"],
-        content_sha256=row["content_hash"],
-        rights_sha256=row["rights_hash"],
-        destination_sha256=link_hash,
-        provider_readback_at=row["updated"],
-        delivery_sha256=digest(result),
-        outcome_sha256=outcome["receipt_sha256"],
-    )
-
-
-def next_action(campaign, monitor, experiment, delivery=None, outcome=None, advice=None):
+def next_action(campaign, monitor, experiment, delivery=None, outcome=None, advice=None, apple=None):
     if guidance := pause_guidance(campaign["receipts"]):
         return guidance
     uncertain = ("UNKNOWN", "DISPATCHING", "ACKNOWLEDGED", "VERIFYING")
@@ -484,6 +445,11 @@ def next_action(campaign, monitor, experiment, delivery=None, outcome=None, advi
     observation = monitor["last_observation"]
     if observation and observation.get("status") == "BLOCKED":
         return "Inspect the blocked monitor and reconcile its saved campaign receipts; do not replay mutations."
+    if apple:
+        guidance = apple["next_action"]
+        if _historical(campaign):
+            return guidance + " This report does not renew expired or OFF execution authority."
+        return guidance
     if advice and not experiment:
         guidance = advice["next_action"]
         if _historical(campaign):

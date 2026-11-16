@@ -27,11 +27,18 @@ const WMMOwnerReports = (() => {
     const experiment = values.experiment_id || null;
     if (experiment && !experiments.some((e) => e.id === experiment))
       throw Error('Select an existing experiment.');
-    const start = new Date(values.starts_at),
-      end = new Date(values.ends_at);
+    const approved = scopes.find((entry) => entry.scope_id === scope)?.measurement_plan;
+    const apple = approved?.measurement_source === 'APPLE_APP_DOWNLOADS';
+    const storefront = values.apple_storefront?.trim().toUpperCase();
+    if (storefront && (!apple || !/^[A-Z]{2}$/.test(storefront)))
+      throw Error('Choose an Apple download campaign and a two-letter storefront, such as US.');
+    const start = new Date(apple ? approved.starts_at : values.starts_at),
+      end = new Date(apple ? approved.ends_at : values.ends_at);
     if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start >= end)
       throw Error('Choose a positive review window.');
     const receipt = values.outcome_receipt_sha256?.trim();
+    if (receipt && apple)
+      throw Error('Apple downloads use saved Apple files instead of an imported outcome receipt.');
     if (receipt && !/^[a-f0-9]{64}$/.test(receipt))
       throw Error('Paste the complete 64-character fingerprint from your saved outcome receipt.');
     return {
@@ -40,6 +47,7 @@ const WMMOwnerReports = (() => {
       experiment_id: experiment,
       measurement_window: { starts_at: start.toISOString(), ends_at: end.toISOString() },
       ...(receipt ? { outcome_receipt_sha256: receipt } : {}),
+      ...(storefront ? { apple_storefront: storefront } : {}),
     };
   }
   async function open() {
@@ -91,7 +99,7 @@ const WMMOwnerReports = (() => {
           experiments
             .map((e) => '<option value="' + esc(e.id) + '">' + esc(e.name || e.id) + '</option>')
             .join('') +
-          '</select></label><label class="field">Review window starts (local time)<input type="datetime-local" name="starts_at" required></label><label class="field">Review window ends (local time)<input type="datetime-local" name="ends_at" required></label>' +
+          '</select></label><label class="field">Review window starts (local time)<input type="datetime-local" name="starts_at"></label><label class="field">Review window ends (local time)<input type="datetime-local" name="ends_at"></label><label class="field">App Store storefront (Apple campaigns)<input name="apple_storefront" maxlength="2" pattern="[A-Za-z]{2}" placeholder="US" autocomplete="off" aria-describedby="owner-apple-help"></label><p id="owner-apple-help">Apple campaigns use the approved dates. Enter the two-letter storefront for the download counts you want to review.</p>' +
           '<label class="field">Outcome receipt fingerprint (optional)<input name="outcome_receipt_sha256" maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="owner-outcome-help"></label><p id="owner-outcome-help">Use a saved outcome receipt from the same approved campaign and review window.</p>' +
           '<label class="field">Report timing<select name="mode"><option value="capture">Save one report now</option><option value="schedule">Review a finite recurring report plan</option></select></label><details><summary>Recurring report limits</summary><label class="field">Interval in seconds<input name="cadence_seconds" type="number" min="30" max="86400" value="86400"></label><label class="field">Maximum reports<input name="max_reports" type="number" min="1" max="100" value="7"></label><label class="field">Plan expiry (local time)<input type="datetime-local" name="expires_at"></label><p>At most seven days. WMM must remain running. Reports stay in this private workspace; nothing is emailed or published.</p></details><p id="owner-report-error" role="alert"></p><button type="submit" class="button primary">Continue with exact sources</button>' +
           button('Cancel', 'close') +
@@ -211,6 +219,9 @@ const WMMOwnerReports = (() => {
       esc(p.selection.measurement_window.starts_at) +
       ' to ' +
       esc(p.selection.measurement_window.ends_at) +
+      (p.selection.apple_storefront
+        ? '</p><p>App Store storefront ' + esc(p.selection.apple_storefront)
+        : '') +
       (p.selection.outcome_receipt_sha256
         ? '</p><p>Outcome receipt ' + esc(p.selection.outcome_receipt_sha256)
         : '') +
@@ -251,6 +262,7 @@ const WMMOwnerReports = (() => {
     return `Saved values for ${available} of ${available + unknown} evidence rows. ${unknown} unknown.`;
   }
   function measurementNextStep(report) {
+    if (report.apple_downloads) return '';
     // Keep measurement guidance visible when the saved next action is an authority reminder.
     const primary = report.primary_outcome;
     if (primary) {
@@ -363,6 +375,90 @@ const WMMOwnerReports = (() => {
       : '';
   }
 
+  function appleRows(result) {
+    const labels = {
+      READY_TO_REVIEW: 'Ready to review',
+      PROVISIONAL: 'Provisional',
+      NO_MATCH: 'No matching row',
+      NO_FILE: 'No saved file',
+    };
+    return (result.rows || []).map((row) => ({
+      date: row.date,
+      downloads: row.first_time_downloads ?? 'Unknown',
+      processed: row.processing_date ?? '—',
+      status: Object.hasOwn(labels, row.evidence_status)
+        ? labels[row.evidence_status]
+        : 'Needs review',
+      fingerprint: row.source_sha256,
+    }));
+  }
+  function appleLabel(result) {
+    return 'Apple first-time downloads' + (result.territory ? ' · ' + result.territory : '');
+  }
+  const appleLimits =
+    'These counts describe App Store downloads. They do not measure first opens, subscriptions or lift.';
+  function appleNotes(result) {
+    if (!result) return [];
+    return [
+      appleLimits,
+      ...appleRows(result).map(
+        (row) =>
+          row.date +
+          ': ' +
+          row.downloads +
+          ' · ' +
+          row.status +
+          ' · Apple processed ' +
+          row.processed +
+          (row.fingerprint ? ' · fingerprint ' + row.fingerprint : ''),
+      ),
+      ...(result.delivery?.delivery_sha256
+        ? ['Verified post fingerprint ' + result.delivery.delivery_sha256]
+        : []),
+    ];
+  }
+  function appleMarkup(result) {
+    if (!result) return '';
+    const rows = appleRows(result);
+    const fingerprint = (value, label) =>
+      value
+        ? '<details><summary>' + esc(label) + '</summary><code>' + esc(value) + '</code></details>'
+        : 'Unavailable';
+    const table = rows.length
+      ? '<div class="table-wrap"><table class="result-table"><thead><tr><th scope="col">Download date</th><th scope="col">Downloads</th><th scope="col">Apple processed</th><th scope="col">Evidence</th><th scope="col">Source</th></tr></thead><tbody>' +
+        rows
+          .map(
+            (row) =>
+              '<tr><th scope="row">' +
+              esc(row.date) +
+              '</th><td>' +
+              esc(row.downloads) +
+              '</td><td>' +
+              esc(row.processed) +
+              '</td><td>' +
+              esc(row.status) +
+              '</td><td>' +
+              fingerprint(row.fingerprint, 'View fingerprint') +
+              '</td></tr>',
+          )
+          .join('') +
+        '</tbody></table></div>'
+      : '';
+    return (
+      '<section aria-label="Apple campaign downloads"><h3>' +
+      esc(appleLabel(result)) +
+      '</h3><p>Total: <strong>' +
+      esc(result.first_time_downloads ?? 'Unknown') +
+      '</strong></p><p>' +
+      esc(appleLimits) +
+      '</p>' +
+      table +
+      (result.delivery?.delivery_sha256
+        ? fingerprint(result.delivery.delivery_sha256, 'Verified post fingerprint')
+        : '') +
+      '</section>'
+    );
+  }
   function model(saved, base) {
     const r = saved.report;
     return {
@@ -373,6 +469,16 @@ const WMMOwnerReports = (() => {
       next_step: r.next_action,
       cohorts: [],
       metrics: [
+        ...(r.apple_downloads
+          ? [
+              {
+                label: appleLabel(r.apple_downloads),
+                value: r.apple_downloads.first_time_downloads,
+                unit: 'downloads',
+                source: 'Saved App Downloads Detailed files for the approved campaign window',
+              },
+            ]
+          : []),
         ...outcomeRows(r),
         {
           label: 'Retained media commitment',
@@ -407,6 +513,7 @@ const WMMOwnerReports = (() => {
           r.selection.measurement_window.ends_at,
         'Source windows retained; app-wide source observations are not filtered to the requested window.',
         coverageText(r.kpi_coverage),
+        ...appleNotes(r.apple_downloads),
         ...(outcomeNote(r) ? [outcomeNote(r)] : []),
         ...(deliveryNote(r) ? [deliveryNote(r)] : []),
         ...(joinedAdvice(r) ? [joinedAdvice(r)] : []),
@@ -444,6 +551,7 @@ const WMMOwnerReports = (() => {
       '<h3>Your next useful decision</h3><p>' +
       esc(r.next_action) +
       '</p>' +
+      appleMarkup(r.apple_downloads) +
       (outcomeNote(r)
         ? '<section aria-label="First-party campaign outcomes"><h3>Attributed campaign outcomes</h3><p>' +
           esc(outcomeNote(r)) +

@@ -239,3 +239,84 @@ test('subscription observations are displayed separately from the approved funne
   delete report.first_party_outcomes.report.subscription_observations;
   assert.equal(find('Trial starters who later paid'), undefined);
 });
+
+test('an Apple report takes its UTC dates from the saved campaign and requires a separate storefront', () => {
+  const a = fixture().a;
+  const scope = {
+    scope_id: 'apple',
+    measurement_plan: {
+      measurement_source: 'APPLE_APP_DOWNLOADS',
+      starts_at: '2026-11-19T00:00:00Z',
+      ends_at: '2026-11-26T00:00:00Z',
+    },
+  };
+  const request = { ...values, scope_id: 'apple', monitor_id: '', apple_storefront: 'us' };
+  const selected = a.selection(request, [], [{ id: 'trial' }], [scope]);
+  assert.equal(selected.measurement_window.starts_at, '2026-11-19T00:00:00.000Z');
+  assert.equal(selected.measurement_window.ends_at, '2026-11-26T00:00:00.000Z');
+  assert.equal(selected.apple_storefront, 'US');
+  assert.throws(() =>
+    a.selection({ ...request, apple_storefront: 'USA' }, [], [{ id: 'trial' }], [scope]),
+  );
+  assert.throws(
+    () =>
+      a.selection(
+        { ...request, outcome_receipt_sha256: 'a'.repeat(64) },
+        [],
+        [{ id: 'trial' }],
+        [scope],
+      ),
+    /saved Apple files/,
+  );
+});
+
+test('the private report and PDF distinguish an explicit zero from missing Apple dates', () => {
+  const a = fixture().a;
+  const saved = {
+    id: 'apple-report',
+    hash: 'report-fingerprint',
+    report: {
+      observed_at: '2026-11-29T00:00:00Z',
+      next_action: 'Collect newer Detailed files for the same dates.',
+      source_hash: 'source',
+      monitor: { status: 'NOT_SELECTED' },
+      campaign: { status: 'OFF', retained_commitment_minor: 0, currency: 'USD', receipts: [] },
+      kpi_coverage: { available_rows: 0, unknown_rows: 1 },
+      kpis: { rows: [] },
+      selection: { measurement_window: { starts_at: 'start', ends_at: 'end' } },
+      comparison: { status: 'NO_COMPATIBLE_PREVIOUS_SNAPSHOT', changes: [] },
+      apple_downloads: {
+        territory: 'US',
+        first_time_downloads: null,
+        rows: [
+          {
+            date: '2026-11-19',
+            first_time_downloads: 0,
+            processing_date: '2026-11-21',
+            evidence_status: 'READY_TO_REVIEW',
+            source_sha256: 'apple-file-fingerprint',
+          },
+          {
+            date: '2026-11-20',
+            first_time_downloads: null,
+            processing_date: null,
+            evidence_status: 'NO_FILE',
+          },
+        ],
+        delivery: { delivery_sha256: '<post-fingerprint>' },
+      },
+    },
+  };
+  const model = a.model(saved, {});
+  assert.equal(model.metrics[0].value, null);
+  assert.match(
+    model.notes.join('\n'),
+    /2026-11-19: 0.+Ready to review.+2026-11-21.+apple-file-fingerprint/,
+  );
+  assert.match(model.notes.join('\n'), /2026-11-20: Unknown.+No saved file/);
+  const html = a.markup(saved);
+  assert.match(html, /Total: <strong>Unknown<\/strong>/);
+  assert.match(html, /scope="row">2026-11-19<\/th><td>0<\/td>/);
+  assert.match(html, /&lt;post-fingerprint>/);
+  assert.doesNotMatch(html, /Choose a primary outcome|<post-fingerprint>/);
+});

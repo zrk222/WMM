@@ -18,3 +18,11 @@ Use **Apple analytics → Measure App Store campaign downloads** to collect and
 review the approved link's reported counts. Counts are not website first opens,
 paid conversions, retention, or causal lift. A first-party product/billing
 receipt cannot be attached as the outcome of this plan.
+
+After a verified post, open **Review private campaign outcomes**, select the
+saved campaign, and enter the App Store storefront code. The report uses the
+approved UTC window. It includes the Apple processing dates, source
+fingerprints, and exact post readback in the private view and PDF. A total
+requires a mature matching row for every event date; a missing or provisional
+row leaves the total unknown. Report capture reads retained files and cannot
+start a provider read or renew campaign approval.

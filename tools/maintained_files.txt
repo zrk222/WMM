@@ -18,6 +18,7 @@ mission_control/apple_campaign_links.py
 mission_control/apple_metrics_contract.py
 mission_control/apple_metrics_http.py
 mission_control/apple_metrics_store.py
+mission_control/apple_owner_outcome.py
 mission_control/apple_storefront.py
 mission_control/architecture.py
 mission_control/attribution_adservices.py
@@ -39,6 +40,7 @@ mission_control/campaign_metric_definitions.py
 mission_control/campaign_monitor.py
 mission_control/campaign_owner_reports.py
 mission_control/campaign_pause_receipts.py
+mission_control/campaign_report_delivery.py
 mission_control/campaign_report_pause.py
 mission_control/campaign_schedule.py
 mission_control/campaign_schedule_authority.py
