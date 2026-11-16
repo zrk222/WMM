@@ -8,11 +8,17 @@ from mission_control.campaign_execution import CampaignExecutionService
 from mission_control.common import canonical, digest, now
 from mission_control.db import connection
 from mission_control.operator_client import ClientError, OperatorClient
+from mission_control.store import Store
 from tests import test_agent_grants as grant_fixture
 from tests.test_campaign_execution import FakePaidTransport, FakeTransport
 
 
 class CampaignGatewayTests(unittest.TestCase):
+    # GrantTests.setUp populates these through setUp_base.
+    store: Store
+    origin: str
+    owner: OperatorClient
+
     setUp_base = grant_fixture.GrantTests.setUp
     tearDown = grant_fixture.GrantTests.tearDown
     body = grant_fixture.GrantTests.body
@@ -111,7 +117,9 @@ class CampaignGatewayTests(unittest.TestCase):
         self.addCleanup(self.preflight.stop)
 
     def owner_call(self, action, body):
-        return self.owner.request("POST", "/api/apps/sample-one/campaigns/" + action, body)
+        result = self.owner.request("POST", "/api/apps/sample-one/campaigns/" + action, body)
+        assert isinstance(result, dict)
+        return result
 
     def activate(self):
         saved = self.owner_call("prepare", {"scope": self.scope})
@@ -121,6 +129,7 @@ class CampaignGatewayTests(unittest.TestCase):
         issued = self.owner.request(
             "POST", "/api/apps/sample-one/agent-grants/issue", {**self.body(), "operations": names}
         )
+        assert isinstance(issued, dict)
         return OperatorClient(self.origin, grant_token=issued["token"])
 
     def test_fresh_owner_and_exact_hash_are_required_to_issue_authority(self):
@@ -144,12 +153,14 @@ class CampaignGatewayTests(unittest.TestCase):
         )
         sent = agent.call(envelope)
         again = agent.call(envelope)
+        assert isinstance(sent, dict) and isinstance(again, dict)
         self.assertEqual(sent["id"], again["id"])
         self.assertEqual(sent["status"], "VERIFIED")
         self.assertEqual(self.wire.posts, 1)
         result = agent.call(
             dict(app_id="sample-one", operation="campaign.status", input={"scope_id": saved["scope_id"]})
         )
+        assert isinstance(result, dict)
         self.assertEqual(result["intents"][0]["remote_id"], "123_777")
         self.assertNotIn("synthetic-token", canonical(result))
         self.owner_call("revoke", {"scope_id": saved["scope_id"]})
@@ -283,9 +294,12 @@ class CampaignGatewayTests(unittest.TestCase):
                 input={"scope_id": paid["scope_id"], "request": request},
             )
             launched = agent.call(envelope)
+            assert isinstance(launched, dict)
             self.assertEqual(launched["status"], "ACTIVE_campaign")
             self.assertEqual(launched["commitment"], 80)
-            self.assertEqual(agent.call(envelope)["id"], launched["id"])
+            replay = agent.call(envelope)
+            assert isinstance(replay, dict)
+            self.assertEqual(replay["id"], launched["id"])
             self.assertEqual(len(self.wire.objects), 4)
             observed = agent.call(
                 dict(
@@ -294,6 +308,7 @@ class CampaignGatewayTests(unittest.TestCase):
                     input={"scope_id": paid["scope_id"], "intent_id": launched["id"]},
                 )
             )
+            assert isinstance(observed, dict)
             self.assertEqual(observed["result"]["reported_spend"], "1.23")
             stopped = self.owner_call("revoke", {"scope_id": paid["scope_id"]})
             self.assertEqual(stopped["pause_results"][0]["status"], "PAUSED_campaign")

@@ -61,6 +61,7 @@ def verify_changed_schedule(page: Page, width: int, out: Path) -> None:
 
     def change_copy(route: Route) -> None:
         body = route.request.post_data_json
+        assert isinstance(body, dict)
         item = body["items"][0]["request"]
         item.update(message=text, content_hash=digest({"message": text, "link": item["link"]}))
         route.continue_(post_data=json.dumps(body))
