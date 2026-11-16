@@ -43,7 +43,7 @@ function campaignExpiryUI() {
   return globalThis.WMMAuthorityExpiry;
 }
 
-async function campaignOpen(source = null, study = null) {
+async function campaignOpen(source = null, study = null, reuse = null) {
   const destination = study?.destination;
   const app = state.app,
     version = state.workspace.app.version,
@@ -71,6 +71,13 @@ async function campaignOpen(source = null, study = null) {
       r.provider === 'facebook' && r.status === 'CONNECTED_READ_TESTED' && !r.reconnect_required,
   );
   const selected = study && accounts.find((row) => row.data.destination.id === destination);
+  const prior =
+    reuse &&
+    history.scopes.find(
+      (scope) => scope.scope_id === reuse.scopeId && scope.approval_hash === reuse.scopeHash,
+    );
+  if (reuse && !prior)
+    throw new Error('The original approval is unavailable. Open a new campaign.');
   if (study && !selected)
     throw new Error(
       'The selected Facebook Page is no longer available. Reconnect it and select it again.',
@@ -85,8 +92,26 @@ async function campaignOpen(source = null, study = null) {
     scopeForm.elements.link.value = study.link.url;
     scopeForm.elements.connection_id.value = selected.id;
   }
+  if (prior) {
+    const samePage = accounts.find(
+      (row) => row.id === prior.connection_id && row.data.destination.id === prior.page_id,
+    );
+    const tag = reuse.link ? new URL(reuse.link).searchParams.get('utm_campaign') : '';
+    scopeForm.elements.posts.value = reuse.messages.join('\n---\n');
+    scopeForm.elements.link.value = tag ? '' : reuse.link || '';
+    scopeForm.elements.connection_id.value = samePage?.id || '';
+    scopeForm.elements.max_calls.value = '60';
+    scopeForm.dataset.originalCampaignTag = tag || '';
+    scopeForm.dataset.requireMeasurement = prior.measurement_plan ? 'true' : 'false';
+    scopeForm.insertAdjacentHTML(
+      'afterbegin',
+      '<p role="status">Draft copied. Review the Page, add current rights evidence and choose new dates. No approval, budget or schedule was copied.' +
+        (tag ? ' Use a fresh tracking link to measure this run separately.' : '') +
+        '</p>',
+    );
+  }
   const draftPlan = state.workspace?.pre_registration?.measurement_plan;
-  if (draftPlan && !study) {
+  if (draftPlan && !study && !reuse) {
     const useDraft = document.createElement('button');
     useDraft.type = 'button';
     useDraft.className = 'button outline';
@@ -252,6 +277,13 @@ async function campaignSubmit(form) {
       values.measurement_ends,
       ...Object.values(planValues),
     ].some((value) => String(value || '').trim());
+    if (form.dataset.requireMeasurement === 'true' && !anyPlan)
+      throw new Error('Set a new measurement window and campaign tag for this run.');
+    if (form.dataset.originalCampaignTag) {
+      const tag = link && new URL(link).searchParams.get('utm_campaign');
+      if (!tag || tag === form.dataset.originalCampaignTag)
+        throw new Error('Add a tracking link with a new campaign tag for this run.');
+    }
     let measurementPlan = null;
     if (anyPlan) {
       if (
@@ -946,6 +978,44 @@ function campaignScheduleReviewItem(item, scope) {
     '</p></section>'
   );
 }
+function campaignScheduleReuse(data) {
+  if (
+    data.evidence_unavailable ||
+    !['DELIVERY_VERIFIED', 'OFF', 'APPROVAL_EXPIRED', 'APPROVAL_INACTIVE'].includes(
+      data.progress,
+    ) ||
+    !data.scope_id ||
+    !data.summary?.scope_hash ||
+    data.summary.kind === 'ADMITTED_ORGANIC_VIDEO_V1' ||
+    !Array.isArray(data.items) ||
+    !Array.isArray(data.summary.items) ||
+    !data.items?.length ||
+    data.items.length > 20 ||
+    data.items.length !== data.summary.items.length ||
+    data.items.some((item) => !['VERIFIED', 'BLOCKED', 'CANCELLED'].includes(item.effective_status))
+  )
+    return null;
+  const items = data.summary.items;
+  if (
+    items.some(
+      ({ operation, request }) =>
+        (operation && operation !== 'campaign.publish') ||
+        typeof request?.message !== 'string' ||
+        /\r?\n---\r?\n/.test(request.message) ||
+        request.link !== items[0].request?.link,
+    )
+  )
+    return null;
+  const messages = items.map(({ request }) => request.message);
+  if (messages.join('\n---\n').length > 50000) return null;
+  return {
+    scopeId: data.scope_id,
+    scopeHash: data.summary.scope_hash,
+    messages,
+    link: items[0].request.link,
+  };
+}
+
 function campaignScheduleCopy(data) {
   const copy = {
     DELIVERY_VERIFIED: [
@@ -1034,6 +1104,11 @@ async function campaignScheduleStatus(batch, source = null, isCurrent = () => tr
       ) +
       button('Turn scheduled batch OFF', 'campaign-schedule-off') +
       button('Report / Save PDF', 'campaign-schedule-report') +
+      '<div id="schedule-reuse-action"' +
+      (campaignScheduleReuse(data) ? '' : ' hidden') +
+      '>' +
+      button('Reuse posts in a new campaign', 'campaign-schedule-reuse') +
+      '</div>' +
       '</div>',
   );
   const progress = $('#campaign-schedule-progress');
@@ -1088,6 +1163,8 @@ function campaignScheduleWatch(panel) {
           .map((i) => campaignScheduleProgressItem(i, data))
           .join('');
         panel.querySelector('#schedule-live-stage').textContent = data.repair || explanation;
+        const reuse = panel.querySelector('#schedule-reuse-action');
+        if (reuse) reuse.hidden = !campaignScheduleReuse(data);
       }
     } catch {
       failures++;
@@ -1243,6 +1320,11 @@ async function campaignScheduleAction(node) {
       data = panel.campaign;
     if (action === 'campaign-schedule-report')
       return WMMPageReports.openReport(campaignScheduleReport(data), window);
+    if (action === 'campaign-schedule-reuse') {
+      const reuse = campaignScheduleReuse(data);
+      if (!reuse) throw new Error('Check delivery receipts before reusing this batch.');
+      return await campaignOpen(panel, null, reuse);
+    }
     if (action === 'campaign-schedule-activate') {
       await api('/api/apps/' + app + '/campaigns/schedule-activate', {
         batch_id: data.summary.batch_id,
@@ -1287,6 +1369,7 @@ export {
   campaignScheduleOpen,
   campaignScheduleSubmit,
   campaignScheduleReviewItem,
+  campaignScheduleReuse,
   campaignScheduleStatus,
   campaignScheduleWatch,
   campaignScheduleProgressItem,
