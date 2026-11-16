@@ -75,6 +75,7 @@ mission_control/onesignal_setup.py
 mission_control/operation_authority.py
 mission_control/operation_catalog.py
 mission_control/operator_client.py
+mission_control/operator_identity.py
 mission_control/organic_video_collector.py
 mission_control/organic_video_discovery.py
 mission_control/payment_sources.py
