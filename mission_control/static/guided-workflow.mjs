@@ -133,6 +133,14 @@ const WMMExceptionGuidance = (() => {
     CAMPAIGN_MONITOR_EVIDENCE_NEEDS_REPAIR: {
       headline: 'Saved monitor needs review',
     },
+    APPLE_CAMPAIGN_FILE_AVAILABLE: {
+      headline: 'Apple lists a daily download report',
+      tool: 'apple-analytics',
+    },
+    APPLE_REPORT_SETUP_REQUIRED: {
+      headline: 'Apple reporting needs setup',
+      tool: 'apple-analytics',
+    },
     WAITING_FOR_REPORTS: {
       headline: 'Report rows are not available yet',
       reason:

@@ -399,6 +399,8 @@ test('exception guidance translates supported recovery states without overclaimi
     ['CANCEL_REQUESTED', 'New local work stopped', 'campaign'],
     ['BLOCKED', 'Work is paused', 'connections'],
     ['WAITING_FOR_REPORTS', 'Report rows are not available yet', 'connections'],
+    ['APPLE_CAMPAIGN_FILE_AVAILABLE', 'Apple lists a daily download report', 'apple-analytics'],
+    ['APPLE_REPORT_SETUP_REQUIRED', 'Apple reporting needs setup', 'apple-analytics'],
     ['EXPIRED', 'Permission or connection expired', 'connections'],
     ['EXHAUSTED', 'Approved check limit reached', 'agreement'],
   ]) {

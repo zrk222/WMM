@@ -159,6 +159,7 @@ class Service:
 
     def _workflow_exceptions(self, app: AppView, viewer: str | None) -> list[dict]:
         """Project only exact current-source exceptions into guided workflow UI."""
+        from .apple_readiness_report import WATCH_REASONS
         from .apple_readiness_report import summary as apple_readiness
         from .campaign_monitor import watch_monitor_exceptions
         from .campaign_schedule import watch_schedule_exceptions
@@ -180,16 +181,16 @@ class Service:
                 campaigns.sort(key=lambda item: not item["state"].endswith("_NEEDS_RECONCILIATION"))
             health = apple_readiness(db, app["id"], store_app_id, now()) if apple else None
         exceptions = campaigns + ([rule] if rule is not None else [])
-        if not isinstance(health, dict) or health.get("read") != "WAITING_FOR_REPORTS":
+        if not isinstance(health, dict) or (state := health.get("read")) not in WATCH_REASONS:
             return exceptions
         return [
             *exceptions,
             dict(
-                state="WAITING_FOR_REPORTS",
+                state=state,
                 source="App Store Connect",
                 observed_at=health.get("observed_at"),
                 next_due=health.get("next_due"),
-                reason="Apple has not supplied report rows for this verified scheduled read. This does not mean zero activity.",
+                reason=WATCH_REASONS[state],
                 next_action=health.get("next_action"),
                 repair_route="apple-analytics",
             ),

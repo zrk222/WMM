@@ -2,12 +2,16 @@
 
 import time
 import unittest
+from collections.abc import Mapping
 from unittest.mock import patch
 
+from mission_control.apple_analytics import CAMPAIGN_DOWNLOADS
 from mission_control.apple_metrics_http import view
 from mission_control.apple_metrics_schedule import AppleMetricsSchedules
-from mission_control.common import Invalid, digest
+from mission_control.common import Invalid, canonical, digest
 from mission_control.db import connection
+from mission_control.ios_reports import read
+from mission_control.service import Service
 from mission_control.store import Store
 from mission_control.worker import jobs, persist_job_result, run_once
 from tests import test_apple_metrics_http as http_fixture
@@ -28,6 +32,12 @@ def waiting_inventory() -> dict[str, object]:
     }
 
 
+def _observed(report: Mapping[str, object]) -> dict[str, object]:
+    rows = report["rows"]
+    assert isinstance(rows, list)
+    return {row["metric"]: row["observed"] for row in rows}
+
+
 class AppleInventoryWatchTests(unittest.TestCase):
     def setUp(self) -> None:
         fixture = worker_fixture.AppleMetricsScheduleTests()
@@ -42,9 +52,11 @@ class AppleInventoryWatchTests(unittest.TestCase):
         self.assertEqual(restarted.tick(), 1)
         pending = jobs(self.store, APP)[0]
         self.assertEqual(pending["data"]["options"], {"operation": "analytics_reports"})
-        with patch("mission_control.provider_reports.read_analytics", return_value=waiting_inventory()) as read:
+        with patch(
+            "mission_control.provider_reports.read_analytics", return_value=waiting_inventory()
+        ) as provider_read:
             self.assertTrue(run_once(self.store))
-        self.assertEqual(read.call_args.args[1], STORE_APP)
+        self.assertEqual(provider_read.call_args.args[1], STORE_APP)
         current = view(self.store, APP)
         inventory, schedule = current["inventory"], current["schedule"]
         assert isinstance(inventory, dict) and isinstance(schedule, dict)
@@ -58,6 +70,50 @@ class AppleInventoryWatchTests(unittest.TestCase):
         self.assertIsNone(view(self.store, "sample-two")["inventory"])
         self.assertEqual(restarted.tick(), 0)
         self.assertEqual(len(jobs(self.store, APP)), 1)
+        report = _observed(read(self.store, APP))
+        self.assertEqual(report["Apple scheduled read"], "WAITING_FOR_REPORTS")
+        self.assertIsNotNone(report["Apple next due"])
+        self.assertIsNone(report["Apple numeric outcome"])
+
+    def test_listed_daily_detailed_file_is_actionable_but_not_a_count(self) -> None:
+        self.schedules.save(APP, WATCH)
+        self.assertEqual(self.schedules.tick(), 1)
+        detail = {
+            "id": "private-report-key",
+            "name": CAMPAIGN_DOWNLOADS,
+            "coverage": "COMPLETE",
+            "instances": [{"id": "private-file-key", "granularity": "DAILY", "processing_date": "2026-11-17"}],
+        }
+        response = waiting_inventory() | {"status": "METRIC_DOWNLOAD_REQUIRED", "reports": [detail]}
+        with patch("mission_control.provider_reports.read_analytics", return_value=response):
+            self.assertTrue(run_once(self.store))
+        saved = jobs(self.store, APP)[0]
+        report = read(self.store, APP)
+        rows = _observed(report)
+        self.assertEqual(rows["Apple scheduled read"], "APPLE_CAMPAIGN_FILE_AVAILABLE")
+        self.assertIsNone(rows["Apple numeric outcome"])
+        notices = Service(self.store).workspace(APP)["workflow"]["exceptions"]
+        self.assertEqual(len(notices), 1)
+        self.assertEqual(notices[0]["state"], "APPLE_CAMPAIGN_FILE_AVAILABLE")
+        self.assertEqual(notices[0]["repair_route"], "apple-analytics")
+        self.assertEqual(Service(self.store).workspace(APP)["workflow"]["exceptions"], notices)
+        self.assertNotIn("private-report-key", canonical(notices + [report]))
+        self.assertNotIn("private-file-key", canonical(notices + [report]))
+
+        for replace, expected in (
+            ({"app_id": "sample-two"}, "UNCONFIRMED"),
+            ({"observed_at": "2099-01-01T00:00:00Z"}, "UNCONFIRMED"),
+            ({"reports": [detail | {"coverage": "PARTIAL"}]}, "UNCONFIRMED"),
+            ({"reports": [detail | {"name": "App Downloads Standard"}]}, "APPLE_REPORT_FILES_LISTED"),
+            ({"status": "REPORT_SETUP_REQUIRED", "reports": []}, "APPLE_REPORT_SETUP_REQUIRED"),
+        ):
+            with self.subTest(expected=expected), connection(self.store.path) as db:
+                db.execute("UPDATE jobs SET result=? WHERE id=?", (canonical(saved["result"] | replace), saved["id"]))
+            rows = _observed(read(self.store, APP))
+            self.assertEqual(rows["Apple scheduled read"], expected)
+            self.assertIsNone(rows["Apple numeric outcome"])
+            pending = Service(self.store).workspace(APP)["workflow"]["exceptions"]
+            self.assertNotIn("APPLE_CAMPAIGN_FILE_AVAILABLE", {item["state"] for item in pending})
 
     def test_expired_lease_and_pause_prevent_stale_persistence(self) -> None:
         setting = self.schedules.save(APP, WATCH)

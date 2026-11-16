@@ -2,10 +2,27 @@
 
 import json
 import math
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from .apple_metrics_schedule import check_scheduled_db, source_state, valid_numeric, valid_waiting
+from .apple_analytics import CAMPAIGN_DOWNLOADS, REPORTS, identity
+from .apple_metrics_schedule import (
+    INVENTORY_SELECTION,
+    check_scheduled_db,
+    schedule_options,
+    source_state,
+    valid_inventory,
+    valid_numeric,
+    valid_waiting,
+)
 from .common import Invalid, iso_time
+
+WATCH_REASONS = {
+    "WAITING_FOR_REPORTS": (
+        "Apple has not supplied report rows for this verified scheduled read. This does not mean zero activity."
+    ),
+    "APPLE_CAMPAIGN_FILE_AVAILABLE": "Apple lists a daily Detailed file for this app. Download counts are still unknown.",
+    "APPLE_REPORT_SETUP_REQUIRED": "This check found no active Apple reporting stream for the app.",
+}
 
 
 def _time(value, ceiling):
@@ -49,7 +66,8 @@ def _stopped_failure(db, row, ceiling):
         or data.get("connection_version") != row["connection_version"]
         or type(data.get("manifest_version")) is not int
         or data.get("manifest_version") != row["app_version"]
-        or data.get("options") != {"operation": "analytics_metrics_latest", "report_id": row["report_id"]}
+        or data.get("options") != schedule_options(row)
+        or (row["report_id"] == INVENTORY_SELECTION and data.get("connection_hash") != row["connection_hash"])
     ):
         return None, None
     observed = _time(job["updated"], ceiling)
@@ -70,6 +88,63 @@ def _catchup_note(row, job, observed):
         f" WMM queued this read {hours} hours after it was due. Keep WMM running, or use "
         "your own always-on host for reads while this computer is off."
     )
+
+
+def _listed_inventory_action(reports):
+    """Give a campaign action only for a normalized, complete Detailed file listing."""
+    if not 1 <= len(reports) <= len(REPORTS):
+        raise Invalid("Apple availability result has no verified file listing")
+    other_files = False
+    for report in reports:
+        if not isinstance(report, dict) or report.get("name") not in REPORTS or report.get("coverage") != "COMPLETE":
+            raise Invalid("Apple availability report is incomplete")
+        instances = report.get("instances")
+        if not isinstance(instances, list) or len(instances) > 300:
+            raise Invalid("Apple availability file list is invalid")
+        if not instances:
+            continue
+        identity(report.get("id"))
+        other_files = True
+        if report["name"] != CAMPAIGN_DOWNLOADS:
+            continue
+        for item in instances:
+            if not isinstance(item, dict):
+                raise Invalid("Apple availability file entry is invalid")
+            if item.get("granularity") != "DAILY":
+                continue
+            identity(item.get("id"))
+            processing = item.get("processing_date")
+            if not isinstance(processing, str) or date.fromisoformat(processing).isoformat() != processing:
+                raise Invalid("Apple availability processing date is invalid")
+            return (
+                "APPLE_CAMPAIGN_FILE_AVAILABLE",
+                "Open Apple Analytics and choose a Detailed daily file to collect. This check did not read downloads.",
+            )
+    if not other_files:
+        raise Invalid("Apple availability result did not list any files")
+    return (
+        "APPLE_REPORT_FILES_LISTED",
+        "Apple listed report files, but this check found no daily Detailed downloads file. Keep watching for it.",
+    )
+
+
+def _inventory_summary(db, row, job, ceiling):
+    result = job["result"]
+    if not valid_inventory(db, row, job, result, schedule_checked=True) or not (
+        observed := _time(result["observed_at"], ceiling)
+    ):
+        return None
+    state = result["status"]
+    if state == "WAITING_FOR_REPORTS":
+        action = "Apple had no report files. WMM will check again at the next scheduled time."
+        if row["next_due"] < ceiling.timestamp():
+            action = "The report availability check is overdue. Check that the WMM worker is running."
+    elif state == "REPORT_SETUP_REQUIRED":
+        state = "APPLE_REPORT_SETUP_REQUIRED"
+        action = "Ask an App Store Connect Admin to start ongoing reports for this app, then check availability again."
+    else:
+        state, action = _listed_inventory_action(result["reports"])
+    return dict(read=state, observed_at=observed, next_action=action + _catchup_note(row, job, observed))
 
 
 def summary(db, app_id, store_app_id, observed_at):
@@ -141,8 +216,14 @@ def summary(db, app_id, store_app_id, observed_at):
             raise Invalid("Scheduled read binding is unavailable")
         if job["status"] in ("QUEUED", "RUNNING"):
             result.update(read=job["status"], next_action="Keep the local service running and check the read again.")
+        elif job["status"] == "SUCCEEDED" and row["report_id"] == INVENTORY_SELECTION:
+            availability = _inventory_summary(db, row, job, ceiling)
+            if availability is None:
+                raise Invalid("Scheduled Apple report availability is unconfirmed")
+            result.update(availability)
         elif (
             job["status"] == "SUCCEEDED"
+            and isinstance(job["result"], dict)
             and valid_waiting(db, row, job, job["result"])
             and (observed := _time(job["result"]["observed_at"], ceiling))
         ):
@@ -156,6 +237,7 @@ def summary(db, app_id, store_app_id, observed_at):
             result.update(read="WAITING_FOR_REPORTS", observed_at=observed, next_action=next_action)
         elif (
             job["status"] == "SUCCEEDED"
+            and isinstance(job["result"], dict)
             and valid_numeric(db, row, job, job["result"])
             and (observed := _time(job["result"]["observed_at"], ceiling))
         ):
