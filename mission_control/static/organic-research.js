@@ -693,7 +693,7 @@
             ['PORTRAIT', 'Portrait'],
             ['LANDSCAPE', 'Landscape'],
           ],
-        )}<label><input type="checkbox" name="include_download_qr" checked> Add an app download QR code</label>${sceneFields}<button type="submit" class="button">Review this local render</button></form>${button('Back to research card', 'render-back')}`,
+        )}<label class="check-row"><input type="checkbox" name="include_download_qr" checked> Add an app download QR code</label>${sceneFields}<button type="submit" class="button">Review this local render</button></form>${button('Back to research card', 'render-back')}`,
         { saved: t.data.saved, intake: t.data.intake, choice, clips },
         t.scope,
       );

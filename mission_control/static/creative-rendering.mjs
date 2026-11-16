@@ -213,7 +213,7 @@ function renderForm(hypitBriefIds = null) {
         { id: 'PORTRAIT', title: 'Portrait · 720 × 1280' },
         { id: 'LANDSCAPE', title: 'Landscape · 1280 × 720' },
       ],
-    )}</div><div id="render-qr-choice"${hypitBriefIds ? '' : ' hidden'}><label><input type="checkbox" name="include_download_qr" checked> Add an app download QR code</label></div><div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Queue local render</button></div></form>`,
+    )}</div><div id="render-qr-choice"${hypitBriefIds ? '' : ' hidden'}><label class="check-row"><input type="checkbox" name="include_download_qr" checked> Add an app download QR code</label></div><div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Queue local render</button></div></form>`,
   );
 }
 
