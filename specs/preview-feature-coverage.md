@@ -1,0 +1,7 @@
+# Public feature preview
+Modify docs/index.html; use local browser verification and the existing preview regression. Reuse source-backed capabilities, no new execution.
+R1: Group discovery/ASO, separate OpenSEO web evidence, three controlled creative tools, five destinations, outcomes/reporting, agents/automation and connection families. Links point to existing source guides or synthetic demo, not imaginary hosted functionality.
+R2: Accessible ordered operations diagram maps goal to evidence, creative, owner approval, delivery, outcomes and next decision. Missing-data repair and owner pause are explicit. At390/1440 text remains legible and no horizontal overflow.
+R3: All new interactions are local disclosures or ordinary links; no provider calls, account setup, scripts or external dependencies. Source observations do not become promised installs, paid conversion or lift.
+Evidence matrix: market_research.py ASO snapshots; creative_toolchain.py hypit/rea-video/genjutsu handoffs; operation_catalog.py growth/measurement/studio/editor routes; insights_contract.py PostHog/Clarity/RevenueCat; first_party_outcomes.py consented event join; campaign_owner_reports.py private reports; social_registry.py5destinations; OpenSEO PR439 merged at 18370e2; provider outcomes remain unverified. These are implemented source contracts, not live provider acceptance.
+Verify focused source tests, public feature browser390/1440, distribution/privacy, pinned formatting/lint/type, Prestige and local hash-bound workflow QA. No generated proof files in Git.
