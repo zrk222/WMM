@@ -341,6 +341,17 @@ OPERATIONS = {
     "growth.save": descriptor(
         "POST", "/subscription-growth/entries", "WRITE_LOCAL_EVIDENCE", ("id", "manifest_version", "kind", "data")
     ),
+    "web.research.read": descriptor(
+        "POST", "/insights/{resource_id}/web-read", "READ_OWNED_PROVIDER_STATUS", ("confirm_read",), (), True
+    ),
+    "web.research.save": descriptor(
+        "POST",
+        "/insights/{resource_id}/save-web-evidence",
+        "WRITE_LOCAL_EVIDENCE",
+        ("id", "manifest_version", "report_id"),
+        (),
+        True,
+    ),
     "customer.history": descriptor("GET", "/customer-workflows", "READ_PRIVATE_LOCAL_DATA"),
     "customer.save": descriptor(
         "POST", "/customer-workflows", "WRITE_LOCAL_EVIDENCE", ("id", "manifest_version", "data")
@@ -510,6 +521,7 @@ def catalog() -> dict[str, object]:
     from .market_research import agent_contract as market_contract
     from .marketing_ontology import ontology
     from .packaging_contract import agent_contract as packaging_contract
+    from .web_search_evidence import agent_contract as web_search_contract
 
     value["domain_contracts"] = {
         "app_sales_funnel": agent_contract(),
@@ -518,6 +530,7 @@ def catalog() -> dict[str, object]:
         "content_packaging": packaging_contract(),
     }
     cast(dict[str, object], value["domain_contracts"])["market_research"] = market_contract()
+    cast(dict[str, object], value["domain_contracts"])["web_search_evidence"] = web_search_contract()
     return dict(value, catalog_sha256=digest(value))
 
 

@@ -335,6 +335,7 @@ class Handler(BaseHTTPRequestHandler):
             "/social-callback.js",
             "/agent-access.mjs",
             "/insights.mjs",
+            "/openseo-scope.mjs",
             "/storekit.mjs",
             "/attribution.mjs",
             "/analytics-inventory.mjs",
@@ -1297,21 +1298,10 @@ class Handler(BaseHTTPRequestHandler):
         return self.send(201, Checks(self.server.service.store).run(parts[2], data))
 
     def post_insights(self, parts: list[str], data: JsonObject) -> object:
-        """Local trusted operator consent and normal CSRF protect read-only analytics setup."""
-        if urlparse(self.path).query:
-            raise Invalid("Use the exact analytics action address without a query")
-        from .insights import Insights
+        """Keep the existing trusted session boundary and route through the analytics family."""
+        from .insights_http import post
 
-        insights = Insights(self.server.service.store)
-        if len(parts) == 5 and parts[4] == "setup":
-            return self.send(201, insights.setup(parts[2], data))
-        if len(parts) == 6 and parts[5] == "read":
-            return self.send(200, insights.refresh(parts[2], parts[4], data))
-        if len(parts) == 6 and parts[5] == "events":
-            return self.send(200, insights.update_events(parts[2], parts[4], data))
-        if len(parts) == 6 and parts[5] == "disconnect":
-            return self.send(200, insights.disconnect(parts[2], parts[4], data))
-        raise KeyError("Analytics route not found")
+        return post(self, parts, data)
 
     def post_storekit(self, parts: list[str], data: JsonObject) -> object:
         """Fresh app owner/maker identity protects source setup, manual verification and disconnect."""

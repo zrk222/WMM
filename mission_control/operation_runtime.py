@@ -9,21 +9,22 @@ def execute(service, envelope, *, caller="SCOPED_AGENT"):
 
     if caller not in ("LOCAL_SESSION", "SCOPED_AGENT"):
         raise Invalid("Unknown operation caller")
+    from .activity_timeline import read as activity_read
     from .agent_operations import discovery
+    from .creative_rendering import Renders
     from .customer_workflow_store import CustomerWorkflows
     from .experiments import Experiments
-    from .growth_review_store import GrowthReviews
-    from .ledger import Ledger
-    from .ios_reports import read as report_read
-    from .worker import jobs
-    from .hypit_jobs import HypitRenders
-    from .creative_rendering import Renders
-    from .video_edit_projects import Projects
-    from .managed_media_store import Media
-    from .funnel_store import Funnels
     from .funnel_founder_review import review as funnel_review
-    from .activity_timeline import read as activity_read
+    from .funnel_store import Funnels
+    from .growth_review_store import GrowthReviews
+    from .hypit_jobs import HypitRenders
+    from .ios_reports import read as report_read
+    from .ledger import Ledger
+    from .managed_media_store import Media
+    from .openseo_read import dispatch as web_research_dispatch
     from .video_edit_jobs import EditRenders
+    from .video_edit_projects import Projects
+    from .worker import jobs
 
     request_data(envelope)
     if envelope["operation"].startswith("observational-campaign."):
@@ -58,11 +59,11 @@ def execute(service, envelope, *, caller="SCOPED_AGENT"):
         "creative.requirement.save",
         "creative.brief.save",
     ):
-        from .operation_authority import REQUEST, protected
-        from .creative_library import Library
         from .creative_analysis import Analyses
-        from .production_feasibility import Capabilities
         from .creative_briefs import Briefs
+        from .creative_library import Library
+        from .operation_authority import REQUEST, protected
+        from .production_feasibility import Capabilities
 
         context = REQUEST.get()
         owner = caller == "LOCAL_SESSION" and context and context.get("principal") and "grant_id" not in context
@@ -86,8 +87,8 @@ def execute(service, envelope, *, caller="SCOPED_AGENT"):
         with protected(store, envelope):
             return routes[envelope["operation"]]()
     if envelope["operation"].startswith("creative.batch."):
-        from .operation_authority import protected
         from .creative_batches import Batch
+        from .operation_authority import protected
 
         batch = Batch(service.store)
         action = envelope["operation"].removeprefix("creative.batch.")
@@ -102,8 +103,8 @@ def execute(service, envelope, *, caller="SCOPED_AGENT"):
                 return batch.cancel(envelope["app_id"], envelope["input"]["batch_id"])
             raise Invalid("Unknown creative batch operation")
     if envelope["operation"] in ("handoff.create", "handoff.resume"):
-        from .operation_authority import protected
         from .agent_handoffs import Handoffs
+        from .operation_authority import protected
 
         if caller != "SCOPED_AGENT":
             raise PermissionError("A scoped agent admission is required")
@@ -113,8 +114,8 @@ def execute(service, envelope, *, caller="SCOPED_AGENT"):
                 return handoffs.create(envelope["app_id"], None, envelope["input"])
             return handoffs.resume(envelope["app_id"], dict(envelope["input"], id=envelope["resource_id"]))
     if envelope["operation"] in ("experiment.schedule", "experiment.schedule-run"):
-        from .operation_authority import REQUEST, protected
         from .experiment_schedules import Schedules
+        from .operation_authority import REQUEST, protected
 
         context = REQUEST.get()
         if caller != "LOCAL_SESSION" or not context or not context.get("principal") or "grant_id" in context:
@@ -208,6 +209,8 @@ def execute(service, envelope, *, caller="SCOPED_AGENT"):
             cursor=body.get("cursor"),
             limit=body.get("limit", 20),
         ),
+        "web.research.read": lambda: web_research_dispatch(service, envelope),
+        "web.research.save": lambda: web_research_dispatch(service, envelope),
         "growth.read": lambda: service.subscription_review(app),
         "growth.history": lambda: GrowthReviews(store).list(app),
         "growth.save": lambda: GrowthReviews(store).save(app, body),

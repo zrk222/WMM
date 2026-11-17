@@ -1,12 +1,15 @@
 """App-owned listing/reference/editorial history with atomic immutable identity replay."""
 
-from datetime import datetime, timezone
 import json
+from datetime import datetime, timezone
+from sqlite3 import Connection
+
+from .benchmark_ads import project_saved_ads
 from .common import Invalid, canonical, digest, identifier
 from .db import connection
+from .growth_review_contract import MAX_ENTRIES, context_of, entry_data, entry_hash, entry_readout
 from .pmf_contract import exact
-from .growth_review_contract import context_of, entry_data, entry_hash, entry_readout, MAX_ENTRIES
-from .benchmark_ads import project_saved_ads
+from .web_search_evidence import validate_web_binding
 
 
 def decoded(row):
@@ -51,6 +54,8 @@ def freeze_comparison(db, app_id, value, context, stamp):
 def current_readout(db, row, context, stamp):
     """Withhold a current difference if the exact report or connection has changed."""
     result = entry_readout(row, context, stamp)
+    if row["kind"] == "WEB_SEO_EVIDENCE" and row["data"].get("native_source"):
+        return native_web_readout(db, row, context, stamp, result)
     if row["kind"] != "BENCHMARK_COMPARISON" or result["availability"] != "CURRENT_LOCAL_EVIDENCE":
         return result
     data = row["data"]
@@ -66,6 +71,23 @@ def current_readout(db, row, context, stamp):
             availability="SOURCE_REVIEW_NEEDED",
             analysis=dict(status="SOURCE_REVIEW_NEEDED", difference=None, reasons=[str(exc)]),
         )
+    return result
+
+
+def native_web_readout(db: Connection, row: dict, context: dict, stamp: str, result: dict) -> dict:
+    """Retain historical evidence without recommending a stale native source."""
+    from .openseo_read import verify_native_source
+    from .web_search_evidence import web_evidence_readout
+
+    if result["availability"] != "CURRENT_LOCAL_EVIDENCE":
+        return result
+    try:
+        verify_native_source(db, row["app_id"], row["data"])
+    except Invalid:
+        analysis = web_evidence_readout(row["data"], context, stamp, False)
+        analysis["native_connection_read"] = False
+        analysis["next_action"] = "Review the changed OpenSEO connection and save a current reading."
+        result.update(availability="SOURCE_REVIEW_NEEDED", analysis=analysis)
     return result
 
 
@@ -92,7 +114,7 @@ class GrowthReviews:
         self.store = store
         self.clock = clock or (lambda: datetime.now(timezone.utc))
 
-    def list(self, app_id):
+    def list(self, app_id) -> dict:
         """Derive freshness, current scope and explicit imported-assertion boundaries."""
         observed = self.clock().isoformat()
         with connection(self.store.path) as db:
@@ -112,7 +134,7 @@ class GrowthReviews:
             execution_authority=False,
         )
 
-    def save(self, app_id, body):
+    def save(self, app_id, body) -> dict:
         """Freeze exact kind/data/context in the current manifest transaction."""
         exact(body, {"id", "manifest_version", "kind", "data"})
         identity = identifier(body["id"])
@@ -122,8 +144,14 @@ class GrowthReviews:
             app = db.execute("SELECT * FROM apps WHERE id=?", (app_id,)).fetchone()
             if not app or type(body["manifest_version"]) is not int or body["manifest_version"] != app["version"]:
                 raise Invalid("Review app setup changed; reload before saving")
-            context = context_of(dict(dict(app), data=json.loads(app["data"])))
+            app_data = json.loads(app["data"])
+            context = context_of(dict(dict(app), data=app_data))
             value = entry_data(body["kind"], body["data"], context, stamp)
+            if body["kind"] == "WEB_SEO_EVIDENCE":
+                validate_web_binding(value["website"], app_data.get("website"))
+                from .openseo_read import verify_native_source
+
+                verify_native_source(db, app_id, value)
             replay = replay_comparison(db, app_id, identity, body["kind"], value, context)
             if replay:
                 return replay

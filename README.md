@@ -31,6 +31,10 @@ Potential benefits: less repeated research and clearer decisions. Measurements d
 
 ## What you can do
 
+Connect [OpenSEO inside WMM](docs/openseo.md) for app-website search intelligence:
+read Search Console, choose the next marketing test, and export a source-linked
+report as JSON or PDF.
+
 | Goal | WMM tools |
 | --- | --- |
 | Find a creative angle | Research Facebook, Instagram Reels, TikTok and YouTube Shorts. Viral qualification requires **100,000 observed views and 10× the creator’s documented baseline**. |

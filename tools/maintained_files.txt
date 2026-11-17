@@ -34,6 +34,7 @@ mission_control/automation_http.py
 mission_control/automation_policy.py
 mission_control/automation_proposal_schedule.py
 mission_control/automation_proposals.py
+mission_control/automation_requirements.py
 mission_control/automation_rule_report_integration.py
 mission_control/campaign_access.py
 mission_control/campaign_contract.py
@@ -68,6 +69,8 @@ mission_control/experiment_tracking.py
 mission_control/first_party_outcomes.py
 mission_control/first_party_receipts.py
 mission_control/funnel_http.py
+mission_control/growth_review_contract.py
+mission_control/growth_review_store.py
 mission_control/guided_workflow.py
 mission_control/http_body.py
 mission_control/http_types.py
@@ -76,6 +79,9 @@ mission_control/hypit_jobs.py
 mission_control/hypit_preflight.py
 mission_control/hypit_runtime.py
 mission_control/insights.py
+mission_control/insights_contract.py
+mission_control/insights_http.py
+mission_control/insights_transport.py
 mission_control/install_attribution.py
 mission_control/integrity_drill.py
 mission_control/ios_reports.py
@@ -91,8 +97,11 @@ mission_control/notices.py
 mission_control/observational_campaign.py
 mission_control/observational_campaign_contract.py
 mission_control/onesignal_setup.py
+mission_control/openseo_read.py
+mission_control/openseo_transport.py
 mission_control/operation_authority.py
 mission_control/operation_catalog.py
+mission_control/operation_runtime.py
 mission_control/operator_client.py
 mission_control/operator_identity.py
 mission_control/organic_video_collector.py
@@ -125,9 +134,11 @@ mission_control/social_renewal.py
 mission_control/store.py
 mission_control/storekit_ingestion.py
 mission_control/subscription_journey.py
+mission_control/subscription_review.py
 mission_control/video_download_qr.py
 mission_control/video_project_http.py
 mission_control/viral_policy.py
+mission_control/web_search_evidence.py
 mission_control/weekly_active_work.py
 mission_control/weekly_exception_card.py
 mission_control/weekly_inbox.py
@@ -153,6 +164,7 @@ tests/test_automation_agreement.py
 tests/test_automation_profiles_browser.py
 tests/test_automation_proposal_schedule.py
 tests/test_automation_proposals.py
+tests/test_automation_requirements.py
 tests/test_automation_rule_report_integration.py
 tests/test_automation_rules_browser.py
 tests/test_batch_authority.py
@@ -202,6 +214,7 @@ tests/test_licensing_plain.py
 tests/test_linkedin_render_contract.py
 tests/test_linux_vault.py
 tests/test_market_growth_next_action.py
+tests/test_measurement_connectors.py
 tests/test_measurement_economics.py
 tests/test_meta_windowed_spend.py
 tests/test_migrations.py
@@ -211,6 +224,10 @@ tests/test_observational_campaign.py
 tests/test_observational_campaign_browser.py
 tests/test_observational_campaign_contract.py
 tests/test_observational_campaign_transport.py
+tests/test_openseo_agent.py
+tests/test_openseo_browser.py
+tests/test_openseo_read.py
+tests/test_openseo_transport.py
 tests/test_operation_docs.py
 tests/test_operation_feedback_browser.py
 tests/test_operator_client.py
@@ -262,6 +279,7 @@ tests/test_ui_stories_http.py
 tests/test_verify_release_assets.py
 tests/test_video_download_qr.py
 tests/test_video_editor_http.py
+tests/test_web_search_evidence.py
 tests/test_weekly_operation_exceptions.py
 tests/test_weekly_rule_exception.py
 tests/test_weekly_store_growth.py

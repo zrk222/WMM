@@ -2,11 +2,16 @@
 
 import math
 import re
+
 from .common import Invalid
-from .payment_signature import strict_json
-from .event_mapping import mapping, DEFAULTS
+from .event_mapping import DEFAULTS, mapping
 
 PROVIDERS = {
+    "openseo": {
+        "name": "OpenSEO",
+        "link": "https://openseo.so/docs/mcp",
+        "guide": "In OpenSEO Settings → API keys, create a key for the dedicated app project. Add the same owned website to this WMM app. WMM reads final Search Console page metrics for your selected market; no SEO-credit purchases or external writes are enabled.",
+    },
     "posthog": {
         "name": "PostHog",
         "link": "https://posthog.com/docs/api",
@@ -28,7 +33,13 @@ PROVIDERS = {
 def config(body):
     """Require explicit read consent and dedicated-project declaration before storing secrets."""
     fields = {"provider", "project_id", "region", "api_key", "automatic", "confirm_read", "dedicated_project"}
-    if not isinstance(body, dict) or set(body) not in (fields, fields | {"event_map"}):
+    extra = (
+        {"website", "territory", "release", "locale", "report_mode"}
+        if isinstance(body, dict) and body.get("provider") == "openseo"
+        else set()
+    )
+    accepted = (fields | extra,) if extra else (fields, fields | {"event_map"})
+    if not isinstance(body, dict) or set(body) not in accepted:
         raise Invalid("Provide the guided connection fields only")
     provider = body["provider"]
     if provider not in PROVIDERS or body["confirm_read"] is not True or body["dedicated_project"] is not True:
@@ -41,6 +52,21 @@ def config(body):
         raise Invalid("Paste the permitted API token without spaces")
     validate_key(provider, key)
     result = {key: body[key] for key in ("provider", "project_id", "region", "automatic")}
+    if provider == "openseo":
+        from .aeo_transport import public_url
+        from .openseo_read import COUNTRIES
+
+        if not isinstance(body["territory"], str) or body["territory"] not in COUNTRIES:
+            raise Invalid("Choose a supported Search Console market")
+        if body["report_mode"] not in ("pages", "queries"):
+            raise Invalid("Choose page totals or permitted aggregate search queries")
+        result.update(
+            website=public_url(body["website"]),
+            territory=body["territory"],
+            release=text(body["release"]),
+            locale=text(body["locale"]),
+            report_mode=body["report_mode"],
+        )
     if "event_map" in body:
         if provider != "posthog":
             raise Invalid("Event mapping is supported only for PostHog")
@@ -52,7 +78,12 @@ def project_scope(body):
     """Bound project identity and region before building a documented provider path."""
     provider = body["provider"]
     project = body["project_id"]
-    patterns = {"posthog": r"[0-9]{1,30}", "clarity": r"[A-Za-z0-9]{1,40}", "revenuecat": r"proj[A-Za-z0-9]{1,80}"}
+    patterns = {
+        "posthog": r"[0-9]{1,30}",
+        "clarity": r"[A-Za-z0-9]{1,40}",
+        "revenuecat": r"proj[A-Za-z0-9]{1,80}",
+        "openseo": r"[A-Za-z0-9_-]{1,100}",
+    }
     if not isinstance(project, str) or not re.fullmatch(patterns[provider], project):
         raise Invalid("Project ID format is invalid for this provider")
     regions = ("us", "eu") if provider == "posthog" else ("global",)
@@ -63,6 +94,7 @@ def project_scope(body):
 def validate_key(provider, key):
     """Reject public SDK tokens before any remote request; scopes still require provider checks."""
     patterns = {
+        "openseo": r"oseo_[A-Za-z0-9_-]{16,}",
         "posthog": r"ph[xs]_[A-Za-z0-9_-]{16,}",
         "revenuecat": r"sk_[A-Za-z0-9_-]{16,}",
         "clarity": r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+",

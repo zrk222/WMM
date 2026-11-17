@@ -1,5 +1,9 @@
 # Choose the next words to test
 
+For Google website research, use the separate
+[OpenSEO integration](openseo.md). Store observations and Google web evidence
+have distinct types, units and recommended actions.
+
 WMM compares your supplied listing text with keyword phrases and competitor
 excerpts. It shows linked evidence, phrase coverage, overlaps and suggested copy
 tests. This helps an operator choose a specific experiment instead of guessing

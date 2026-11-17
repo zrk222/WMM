@@ -1,18 +1,18 @@
 """Actual isolated SQLite readiness facts, scope closure and secret-free projection."""
 
-from datetime import datetime, timedelta
-from pathlib import Path
 import json
 import tempfile
 import unittest
+from datetime import datetime, timedelta
+from pathlib import Path
 from unittest.mock import patch
 
 from mission_control.automation_requirements import (
-    Readiness,
-    WORKFLOWS,
     UNBUNDLED_OPERATIONS,
-    workflow_catalog,
+    WORKFLOWS,
+    Readiness,
     verification,
+    workflow_catalog,
 )
 from mission_control.common import Invalid, canonical, digest
 from mission_control.db import connection
@@ -139,18 +139,18 @@ class AutomationReadinessTests(unittest.TestCase):
         )
         catalog["workflows"]["local_evidence"]["operations"].clear()
         self.assertTrue(workflow_catalog()["workflows"]["local_evidence"]["operations"])
-        with patch.dict(OPERATIONS, {"new.unmapped": dict(effect="NEW_EFFECT")}):
-            with self.assertRaises(Invalid):
-                workflow_catalog()
-        with patch.dict(OPERATIONS, {}, clear=True):
-            with self.assertRaises(Invalid):
-                self.report()
+        with patch.dict(OPERATIONS, {"new.unmapped": dict(effect="NEW_EFFECT")}), self.assertRaises(Invalid):
+            workflow_catalog()
+        with patch.dict(OPERATIONS, {}, clear=True), self.assertRaises(Invalid):
+            self.report()
 
     def test_new_operations_stay_explicitly_unbundled_and_owner_only_is_not_grantable(self):
         from mission_control.agent_grants import issue_data
         from mission_control.operation_catalog import catalog
 
         expected = {
+            "web.research.read",
+            "web.research.save",
             "creative.source.save",
             "creative.analysis.save",
             "creative.profile.save",
@@ -193,8 +193,10 @@ class AutomationReadinessTests(unittest.TestCase):
         self.assertEqual(WORKFLOWS["viral_discovery"]["operations"], [])
         owner_only = {"experiment.schedule", "experiment.schedule-run"}
         self.assertEqual({name for name, group in UNBUNDLED_OPERATIONS.items() if group == "OWNER_ONLY"}, owner_only)
-        self.assertTrue((expected - owner_only).issubset(catalog()["operations"]))
-        self.assertFalse(owner_only & set(catalog()["operations"]))
+        agent_operations = catalog()["operations"]
+        assert isinstance(agent_operations, dict)
+        self.assertTrue((expected - owner_only).issubset(agent_operations))
+        self.assertFalse(owner_only & set(agent_operations))
         for name in expected:
             body = dict(
                 agent_id="fixture",

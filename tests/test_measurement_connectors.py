@@ -3,19 +3,23 @@
 import copy
 import io
 import json
-from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from email.message import Message
+from http.client import HTTPMessage
+from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError, URLError
-from mission_control.common import Invalid, canonical
-from mission_control.db import connection
-from mission_control.store import Store
-from mission_control.insights import Insights
+from urllib.request import Request
+
 from mission_control import insights_contract as contract
 from mission_control import insights_transport as transport
+from mission_control.common import Invalid
 from mission_control.credential_vault import Vault
+from mission_control.db import connection
+from mission_control.insights import Insights
+from mission_control.store import Store
 
 
 def setup_body(provider="posthog", automatic=False):
@@ -104,14 +108,14 @@ class MeasurementTests(unittest.TestCase):
             return self.insights.setup("sample-one", setup_body(provider, automatic))
 
     def test_all_three_save_and_automatically_read_with_sanitized_shapes(self):
-        for provider in contract.PROVIDERS:
+        for provider in payloads():
             result = self.create(provider)
             self.assertEqual(result["read"]["status"], "CONNECTED")
         w = self.insights.list("sample-one")
         self.assertEqual(len(w["reports"]), 3)
         self.assertNotIn("private.test", json.dumps(w))
         self.assertNotIn("privateUrl", json.dumps(w))
-        for provider in contract.PROVIDERS:
+        for provider in payloads():
             self.assertNotIn(setup_body(provider)["api_key"], json.dumps(w))
         self.assertEqual(self.insights.list("sample-two")["sources"], [])
         self.assertEqual(len(self.store.export("sample-one")["payload"]["records"]), 0)
@@ -200,12 +204,14 @@ class MeasurementTests(unittest.TestCase):
             ]
         old_secret = before["credential_ref"]
         replacement = {**setup_body("posthog", False), "api_key": "phx_" + "Z" * 24, "version": before["version"]}
-        with patch(
-            "mission_control.insights_transport.request",
-            side_effect=transport.ProviderFailure("PERMISSION_REQUIRED", "Provider HTTP 403; check token"),
+        with (
+            patch(
+                "mission_control.insights_transport.request",
+                side_effect=transport.ProviderFailure("PERMISSION_REQUIRED", "Provider HTTP 403; check token"),
+            ),
+            self.assertRaises(Invalid) as caught,
         ):
-            with self.assertRaises(Invalid) as caught:
-                self.insights.setup("sample-one", replacement)
+            self.insights.setup("sample-one", replacement)
         self.assertIn("Replacement not activated", str(caught.exception))
         self.assertNotIn(replacement["api_key"], str(caught.exception))
         with connection(self.store.path) as db:
@@ -244,9 +250,9 @@ class MeasurementTests(unittest.TestCase):
         with (
             patch("mission_control.insights_transport.request", side_effect=copy.deepcopy(payloads()["posthog"])),
             patch.object(self.insights, "report", side_effect=RuntimeError("synthetic report persistence failure")),
+            self.assertRaises(Invalid) as caught,
         ):
-            with self.assertRaises(Invalid) as caught:
-                self.insights.setup("sample-one", replacement)
+            self.insights.setup("sample-one", replacement)
         self.assertIn("Replacement not activated", str(caught.exception))
         with connection(self.store.path) as db:
             after = dict(
@@ -266,12 +272,14 @@ class MeasurementTests(unittest.TestCase):
     def test_failed_initial_setup_leaves_no_source_or_candidate(self):
         body = setup_body()
         secret = body["api_key"]
-        with patch(
-            "mission_control.insights_transport.request",
-            side_effect=transport.ProviderFailure("PERMISSION_REQUIRED", "Provider HTTP 403; check token"),
+        with (
+            patch(
+                "mission_control.insights_transport.request",
+                side_effect=transport.ProviderFailure("PERMISSION_REQUIRED", "Provider HTTP 403; check token"),
+            ),
+            self.assertRaises(Invalid) as caught,
         ):
-            with self.assertRaises(Invalid) as caught:
-                self.insights.setup("sample-one", body)
+            self.insights.setup("sample-one", body)
         self.assertIn("SOURCE_NOT_SAVED", str(caught.exception))
         self.assertIn("Enter the key again to retry", str(caught.exception))
         self.assertNotIn(secret, str(caught.exception))
@@ -290,12 +298,14 @@ class MeasurementTests(unittest.TestCase):
             ).fetchone()[0]
         failed = {**setup_body(), "api_key": "phx_" + "Z" * 24, "version": before["version"]}
         FakeVault.fail_delete = 1
-        with patch(
-            "mission_control.insights_transport.request",
-            side_effect=transport.ProviderFailure("NETWORK_ERROR", "retry"),
+        with (
+            patch(
+                "mission_control.insights_transport.request",
+                side_effect=transport.ProviderFailure("NETWORK_ERROR", "retry"),
+            ),
+            self.assertRaises(Invalid) as caught,
         ):
-            with self.assertRaises(Invalid) as caught:
-                self.insights.setup("sample-one", failed)
+            self.insights.setup("sample-one", failed)
         self.assertIn("cleanup is recorded", str(caught.exception))
         with connection(self.store.path) as db:
             stable = dict(
@@ -338,9 +348,11 @@ class MeasurementTests(unittest.TestCase):
                 return {"results": []}
             raise AssertionError("unexpected candidate token")
 
-        with patch("mission_control.insights_transport.request", side_effect=racing_request):
-            with self.assertRaises(Invalid) as caught:
-                self.insights.setup("sample-one", second)
+        with (
+            patch("mission_control.insights_transport.request", side_effect=racing_request),
+            self.assertRaises(Invalid) as caught,
+        ):
+            self.insights.setup("sample-one", second)
         self.assertIn("Replacement not activated", str(caught.exception))
         self.assertEqual(len(winner), 1)
         with connection(self.store.path) as db:
@@ -387,9 +399,11 @@ class MeasurementTests(unittest.TestCase):
                 return {"id": 123}
             return {"results": []}
 
-        with patch("mission_control.insights_transport.request", side_effect=disconnect_during_read):
-            with self.assertRaises(Invalid) as caught:
-                self.insights.setup("sample-one", body)
+        with (
+            patch("mission_control.insights_transport.request", side_effect=disconnect_during_read),
+            self.assertRaises(Invalid) as caught,
+        ):
+            self.insights.setup("sample-one", body)
         self.assertIn("Replacement not activated", str(caught.exception))
         self.assertEqual(disconnected[0]["status"], "DISCONNECTED")
         with connection(self.store.path) as db:
@@ -497,13 +511,15 @@ class MeasurementTests(unittest.TestCase):
         vault = Vault()
         try:
             vault.put(name, {"api_key": "synthetic-not-a-provider-token"})
-            self.assertEqual(vault.get(name)["api_key"], "synthetic-not-a-provider-token")
+            saved = vault.get(name)
+            assert saved is not None
+            self.assertEqual(saved["api_key"], "synthetic-not-a-provider-token")
         finally:
             vault.delete(name)
         self.assertIsNone(vault.get(name))
 
     def test_transport_exact_fixed_hosts_queries_region_and_scope(self):
-        for provider in contract.PROVIDERS:
+        for provider in payloads():
             with patch(
                 "mission_control.insights_transport.request", side_effect=copy.deepcopy(payloads()[provider])
             ) as request:
@@ -524,7 +540,7 @@ class MeasurementTests(unittest.TestCase):
 
     def test_real_http_adapter_method_authorization_caps_and_redacted_errors(self):
         class Response(io.BytesIO):
-            def read(self, n=-1):
+            def read(self, n: int | None = -1):
                 self.requested = n
                 return super().read(n)
 
@@ -537,7 +553,7 @@ class MeasurementTests(unittest.TestCase):
             self.assertEqual(req.headers["Authorization"], "Bearer synthetic")
             self.assertEqual(response.requested, 2097153)
         for code in (401, 403, 429, 500):
-            error = HTTPError("https://provider.test", code, "secret-provider-detail", {}, None)
+            error = HTTPError("https://provider.test", code, "secret-provider-detail", Message(), None)
             with patch("mission_control.insights_transport.build_opener") as build:
                 build.return_value.open.side_effect = error
                 with self.assertRaises(transport.ProviderFailure) as caught:
@@ -578,7 +594,6 @@ class MeasurementTests(unittest.TestCase):
 
     def test_retire_failed_cleanup_then_disconnect_retry(self):
         sid = self.create()["source_id"]
-        original_delete = FakeVault.delete
         with (
             patch.object(FakeVault, "delete", side_effect=Invalid("native cleanup failed")),
             patch("mission_control.insights_transport.request", side_effect=copy.deepcopy(payloads()["posthog"])),
@@ -679,7 +694,9 @@ class MeasurementTests(unittest.TestCase):
         from mission_control.providers import NoRedirect
 
         with self.assertRaises(Invalid):
-            NoRedirect().redirect_request(None, None, 302, "", {}, "https://evil.test")
+            NoRedirect().redirect_request(
+                Request("https://provider.test"), io.BytesIO(), 302, "", HTTPMessage(), "https://evil.test"
+            )
 
     def test_aggregate_bounds_and_async_status_never_claim_incomplete_results(self):
         for rows in (
@@ -707,6 +724,7 @@ class MeasurementTests(unittest.TestCase):
         with connection(self.store.path) as db:
             db.execute("UPDATE insight_sources SET lease=0 WHERE id=?", (sid,))
         newer = self.insights.reserve("sample-one", sid, False)
+        assert old is not None and newer is not None
         self.assertEqual(
             self.insights.complete("sample-one", old, {}, "CONNECTED", None)["status"], "OBSOLETE_RESULT_DISCARDED"
         )
