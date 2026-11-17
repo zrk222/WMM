@@ -1,12 +1,18 @@
 import hashlib
 import importlib.util
+import io
 import json
+import os
+import re
 import runpy
 import tempfile
+import textwrap
 import unittest
 from collections.abc import Callable
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import cast
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("check_release_clearance", ROOT / "tools/check_release_clearance.py")
@@ -146,6 +152,44 @@ class ReleaseClearanceTests(unittest.TestCase):
         (self.folder / "sbom-Linux.json").write_bytes(b"")
         with self.assertRaisesRegex(ValueError, "Invalid prepared asset"):
             self.candidate()
+
+
+class IndependentReviewTests(unittest.TestCase):
+    def test_workflow_requires_configured_human_current_head_approval(self) -> None:
+        workflow = (ROOT / ".github/workflows/independent-review.yml").read_text(encoding="utf-8")
+        match = re.search(r"python - <<'PY'\n(.*?)\n +PY\s*\Z", workflow, re.S)
+        assert match
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        check = Path(temporary.name) / "independent_review.py"
+        check.write_text(textwrap.dedent(match.group(1)), encoding="utf-8")
+        approved = {"state": "APPROVED", "user_id": 11, "type": "User", "commit_id": SHA}
+        cases = (
+            ("approved", "22", [approved], True),
+            ("comment after approval", "22", [approved, dict(approved, state="COMMENTED")], True),
+            ("missing", "22", [], False),
+            ("stale", "22", [dict(approved, commit_id="f" * 40)], False),
+            ("dismissed", "22", [approved, dict(approved, state="DISMISSED")], False),
+            ("requested changes", "22", [approved, dict(approved, state="CHANGES_REQUESTED")], False),
+            ("wrong account", "22", [dict(approved, user_id=33)], False),
+            ("self review", "11", [approved], False),
+            ("bot", "22", [dict(approved, type="Bot")], False),
+        )
+        for label, author, reviews, allowed in cases:
+            environment = {"REPO": "example/repo", "PR": "402", "REVIEWER_ID": "11", "AUTHOR_ID": author, "HEAD": SHA}
+            response = "\n".join(json.dumps(item) for item in reviews)
+            with (
+                self.subTest(case=label),
+                patch.dict(os.environ, environment, clear=True),
+                patch("subprocess.check_output", return_value=response),
+                redirect_stdout(io.StringIO()),
+                redirect_stderr(io.StringIO()),
+            ):
+                if allowed:
+                    runpy.run_path(str(check))
+                else:
+                    with self.assertRaises(SystemExit):
+                        runpy.run_path(str(check))
 
 
 if __name__ == "__main__":

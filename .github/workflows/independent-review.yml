@@ -10,6 +10,7 @@ permissions:
   pull-requests: read
 jobs:
   require-non-author-human-approval:
+    if: github.event.pull_request.base.ref == 'main'
     runs-on: ubuntu-24.04
     steps:
       - name: Require a non-author human approval at the current head
@@ -17,7 +18,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
-          AUTHOR: ${{ github.event.pull_request.user.login }}
+          AUTHOR_ID: ${{ github.event.pull_request.user.id }}
           HEAD: ${{ github.event.pull_request.head.sha }}
           REVIEWER_ID: ${{ vars.WMM_RELEASE_REVIEWER_ID }}
         run: |
@@ -29,12 +30,14 @@ jobs:
 
           repo = os.environ["REPO"]
           pr = os.environ["PR"]
-          author = os.environ["AUTHOR"]
+          author = os.environ["AUTHOR_ID"]
           head = os.environ["HEAD"]
           configured = os.environ["REVIEWER_ID"]
-          if not configured.isascii() or not configured.isdigit() or int(configured) < 1:
-              raise SystemExit("Configure WMM_RELEASE_REVIEWER_ID for the independent human reviewer")
+          if any(not value.isascii() or not value.isdigit() or int(value) < 1 for value in (author, configured)):
+              raise SystemExit("Require numeric GitHub identities for the author and configured reviewer")
           reviewer_id = int(configured)
+          if reviewer_id == int(author):
+              raise SystemExit("The PR author cannot be the configured independent reviewer")
 
           output = subprocess.check_output(
               [
@@ -42,29 +45,27 @@ jobs:
                   "api",
                   "--paginate",
                   "--jq",
-                  ".[] | {login: .user.login, id: .user.id, type: .user.type, state: .state, commit_id: .commit_id, submitted_at: .submitted_at}",
+                  ".[] | {login: .user.login, user_id: .user.id, type: .user.type, state: .state, commit_id: .commit_id}",
                   f"repos/{repo}/pulls/{pr}/reviews?per_page=100",
               ],
               text=True,
           )
 
+          # GitHub lists reviews in chronological order. Comments and pending
+          # drafts do not change the latest approval decision.
           latest = {}
           for line in output.splitlines():
               if not line.strip():
                   continue
               review = json.loads(line)
-              login = review.get("login")
-              if login and login.casefold() != author.casefold() and review.get("id") == reviewer_id:
-                  latest[login] = review
+              if (
+                  review.get("user_id") == reviewer_id
+                  and review.get("type") == "User"
+                  and review.get("state") in {"APPROVED", "CHANGES_REQUESTED", "DISMISSED"}
+              ):
+                  latest = review
 
-          approved = [
-              login
-              for login, review in latest.items()
-              if review.get("type") == "User"
-              and review.get("state") == "APPROVED"
-              and review.get("commit_id") == head
-          ]
-          if not approved:
+          if latest.get("state") != "APPROVED" or latest.get("commit_id") != head:
               print(
                   "No non-author human approval exists for the current head. "
                   "Agent review, CI and owner self-review do not count. "
@@ -72,5 +73,5 @@ jobs:
                   file=sys.stderr,
               )
               raise SystemExit(1)
-          print("Independent human approval: " + ", ".join(sorted(approved)))
+          print("Configured independent approval confirmed at the current head")
           PY

@@ -1,8 +1,8 @@
-# Every production change requires a human code owner review.
-# The author cannot approve their own pull request.
+# Route source stewardship to the repository owner.
+# Independent approval uses the configured reviewer check, not this ownership list.
 * @zrk222
 
-# Security and release paths need the owner as code owner.
+# Security and release path stewardship remains with the owner.
 /.github/ @zrk222
 /mission_control/ @zrk222
 /packaging/ @zrk222

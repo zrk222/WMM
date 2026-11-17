@@ -31,18 +31,27 @@ Use `.github/pull_request_template.md` to record the check.
 
 ## Enforcement
 
-Green CI, a code-owner approval and the `Independent human review` check are
-required. Branch protection must require approvals and code-owner review; the
-workflow fails when no non-author human has approved the exact PR head.
+Green CI and a GitHub approval from the configured independent reviewer are
+required. The `Independent human review` check uses the owner's configured
+GitHub account ID and the exact PR head. It rejects missing, stale, dismissed,
+self, and other-account approvals. An ordinary comment is not a decision.
 
-The author cannot merge around a missing review. If no second human is available,
-the change waits. `docs/OWNERSHIP.md` records the bus-factor gap and the required
-second-maintainer onboarding.
+Keep the owner-only main update rule in effect. `CODEOWNERS` routes stewardship;
+do not require a separate native code-owner approval while the owner is the only
+code owner. GitHub requires write access to be a code owner. An independent
+reviewer can use the configured check with read access and does not receive
+merge or release authority.
+
+Once the independent check is on main and has been verified on a PR, add its
+GitHub Actions status to the main ruleset and read the settings back. Until then
+the owner must verify the actual approving review on the exact head before
+merging. If a valid independent decision is missing, leave the PR open.
+`docs/OWNERSHIP.md` records the separate second-maintainer onboarding.
 
 ## Residual risk and expansion gate
 
-Owner-only review is accepted for the current local, single-owner preview. It does
-not provide independent assurance. Before enabling remote team access, a hosted
+Owner-only review can document an existing local preview. It does not provide
+independent assurance or satisfy this policy. Before enabling remote team access, a hosted
 tenant service, materially expanded paid execution or commercial delivery, require
 an independent security review covering the combined session, membership, HTTPS,
 revocation and tenant boundary. Record the reviewer, scope, findings and disposition
