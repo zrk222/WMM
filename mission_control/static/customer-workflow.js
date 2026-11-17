@@ -460,7 +460,7 @@
     const rows = id ? [selected(state, id)] : history(state),
       value = context(state);
     return {
-      ...pageReports.model({ ...state, view: 'results' }),
+      ...pageReports.appReportModel(state),
       title: id ? 'Customer workflow: ' + id : 'Customer evidence review',
       purpose:
         'Review supplied observations, the features they support and the scope excluded from this workflow.',

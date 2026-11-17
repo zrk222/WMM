@@ -14,6 +14,39 @@ new Function(
 )(loaded);
 const reports = loaded.exports;
 const timestamp = '2026-10-23T12:00:00Z';
+test('an individual customer PDF cannot inherit experiment evidence from Results or Weekly', () => {
+  const module = { exports: {} };
+  new Function(
+    'module',
+    fs.readFileSync(path.join(__dirname, '../mission_control/static/customer-workflow.js'), 'utf8'),
+  )(module);
+  const state = { ...fixture(), view: 'results' };
+  state.workspace.subscription_growth = {
+    app_id: state.app,
+    context: { manifest_version: state.workspace.app.version },
+    customer_workflows: { app_id: state.app, history: [], source_hash: 'customer-sources-only' },
+    observed_at: timestamp,
+  };
+  state.workspace.experiments = [
+    { data: { name: 'UNRELATED_ASSESSMENT' }, assessments: [{ hash: 'other-experiment' }] },
+  ];
+  const render = (report) => reports.reportHTML(report, 'http://127.0.0.1:1');
+  assert.match(render(reports.model(state, timestamp)), /UNRELATED_ASSESSMENT/);
+  for (const view of ['results', 'weekly']) {
+    const report = module.exports.report({ ...state, view }, reports);
+    assert.equal(report.scope, 'SELECTED_APP');
+    assert.equal(report.app_id, state.app);
+    assert.equal(report.executive, null);
+    assert.deepEqual(report.sections, []);
+    assert.match(render(report), /customer-sources-only/);
+    assert.doesNotMatch(
+      render(report),
+      /UNRELATED_ASSESSMENT|other-experiment|PORTFOLIO_DISPLAYED_PAGE/,
+    );
+  }
+  assert.throws(() => reports.appReportModel({ ...state, app: 'another-app' }), /selected app/);
+});
+
 test('report status colors distinguish active, attention, verified, failed and neutral states', () => {
   const statuses = [
     ['RUNNING', 'info'],
@@ -371,16 +404,53 @@ test('openReport binds print and close actions without inline scripts or opener 
   listeners['close-page-report']();
   assert.ok(printed && closed);
 });
-test('long cohort reports disclose truncation and text bounds', () => {
+test('long cohort reports retain all rows with bounded display labels', () => {
   const state = { ...fixture(), view: 'results' };
   state.workspace.metrics.cohorts = Array.from({ length: 101 }, () => ({
     status: 'MEASURED',
     cohort_id: 'x'.repeat(1200),
   }));
   const report = reports.model(state, timestamp);
-  assert.equal(report.cohorts.length, 100);
+  assert.equal(report.cohorts.length, 101);
   assert.equal(report.cohorts[0].id.length, 1000);
-  assert.ok(report.notes.some((note) => note.includes('first 100')));
+});
+
+test('the executive result does not use a stale decision or treat a blocked result as zero', () => {
+  const state = { ...fixture(), view: 'results' };
+  const experiment = {
+    data: { primary_metric: 'paid_conversion' },
+    assessments: [
+      { hash: 'older', data: { status: 'EVALUATED', effect: { difference: 0.2 } } },
+      {
+        hash: 'current',
+        data: {
+          status: 'INCONCLUSIVE',
+          issues: ['Missing mature outcomes'],
+          effect: { difference: 0 },
+        },
+      },
+    ],
+    actions: [
+      {
+        data: {
+          operation: 'decide',
+          assessment_hash: 'older',
+          decision: 'NEXT_TEST',
+          reason: 'Old result',
+        },
+      },
+    ],
+  };
+  state.workspace.experiments = [experiment];
+  const report = reports.model(state, timestamp);
+  assert.equal(report.executive.decision, 'Collect evidence');
+  assert.equal(report.executive.reason, 'Missing mature outcomes');
+  assert.equal(report.executive.primary.value, null);
+  assert.equal(report.executive.primary.name, 'Paid conversion');
+  state.workspace.experiments.push(experiment);
+  const ambiguous = reports.model(state, timestamp).executive;
+  assert.equal(ambiguous.decision, 'Select evidence');
+  assert.equal(ambiguous.primary.value, null);
 });
 
 test('weekly private review cards and unavailable counts share the current-principal fence', () => {

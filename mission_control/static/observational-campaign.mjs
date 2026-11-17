@@ -377,7 +377,7 @@ const WMMObservationalCampaign = (() => {
   }
 
   function pdf(report, trigger) {
-    const model = WMMPageReports.model(state),
+    const model = WMMPageReports.appReportModel(state),
       checkpoint = checkpointModel(report);
     WMMPageReports.openReport(
       {

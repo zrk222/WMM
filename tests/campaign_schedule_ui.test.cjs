@@ -37,7 +37,7 @@ function fixture() {
       };
     },
     api: async (...a) => calls.push(a),
-    WMMPageReports: { model: () => ({}), openReport: (x) => x },
+    WMMPageReports: { appReportModel: () => ({}), openReport: (x) => x },
     WMMCampaignReuse,
     window: {},
   };

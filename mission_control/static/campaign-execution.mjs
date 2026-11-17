@@ -687,7 +687,7 @@ function campaignReport(panel) {
   campaignBound(panel);
   const saved = panel.campaign.snapshot,
     scope = saved.scope;
-  const report = WMMPageReports.model(state);
+  const report = WMMPageReports.appReportModel(state);
   report.title = 'Campaign delivery';
   report.purpose = 'Inspect saved provider delivery and approved media commitments for this scope.';
   report.next_step =
@@ -1306,9 +1306,11 @@ function campaignScheduleProgressItem(item, data) {
   );
 }
 function campaignScheduleReport(data) {
-  const report = WMMPageReports.model(state);
+  const report = WMMPageReports.appReportModel(state);
   report.title = 'Scheduled campaign batch';
   report.purpose = 'Inspect saved schedule states and provider identities.';
+  report.next_step =
+    'Inspect any unconfirmed delivery before retrying. Reopen the saved batch for its current scope and status.';
   report.metrics = [
     {
       label: 'Scheduled items',
