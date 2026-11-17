@@ -1,6 +1,7 @@
 """Actual goal-first home, synthetic apps, no provider or campaign execution."""
 
 import json
+import re
 import sys
 import threading
 from pathlib import Path
@@ -27,10 +28,12 @@ def rendered_page(page: Page) -> str:
 
 
 def run(browser, width, out):
+    from mission_control.creative_analysis import Analyses
     from mission_control.creative_library import Library
     from mission_control.server import Server
     from mission_control.worker import jobs
     from tests.test_creative_library import reference
+    from tests.test_creative_production import inspection
     from tests.test_guided_workflow import GuidedWorkflowTests
 
     fixture = GuidedWorkflowTests()
@@ -317,6 +320,93 @@ def run(browser, width, out):
         packet.get_by_role("button", name="Review your saved reference", exact=True).press("Enter")
         expect(page.get_by_role("heading", name="Creative source library", exact=True)).to_be_focused()
         expect(page.get_by_role("button", name="Saved synthetic meal-plan reference", exact=False)).to_be_visible()
+        library = Library(fixture.store)
+        library.save(
+            "sample-one",
+            {
+                "data": reference(
+                    post_id="synthetic-high-views",
+                    title="High views without a creator baseline",
+                    metric_kind="VIEWS",
+                    metric_value=145000,
+                    metric_at="2026-10-10T00:00:00+00:00",
+                )
+            },
+        )
+        target = next(
+            row for row in library.list("sample-one") if row["current"]["data"]["post_id"] == "synthetic-high-views"
+        )
+        page.reload()
+        page.get_by_role("button", name="Open your first packet", exact=True).press("Enter")
+        packet.get_by_role("button", name="Review your saved reference", exact=True).press("Enter")
+        expect(page.locator('[data-action="spytok-open"]')).to_be_visible()
+        page.locator('[data-action="spytok-open"]').press("Enter")
+        picker = packet.locator("#spytok-reference")
+        picker.select_option(target["id"])
+        card = packet.locator("#spytok-decision")
+        expect(card).to_contain_text(re.compile(r"145[,. ]?000"))
+        expect(card).to_contain_text(re.compile(r"reference.only", re.IGNORECASE))
+        expect(card).to_contain_text(re.compile(r"baseline", re.IGNORECASE))
+        expect(card.locator("[data-spytok-primary]")).to_have_attribute("data-next", "inspect")
+        expect(packet.locator('[data-action="discovery-open"]').first).to_be_visible()
+        expect(packet.locator('[data-action="oresearch-open"]').first).to_be_visible()
+        card.locator("[data-spytok-primary]").scroll_into_view_if_needed()
+        packet.screenshot(path=str(out / f"tspy-source-{width}.png"))
+        (out / f"tspy-source-{width}.html").write_text(rendered_page(page), encoding="utf-8")
+        with page.expect_download() as event:
+            packet.locator('[data-action="spytok-download"]').press("Enter")
+        handoff = json.loads(Path(event.value.path()).read_text(encoding="utf-8"))
+        assert handoff["app_id"] == "sample-one"
+        selected = handoff["selected_source"]
+        assert selected["id"] == target["id"] and selected["version"] == target["current"]["version"]
+        assert selected["hash"] == target["current"]["hash"] and selected["analysis"] is None
+        assert selected["observation"]["value"] == 145000 and selected["rights"] == "REFERENCE_ONLY"
+        assert handoff["external_execution"] == "NOT_RUN" and handoff["authorized_spend_minor"] == 0
+        card.locator("[data-spytok-primary]").press("Enter")
+        expect(packet.locator('form[data-reference="' + target["id"] + '"]')).to_be_visible()
+        page.keyboard.press("Escape")
+        page.locator('[data-action="spytok-open"]').press("Enter")
+        packet.locator("#spytok-reference").select_option(target["id"])
+        page.evaluate(
+            """async (id) => {
+                const {state} = await import('/app.mjs');
+                state.workspace.references.find(row => row.id === id).current.hash = 'f'.repeat(64);
+            }""",
+            target["id"],
+        )
+        stale_downloads: list[str] = []
+        page.on("download", lambda download: stale_downloads.append(download.suggested_filename))
+        packet.locator('[data-action="spytok-download"]').press("Enter")
+        expect(packet.locator("#form-error")).to_contain_text(re.compile(r"changed|stale|reopen", re.IGNORECASE))
+        expect(packet.locator("#spytok-reference")).to_be_visible()
+        assert not stale_downloads
+        page.keyboard.press("Escape")
+        measured = inspection(target)
+        measured["observations"].append(
+            dict(
+                role="PROBLEM",
+                basis="SUGGESTED",
+                detail="Unreviewed suggestion sentinel",
+                evidence_note="Synthetic test; never display as a witnessed claim",
+                start_seconds=None,
+                end_seconds=None,
+            )
+        )
+        Analyses(fixture.store).save("sample-one", {"data": measured})
+        page.reload()
+        page.get_by_role("button", name="Open your first packet", exact=True).press("Enter")
+        packet.get_by_role("button", name="Review your saved reference", exact=True).press("Enter")
+        page.locator('[data-action="spytok-open"]').press("Enter")
+        packet.locator("#spytok-reference").select_option(target["id"])
+        expect(card).to_contain_text("Synthetic presenter asks a question; not an app claim")
+        expect(card).not_to_contain_text("Unreviewed suggestion sentinel")
+        expect(card.locator("[data-spytok-primary]")).to_have_attribute("data-next", "team")
+        card.locator("[data-spytok-plan-test]").press("Enter")
+        expect(packet.locator('#experiment-form [name="hypothesis"]')).to_have_value(
+            re.compile("Increase that tracked first-value action", re.IGNORECASE)
+        )
+        expect(packet.locator('#experiment-form [name="baseline_rate"]')).to_have_value("")
+        page.keyboard.press("Escape")
         assert len(writes) == 1 and writes[0].endswith("/api/apps/sample-one/references"), writes
         assert not jobs(fixture.store, "sample-one")
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
@@ -329,6 +419,7 @@ def run(browser, width, out):
             goal_packets=["research", "creative", "campaign", "measurement"],
             separated_fictional_example=True,
             saved_reference_returns_to_source=True,
+            exact_spytok_source_handoff_and_stale_guard=True,
             anonymous_source_save_denied=True,
             scoped_downloads=True,
             advanced_twelve_stages=True,

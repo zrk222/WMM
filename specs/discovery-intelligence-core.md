@@ -52,3 +52,20 @@ No provider API is inferred from public SpyTok pages. No provider request, auton
 
 ## User acceptance boundaries
 Viral-only means 100000 views AND 10 times a documented comparable creator baseline. High-view examples and third-party outlier labels remain candidates until qualified. UGC intake is exempt from viral-only discovery eligibility. Saved research never grants reuse approval, production execution, publication or measured app sales. Human and standing downstream authority is rechecked by the existing action-specific controls. Research recommendations are not delivered functionality until implemented, tested and hash-bound through CF.
+
+## Guided creative handoff
+
+The T-Spy guide shall show one next action for the exact selected saved source:
+add evidence, inspect the current capture, resolve production requirements, or
+prepare an original brief. Show observed metric/unit/date, app relevance,
+reported rights and production feasibility separately. A viral claim still
+requires the Discovery evidence above. A decision card or JSON handoff grants
+no footage, render, spend or publish authority.
+An original one-change hypothesis may open the experiment form with no viral
+qualification. It shall leave the baseline unset and never register the test.
+
+The browser handoff shall retain the app and manifest version and the selected
+capture identity, version and hash. Reject a stale or foreign selection.
+Keep the no-selection workflow handoff compatible. Link directly to saved-source
+Discovery, agent research and the renderer; all downstream actions keep their
+existing permissions.
