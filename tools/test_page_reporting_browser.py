@@ -134,6 +134,23 @@ def export_report(page, view, width, out):
         assert "PRIVATE_SENTINEL" not in text
         assert "Print / Save as PDF" not in text
         assert "Generated" in text and "Loaded / evaluated" in text
+        if view.startswith("results"):
+            assert "Audit appendix" not in first_page
+            assert "Audit appendix" in pdf[1].get_text()
+            for phrase in (
+                "Plan the next test",
+                "Synthetic review of negative descriptive result",
+                "Activation rate",
+                "-40.0 pp",
+                "eligible installs",
+                "95% interval",
+                "Sources",
+                "Window",
+            ):
+                assert phrase in first_page, (phrase, first_page)
+            assert "Operational counts" not in first_page
+            assert "Operational counts" in text
+            pdf[0].get_pixmap(matrix=fitz.Matrix(1.5, 1.5)).save(out / f"front-sheet-{view}-{width}.png")
         if view == "weekly":
             assert "PORTFOLIO_DISPLAYED_PAGE" in text
         else:

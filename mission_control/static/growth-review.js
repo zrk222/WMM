@@ -689,6 +689,8 @@
   function webReport(base, row) {
     const a = row.readout.analysis;
     const data = row.data;
+    const brief = a.test_brief;
+    const evidence = (a.observations || []).find((item) => item.sha256 === brief?.source_sha256);
     return {
       ...base,
       title: 'OpenSEO web acquisition report',
@@ -703,6 +705,32 @@
       },
       metrics: [],
       cohorts: [],
+      executive: {
+        decision: brief ? human(brief.state) : 'Collect evidence',
+        reason:
+          brief?.hypothesis || 'A decision needs a comparable observed search or web baseline.',
+        next: brief
+          ? `Review the proposed change: ${brief.change}`
+          : a.next_action || 'Recheck the saved source.',
+        primary: {
+          name: brief?.baseline.label || 'Web acquisition baseline',
+          value: brief ? observedRate(brief.baseline) : null,
+          facts: brief
+            ? [
+                ['Source', evidence ? human(evidence.family) : 'Saved OpenSEO evidence'],
+                ['Window', brief.baseline_window.start + ' to ' + brief.baseline_window.end],
+                [
+                  'Coverage',
+                  evidence ? human(evidence.coverage) : 'See the saved source in the appendix',
+                ],
+                [
+                  'Uncertainty',
+                  'Observed web baseline; native outcomes and causal lift are unknown.',
+                ],
+              ]
+            : [],
+        },
+      },
       sections: webSections(row),
       notes: [
         a.native_connection_read
@@ -777,6 +805,7 @@
           source: 'Saved research only',
         })),
         cohorts: [],
+        executive: null,
         sections: researchSections(research),
         notes,
       };
@@ -794,6 +823,7 @@
       },
       metrics: metrics(value),
       cohorts: [],
+      executive: null,
       sections: rows.filter((row) => row.kind === 'WEB_SEO_EVIDENCE').flatMap(webSections),
       notes: [
         ...rows.flatMap(entryNotes),

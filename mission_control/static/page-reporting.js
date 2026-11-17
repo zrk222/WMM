@@ -254,7 +254,7 @@
 
   function cohortRows(workspace) {
     const values = rows(workspace.metrics?.cohorts) || [];
-    return values.slice(0, MAX_ROWS).map((c) => {
+    return values.map((c) => {
       const measured = c.status === 'MEASURED';
       const number = (value) => (measured && Number.isFinite(value) ? value : null);
       return {
@@ -359,11 +359,11 @@
         const assessment = record.data || {};
         const effect = assessment.effect;
         const interval = rows(effect?.interval);
-        const decisions = (rows(experiment.actions) || [])
-          .filter(
-            (action) =>
-              action.data?.operation === 'decide' && action.data?.assessment_hash === record.hash,
-          )
+        const matchingDecisions = (rows(experiment.actions) || []).filter(
+          (action) =>
+            action.data?.operation === 'decide' && action.data?.assessment_hash === record.hash,
+        );
+        const decisions = matchingDecisions
           .map((action) => scalar(action.data.decision))
           .join('; ');
         return {
@@ -392,6 +392,9 @@
             ['Uncertainty / method', scalar(effect?.method)],
             ['Issues', (rows(assessment.issues) || []).map(scalar).join('; ') || 'None recorded'],
             ['Decision for this assessment', decisions || 'No decision recorded'],
+            ...matchingDecisions
+              .filter((action) => typeof action.data.reason === 'string' && action.data.reason)
+              .map((action) => ['Recorded reason', action.data.reason]),
             ['Definition hash', scalar(assessment.definition_hash)],
             ['Assessment hash', scalar(record.hash)],
             ['Scope', scalar(assessment.scope)],
@@ -462,10 +465,122 @@
       state.view === 'results'
         ? 'Cohort values are supplied observations. Rates are fractions from 0 to 1 with eligible installs as denominator; currencies and horizons remain separate. Minor units are not whole currency units.'
         : 'No causal lift, permission to spend or provider approval is established.',
-      count(state.workspace.metrics?.cohorts) > MAX_ROWS && state.view === 'results'
-        ? `Only the first ${MAX_ROWS} supplied cohort summaries are included.`
-        : 'Use the source page to inspect underlying evidence.',
+      'Use the source page to inspect underlying evidence.',
     ];
+  }
+
+  const PRIMARY_METRICS = {
+    activation_rate: ['Activation rate', 'activated'],
+    paid_conversion: ['Paid conversion', 'paid'],
+    retention_rate: ['Retention rate', 'retained'],
+  };
+  const NEXT_DECISION_STEP = {
+    COLLECT: ['Collect evidence', 'Collect the missing observations named in this assessment.'],
+    REPAIR: [
+      'Repair measurement',
+      'Resolve the named measurement issue before using this comparison.',
+    ],
+    STOP: ['Stop', 'Keep this result and close the experiment.'],
+    NEXT_TEST: ['Plan the next test', 'Review one bounded revision against the saved control.'],
+  };
+
+  function decisionSummary(workspace) {
+    const assessed = (rows(workspace.experiments) || []).filter(
+      (item) => rows(item.assessments)?.length,
+    );
+    const unavailable = {
+      decision: 'Select evidence',
+      reason: assessed.length
+        ? 'Multiple experiments have assessments; there is no single app-wide result.'
+        : 'No experiment assessment is saved for this app.',
+      next: assessed.length
+        ? 'Open the assessment for the experiment you want to act on.'
+        : 'Add mature control and treatment evidence for an app experiment.',
+      primary: { name: 'Primary business outcome', value: null, facts: [] },
+    };
+    if (assessed.length !== 1) return unavailable;
+    const experiment = assessed[0];
+    const current = experiment.assessments.at(-1);
+    const data = current.data || {};
+    const metric = Object.hasOwn(PRIMARY_METRICS, experiment.data?.primary_metric)
+      ? PRIMARY_METRICS[experiment.data.primary_metric]
+      : null;
+    const effect = data.status === 'EVALUATED' && metric ? data.effect : null;
+    const decision = (rows(experiment.actions) || [])
+      .filter(
+        (action) =>
+          action.data?.operation === 'decide' && action.data?.assessment_hash === current.hash,
+      )
+      .at(-1)?.data;
+    const action = Object.hasOwn(NEXT_DECISION_STEP, decision?.decision)
+      ? NEXT_DECISION_STEP[decision.decision]
+      : null;
+    const issue = (rows(data.issues) || []).find((item) => typeof item === 'string' && item);
+    const number = (value) => (Number.isFinite(value) ? value : 'Unavailable');
+    const rate = (value) =>
+      Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : 'Unavailable';
+    const points = (value) => (Number.isFinite(value) ? `${(value * 100).toFixed(1)} pp` : null);
+    const arms = ['control', 'treatment'].map((key) => ({
+      key,
+      row: data.reports?.[key],
+      label: key === 'control' ? 'Control' : 'Treatment',
+    }));
+    const facts = [
+      ...arms.map(({ key, row, label }) => [
+        label,
+        effect
+          ? `${rate(effect[key + '_rate'])} (${number(row?.[metric[1]])} / ${number(row?.installs)} eligible installs)`
+          : 'Unavailable',
+      ]),
+      [
+        'Sources',
+        arms
+          .map(({ label, row }) => `${label}: ${text(row?.cohort?.source || 'Unavailable')}`)
+          .join(' · '),
+      ],
+      [
+        'Window',
+        arms
+          .map(({ label, row }) => {
+            const start = row?.cohort?.starts_at;
+            const cutoff = row?.outcome_cutoff ?? experiment.data?.analysis_at;
+            return `${label}: ${start ? text(start) + ' to ' : 'through '}${text(cutoff || 'Unavailable')}`;
+          })
+          .join(' · '),
+      ],
+      [
+        '95% interval',
+        rows(effect?.interval)?.length === 2
+          ? effect.interval.map(points).join(' to ')
+          : 'Unavailable',
+      ],
+      ...(effect
+        ? [['Interpretation', 'Descriptive comparison. It does not establish causal lift.']]
+        : []),
+    ];
+    return {
+      decision: action?.[0] || (effect ? 'Review result' : 'Collect evidence'),
+      reason: text(
+        decision?.reason ||
+          issue ||
+          (effect
+            ? 'A descriptive comparison is available; it does not establish causal lift.'
+            : 'The primary outcome is unavailable.'),
+      ),
+      next:
+        action?.[1] ||
+        (effect
+          ? 'Record your decision for this experiment.'
+          : 'Complete the missing control and treatment evidence.'),
+      primary: {
+        name: metric ? metric[0] : unavailable.primary.name,
+        value: points(effect?.difference)
+          ? `${points(effect.difference)} treatment vs. control`
+          : null,
+        direction: effect?.difference > 0 ? 'ready' : effect?.difference < 0 ? 'alert' : 'neutral',
+        facts,
+      },
+    };
   }
 
   /** Build a whitelisted snapshot, rejecting app drift and unsupported page identifiers. */
@@ -488,6 +603,7 @@
       generated_at: text(generatedAt),
       filters: reportFilters(state),
       metrics: pageMetrics(state.view, state),
+      executive: state.view === 'results' ? decisionSummary(state.workspace) : null,
       cohorts: state.view === 'results' ? cohortRows(state.workspace) : [],
       sections: state.view === 'results' ? measurementSections(state.workspace) : [],
       notes: reportNotes(state),
@@ -541,9 +657,10 @@
     alert: ['FAILED', 'REJECTED', 'DENIED', 'ERROR', 'INVALID', 'CONFLICT'],
   };
 
-  function statusBadge(status) {
+  function statusBadge(status, direction = null) {
     const key = String(status).trim().toUpperCase().replaceAll(' ', '_');
     const tone =
+      direction ||
       Object.entries(REPORT_STATUS_TONES).find(([, values]) => values.includes(key))?.[0] ||
       'neutral';
     return `<span class="report-status-badge" data-tone="${tone}">${escape(status)}</span>`;
@@ -589,6 +706,17 @@
     return `<section class="report-provenance"><h2>Scope and sources</h2><dl>${facts.map(([key, value]) => `<div><dt>${escape(key)}</dt><dd>${escape(value)}</dd></div>`).join('')}</dl></section>`;
   }
 
+  function executiveHTML(summary) {
+    const primary = summary.primary;
+    const observed =
+      primary.value === null
+        ? statusBadge('Unavailable')
+        : primary.direction === 'ready' || primary.direction === 'alert'
+          ? statusBadge(primary.value, primary.direction)
+          : escape(primary.value);
+    return `<section class="report-decision" aria-label="Recommended decision"><h2>What to do next</h2><p><strong>${escape(summary.decision)}</strong> · ${escape(summary.reason)}</p><p><strong>Next step:</strong> ${escape(summary.next)}</p></section><section class="report-spotlight report-primary" aria-label="Primary business outcome"><h2>Key figures · Primary outcome</h2><p><strong>${escape(primary.name)}:</strong> ${observed}</p><dl>${primary.facts.map(([label, value]) => `<div><dt>${escape(label)}</dt><dd>${escape(value)}</dd></div>`).join('')}</dl></section>`;
+  }
+
   function reportHTML(report, origin) {
     const cohorts = report.cohorts
       .map(
@@ -604,7 +732,14 @@
             .join('')}</dl></section>`,
       )
       .join('');
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(report.title)} — WMM report</title><link rel="stylesheet" href="${escape(origin)}/page-reporting.css"></head><body class="wmm-print-report">${reportHeader(report)}<nav class="report-controls" aria-label="Report actions"><button type="button" id="print-page-report">Print / Save as PDF</button><button type="button" id="close-page-report">Close report</button><p>Choose Save as PDF in the print dialog. No file has been saved until you complete that step.</p></nav><main id="wmm-report-content"><section class="report-decision" aria-label="Recommended decision"><h2>What to do next</h2><p><strong>Next step:</strong> ${escape(report.next_step)}</p><p>${escape(report.purpose)}</p></section>${metricSpotlight(report.metrics)}${sectionsHTML(report.sections)}${report.metrics.length ? metricTable(report) : ''}${cohorts}${reportScope(report)}<section class="report-limits"><h2>Evidence boundaries</h2><ul>${report.notes.map((note) => `<li>${escape(note)}</li>`).join('')}</ul></section></main><footer><strong>WMM · Wize Marketing Machine</strong><p>Saved local evidence. No publication, spend or approval authority.</p></footer></body></html>`;
+    const metricAppendix = report.metrics.length
+      ? `${report.executive ? '<h3>Operational counts</h3>' : ''}${metricTable(report)}`
+      : '';
+    const appendix = `${sectionsHTML(report.sections)}${metricAppendix}${cohorts}${reportScope(report)}<section class="report-limits"><h2>Evidence boundaries</h2><ul>${report.notes.map((note) => `<li>${escape(note)}</li>`).join('')}</ul></section>`;
+    const content = report.executive
+      ? `<div class="report-executive">${executiveHTML(report.executive)}<p class="report-appendix-note">Full source details${report.metrics.length ? ' and operational counts' : ''} follow in the audit appendix.</p></div><div class="report-appendix"><h2>Audit appendix</h2>${appendix}</div>`
+      : `<section class="report-decision" aria-label="Recommended decision"><h2>What to do next</h2><p><strong>Next step:</strong> ${escape(report.next_step)}</p><p>${escape(report.purpose)}</p></section>${metricSpotlight(report.metrics)}${appendix}`;
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(report.title)} — WMM report</title><link rel="stylesheet" href="${escape(origin)}/page-reporting.css"></head><body class="wmm-print-report">${reportHeader(report)}<nav class="report-controls" aria-label="Report actions"><button type="button" id="print-page-report">Print / Save as PDF</button><button type="button" id="close-page-report">Close report</button><p>Choose Save as PDF in the print dialog. No file has been saved until you complete that step.</p></nav><main id="wmm-report-content">${content}</main><footer><strong>WMM · Wize Marketing Machine</strong><p>Saved local evidence. No publication, spend or approval authority.</p></footer></body></html>`;
   }
 
   function openInlineReport(report, browser, trigger) {

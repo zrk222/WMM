@@ -371,16 +371,53 @@ test('openReport binds print and close actions without inline scripts or opener 
   listeners['close-page-report']();
   assert.ok(printed && closed);
 });
-test('long cohort reports disclose truncation and text bounds', () => {
+test('long cohort reports retain all rows with bounded display labels', () => {
   const state = { ...fixture(), view: 'results' };
   state.workspace.metrics.cohorts = Array.from({ length: 101 }, () => ({
     status: 'MEASURED',
     cohort_id: 'x'.repeat(1200),
   }));
   const report = reports.model(state, timestamp);
-  assert.equal(report.cohorts.length, 100);
+  assert.equal(report.cohorts.length, 101);
   assert.equal(report.cohorts[0].id.length, 1000);
-  assert.ok(report.notes.some((note) => note.includes('first 100')));
+});
+
+test('the executive result does not use a stale decision or treat a blocked result as zero', () => {
+  const state = { ...fixture(), view: 'results' };
+  const experiment = {
+    data: { primary_metric: 'paid_conversion' },
+    assessments: [
+      { hash: 'older', data: { status: 'EVALUATED', effect: { difference: 0.2 } } },
+      {
+        hash: 'current',
+        data: {
+          status: 'INCONCLUSIVE',
+          issues: ['Missing mature outcomes'],
+          effect: { difference: 0 },
+        },
+      },
+    ],
+    actions: [
+      {
+        data: {
+          operation: 'decide',
+          assessment_hash: 'older',
+          decision: 'NEXT_TEST',
+          reason: 'Old result',
+        },
+      },
+    ],
+  };
+  state.workspace.experiments = [experiment];
+  const report = reports.model(state, timestamp);
+  assert.equal(report.executive.decision, 'Collect evidence');
+  assert.equal(report.executive.reason, 'Missing mature outcomes');
+  assert.equal(report.executive.primary.value, null);
+  assert.equal(report.executive.primary.name, 'Paid conversion');
+  state.workspace.experiments.push(experiment);
+  const ambiguous = reports.model(state, timestamp).executive;
+  assert.equal(ambiguous.decision, 'Select evidence');
+  assert.equal(ambiguous.primary.value, null);
 });
 
 test('weekly private review cards and unavailable counts share the current-principal fence', () => {

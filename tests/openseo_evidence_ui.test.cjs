@@ -131,6 +131,8 @@ test('The exported web report leads with a measurable change and retains source 
     },
   };
   const report = growth.report(state([row]), { model: () => ({}) }, row.id);
+  assert.equal(report.executive.primary.value, '0.00% (0 / 250)');
+  assert.equal(report.executive.next, 'Review the proposed change: Change the search title');
   assert.equal(report.sections[0].title, 'Next marketing test');
   const facts = Object.fromEntries(report.sections[0].items[0].facts);
   assert.equal(facts['Google organic CTR baseline'], '0.00% (0 / 250)');
