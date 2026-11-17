@@ -550,7 +550,7 @@ const WMMGoalJourney = (() => {
       app_id: workspace.app.id,
       version: workspace.app.version,
       objective: workspace.app.data.job || '',
-      goal: goal ? { id, ...goal } : null,
+      goal: goal ? { id, ...goal, next: nextLabel(workspace, id) } : null,
       apple: applePath(workspace, id),
       accounts: (workspace.social_access?.accounts || [])
         .filter((a) => Object.hasOwn(channels, a.provider))
@@ -561,6 +561,11 @@ const WMMGoalJourney = (() => {
         })),
       classification: 'PRESENTATION_ONLY_NO_AUTHORITY',
     };
+  }
+  function nextLabel(workspace, id) {
+    return id === 'research' && workspace.references?.length
+      ? 'Review your saved reference'
+      : choices[id].next;
   }
   function view(workspace, id, html) {
     const m = model(workspace, id),
@@ -611,7 +616,7 @@ const WMMGoalJourney = (() => {
       return null;
     }
   }
-  return { read, save, model, view, choices, browserStorage, applePath };
+  return { read, save, model, view, choices, browserStorage, applePath, nextLabel };
 })();
 
 function goalProofIllustration() {
@@ -640,13 +645,20 @@ function goalProofIllustration() {
  </figure>`;
 }
 
+function completedSamplePanel() {
+  return `<details class="panel" id="goal-completed-example"><summary>See a completed example · fictional</summary><h2>Pantry Planner: test a clearer promise</h2><p>This example uses invented data. It is separate from your app and starts no work.</p><dl><dt>Question</dt><dd>Does showing a five-minute meal plan increase first recipe saves?</dd><dt>Evidence and result</dt><dd>2 of 40 eligible users saved a recipe in each group during a seven-day test. The observed difference was zero; the sample is too small to draw a conclusion.</dd><dt>Decision</dt><dd>Collect more eligible users before changing the message. Keep the same definition of a first recipe save.</dd></dl></details>`;
+}
+
 function startHerePanel() {
   const missing = WMMCampaignPlan.missingInputs(state.workspace?.app?.data);
   const exceptions = state.workspace?.workflow?.exceptions || [];
-  const primary = missing.length
-    ? button('Finish app setup', 'edit-app')
-    : button('Build your campaign plan', 'campaign-plan-open');
-  return `<section class="panel goal-proof-layout" aria-label="Start your first experiment"><div><p class="eyebrow">ONE APP. ONE QUESTION. YOUR NEXT DECISION.</p><h2>Turn your app question into a plan you can review.</h2><p>Your agent can research, prepare creative and carry approved marketing work forward here. Keep the plan, sources and missing evidence together before deciding what to run.</p><p>${missing.length ? `Add ${esc(missing.join(', '))} to prepare a useful plan for this app.` : 'Start with your saved app facts, channel and outcome. Review the plan before anything runs.'}</p><div class="toolbar">${primary}${button('Open your first packet', 'automatic-goal-open', WMMGoalPacket.attributes(WMMGoalPacket.model()))}${button('Start the guided path', 'first-post-open')}</div><p><strong>What you leave with:</strong> one reviewable plan, its sources and a clear next step. A prepared packet is not a published campaign.</p><p class="description">After approved work runs, inspect its receipts and available measurements. Choose what to continue, revise or stop. Missing measurements stay unknown; growth and time savings are not guaranteed. You still approve what goes live.</p>${exceptions.length ? `<p class="description">${exceptions.length} saved item${exceptions.length === 1 ? '' : 's'} need attention. <button type="button" class="button outline" data-view="workflow">Review workflow</button></p>` : ''}<details><summary>More options</summary><div class="toolbar">${button('What should I do next?', 'next-answer')}${button('Measure one organic post', 'observational-campaign-open')}</div><p class="description">Each path keeps its own approval. Nothing publishes or spends on its own.</p></details></div>${goalProofIllustration()}</section>`;
+  const primary = button(
+    'Open your first packet',
+    'automatic-goal-open',
+    WMMGoalPacket.attributes(WMMGoalPacket.model()),
+    '',
+  );
+  return `<section class="panel goal-proof-layout" aria-label="Start your first experiment"><div><p class="eyebrow">ONE APP. ONE QUESTION. YOUR NEXT DECISION.</p><h2>Turn your app question into a plan you can review.</h2><p>Your agent can research, prepare creative and carry approved marketing work forward here.</p><p>${missing.length ? `Add ${esc(missing.join(', '))} to prepare a useful plan for this app.` : 'Choose a goal below, then open your first packet. No provider sign-in is needed.'}</p><div class="toolbar" aria-label="Start here">${primary}</div><p><strong>What you leave with:</strong> one reviewable plan, its sources and a clear next step. An empty packet shows what to collect; it contains no completed research or measured result. A prepared packet is not a published campaign.</p><p class="description">After approved work runs, inspect its receipts and available measurements. Missing measurements stay unknown; growth and time savings are not guaranteed. You still approve what goes live.</p><details><summary>More options</summary><div class="toolbar">${missing.length ? button('Finish app setup', 'edit-app') : button('Build your campaign plan', 'campaign-plan-open')}${button('Start the guided path', 'first-post-open')}${button('What should I do next?', 'next-answer')}${button('Measure one organic post', 'observational-campaign-open')}</div>${exceptions.length ? `<p class="description">${exceptions.length} saved item${exceptions.length === 1 ? '' : 's'} need attention. <button type="button" class="button outline" data-view="workflow">Review workflow</button></p>` : ''}<p class="description">Each path keeps its own approval. Nothing publishes or spends on its own.</p></details></div>${goalProofIllustration()}</section>`;
 }
 
 function launchStatusPanel(workspace) {
@@ -766,6 +778,7 @@ function goalOverview() {
       : WMMGoalJourney.read(WMMGoalJourney.browserStorage(), state.app);
   return (
     heading('Set your goal', 'Choose one outcome. Watch the work. Review what happened.') +
+    completedSamplePanel() +
     startHerePanel() +
     launchStatusPanel(state.workspace) +
     WMMGoalJourney.view(state.workspace, id, esc) +
@@ -831,7 +844,10 @@ function goalAction(node) {
   }
   if (id === 'campaign') return guidedNavigate('connections');
   if (id === 'creative') return guidedNavigate('research');
-  if (id === 'research') return guidedOpenTool('sources');
+  if (id === 'research')
+    return state.workspace.references?.length
+      ? guidedNavigate('evidence', '#creative-source-library-heading')
+      : guidedOpenTool('sources');
   return guidedNavigate('results');
 }
 

@@ -172,7 +172,11 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         expect(channels).to_have_css("list-style-type", "none")
         expect(channels.locator("svg").first).to_have_css("margin-right", "6px")
         assert page.evaluate("window.wmmStyleViolations") == []
-        page.get_by_role("button", name="Build your campaign plan", exact=True).press("Enter")
+        first_experiment = page.get_by_role("region", name="Start your first experiment", exact=True)
+        campaign_plan = first_experiment.get_by_role("button", name="Build your campaign plan", exact=True)
+        expect(campaign_plan).to_be_hidden()
+        first_experiment.get_by_text("More options", exact=True).press("Enter")
+        campaign_plan.press("Enter")
         plan = page.get_by_role("dialog", name="Campaign plan")
         expect(plan).to_contain_text("this plan does not publish or spend")
         expect(plan).to_contain_text("Proof to verify")
