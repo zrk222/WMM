@@ -140,7 +140,9 @@ class AppleInventoryWatchTests(unittest.TestCase):
         with patch(clock, return_value=stop), connection(self.store.path) as db:
             with self.assertRaisesRegex(Invalid, "window ended"):
                 check_scheduled_db(db, queued)
-            self.assertEqual(restarted.get(APP)["status"], "EXPIRED")
+            status = restarted.get(APP)
+            assert status is not None
+            self.assertEqual(status["status"], "EXPIRED")
             self.assertEqual(restarted.tick(), 0)
         self.assertEqual(jobs(self.store, APP)[0]["status"], "CANCELLED")
         self.assertEqual(len(jobs(self.store, APP)), 1)
@@ -301,5 +303,6 @@ class AppleInventoryWatchRouteTests(unittest.TestCase):
         updated = fixture.dispatch(
             "schedule", body | {"version": scheduled["version"], "first_read_at": stamp, "stop_at": boundary}
         )
+        assert isinstance(updated, dict)
         self.assertEqual(updated["stop_at"], due + 86400)
         self.assertIsNone(view(fixture.store, APP)["inventory"])
