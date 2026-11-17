@@ -66,9 +66,9 @@ class SetupReport(TypedDict):
     next_steps: list[str]
 
 
-def verification_command(launch: list[str], origin: str) -> VerificationCommand:
+def verification_command(launch: list[str], origin: str, app_id: str | None = None) -> VerificationCommand:
     return VerificationCommand(
-        command=[*launch, "--origin", origin, "--verify-app", "<app-id>", "--json"],
+        command=[*launch, "--origin", origin, "--verify-app", app_id if app_id is not None else "<app-id>", "--json"],
         operation="operations.read",
         server_status="NOT_CHECKED_OFFLINE",
         authorization="INJECTED_WMM_AGENT_GRANT_ONLY",
@@ -141,7 +141,7 @@ def dependency(name: str) -> Dependency:
     return Dependency(module=name, status="AVAILABLE", version=version)
 
 
-def report(origin: str, *, runtime_executable: str | Path | None = None) -> SetupReport:
+def report(origin: str, *, runtime_executable: str | Path | None = None, app_id: str | None = None) -> SetupReport:
     """Emit setup facts for source Python or a frozen desktop executable."""
     origin_data(origin)
     if runtime_executable is not None:
@@ -158,7 +158,7 @@ def report(origin: str, *, runtime_executable: str | Path | None = None) -> Setu
             server_status="NOT_CHECKED_OFFLINE",
             python_supported=None,
             cli=CLIStatus(status="AVAILABLE", catalog=[executable, "--agent-cli", "catalog"]),
-            owner_host_verification=verification_command([executable, "--agent-setup"], origin),
+            owner_host_verification=verification_command([executable, "--agent-setup"], origin, app_id),
             mcp=MCPStatus(
                 status="DEPENDENCIES_AVAILABLE" if ready else "OPTIONAL_DEPENDENCIES_MISSING",
                 tested_sdk_baseline="1.30.0",
@@ -196,7 +196,7 @@ def report(origin: str, *, runtime_executable: str | Path | None = None) -> Setu
         server_status="NOT_CHECKED_OFFLINE",
         python_supported=sys.version_info >= (3, 11),
         cli=CLIStatus(status="AVAILABLE", catalog=[python, "-m", "mission_control.agent_cli", "catalog"]),
-        owner_host_verification=verification_command([python, "-m", "mission_control.agent_setup"], origin),
+        owner_host_verification=verification_command([python, "-m", "mission_control.agent_setup"], origin, app_id),
         mcp=MCPStatus(
             status="DEPENDENCIES_AVAILABLE" if ready else "OPTIONAL_DEPENDENCIES_MISSING",
             tested_sdk_baseline="1.30.0",

@@ -1,10 +1,12 @@
 """Bearer gateway and separately authenticated owner controls; no human-approval tools."""
 
 import re
-from .common import Invalid
+from typing import cast
+
 from .agent_grants import Grants
-from .operator_client import strict_json, MAX_BYTES
+from .common import Invalid
 from .http_body import read_exact
+from .operator_client import MAX_BYTES, strict_json
 
 CALL_PATH = "/api/agent-operations/call"
 
@@ -53,7 +55,10 @@ def call(handler):
     result = execute_admitted(service, envelope, admission)
     if envelope["operation"] == "operations.read":
         result = dict(
-            result, agent_authority=Grants(service.store).authority_status(admission["grant_id"], envelope["app_id"])
+            cast(dict[str, object], result),
+            agent_authority=Grants(service.store).authority_status(
+                cast(str, admission["grant_id"]), envelope["app_id"]
+            ),
         )
     return handler.send(200, result)
 
@@ -70,7 +75,7 @@ def owner(store, app_id, action, user, body, *, runtime_origin=None, runtime_exe
             member(db, app_id, user["principal"], "OWNER")
         from .agent_setup import report
 
-        return report(runtime_origin, runtime_executable=runtime_executable)
+        return report(runtime_origin, runtime_executable=runtime_executable, app_id=app_id)
     grants = Grants(store)
     from .agent_handoffs import Handoffs
 

@@ -1,23 +1,29 @@
 """Owner setup review at desktop/mobile widths; synthetic identity, no provider effects."""
 
+from __future__ import annotations
+
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-from playwright.sync_api import sync_playwright, expect
-from mission_control import agent_setup
-from mission_control.worker import jobs
-from tests.test_campaign_access import CampaignGatewayTests
-from tests.test_verified_review import OWNER_TOKEN
+if TYPE_CHECKING:
+    from playwright.sync_api import Browser
 
 
-def run(browser, width, packaged, output):
+def run(browser: Browser, width: int, packaged: bool, output: Path) -> dict[str, object]:
+    from playwright.sync_api import expect
+
+    from mission_control import agent_setup
+    from mission_control.worker import jobs
+    from tests.test_campaign_access import CampaignGatewayTests
+    from tests.test_verified_review import OWNER_TOKEN
+
     fixture = CampaignGatewayTests()
     fixture.setUp()
-    context = browser.new_context(viewport=dict(width=width, height=900), accept_downloads=True)
+    context = browser.new_context(viewport={"width": width, "height": 900}, accept_downloads=True)
     page = context.new_page()
     errors, requests = [], []
     page.on("pageerror", lambda error: errors.append(str(error)))
@@ -26,13 +32,16 @@ def run(browser, width, packaged, output):
     executable = ROOT / "Synthetic installed app" / ("WMM.exe" if sys.platform == "win32" else "WMM")
 
     def projection(origin, **kwargs):
-        return original(origin, runtime_executable=str(executable) if packaged else None)
+        return original(origin, runtime_executable=str(executable) if packaged else None, app_id=kwargs.get("app_id"))
 
     kind = "packaged" if packaged else "source"
     try:
         with patch.object(agent_setup, "report", side_effect=projection):
             page.goto(fixture.origin)
-            page.wait_for_function('(state) => state.workspace?.app?.id===state.app', arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
+            page.wait_for_function(
+                "(state) => state.workspace?.app?.id===state.app",
+                arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"),
+            )
             page.locator("#navigation > [data-view=activity]").click()
             expect(page.get_by_role("button", name="Review agent setup", exact=True)).to_have_count(0)
             page.get_by_role("button", name="Sign in for verified review", exact=True).click()
@@ -40,6 +49,7 @@ def run(browser, width, packaged, output):
             page.get_by_role("button", name="Verify my identity", exact=True).click()
             expect(page.get_by_role("button", name="Review agent setup", exact=True)).to_be_visible()
             before = fixture.owner.request("POST", "/api/apps/sample-one/agent-grants/list", {})
+            assert before is not None
             assert before["grants"] == []
             requests.clear()
             page.get_by_role("button", name="Review agent setup", exact=True).press("Enter")
@@ -47,15 +57,21 @@ def run(browser, width, packaged, output):
             download = dialog.get_by_role("button", name="Download reviewed setup JSON", exact=True)
             expect(download).to_be_visible()
             expect(dialog).to_contain_text("--use-grant")
+            expect(dialog).to_contain_text("Run on the WMM host")
+            expect(dialog).to_contain_text("does not contact a provider")
+            expect(dialog).to_contain_text("--verify-app")
+            expect(dialog).to_contain_text("sample-one")
+            expect(dialog).not_to_contain_text("<app-id>")
             expect(dialog).to_contain_text("no separate Python" if packaged else "Source runtime")
             assert requests == [fixture.origin + "/api/apps/sample-one/agent-grants/setup"], requests
             with page.expect_download() as event:
                 download.press("Enter")
             value = json.loads(Path(event.value.path()).read_text(encoding="utf-8"))
-            expected = projection(fixture.origin)
+            expected = projection(fixture.origin, app_id="sample-one")
             assert value == expected
             assert value["runtime_kind"] == ("PACKAGED_DESKTOP" if packaged else "SOURCE_PYTHON")
             assert value["mcp_config"]["mcpServers"]["wmm-local"]["args"][-1] == "--use-grant"
+            assert value["owner_host_verification"]["command"][-3:] == ["--verify-app", "sample-one", "--json"]
             assert OWNER_TOKEN not in json.dumps(value)
             assert not jobs(fixture.store, "sample-one") and fixture.wire.posts == 0
             assert fixture.owner.request("POST", "/api/apps/sample-one/agent-grants/list", {}) == before
@@ -86,7 +102,9 @@ def run(browser, width, packaged, output):
         fixture.doCleanups()
 
 
-def main():
+def main() -> None:
+    from playwright.sync_api import sync_playwright
+
     output = ROOT / ".factory/packaged-agent-setup-browser"
     output.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as pw:
@@ -107,4 +125,5 @@ def main():
 
 
 if __name__ == "__main__":
+    sys.path.insert(0, str(ROOT))
     main()
