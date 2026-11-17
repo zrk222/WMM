@@ -75,13 +75,14 @@
     ];
   }
 
-  function panel(state) {
+  function panel(state, statusBadge) {
     let value;
     try {
       value = review(state);
     } catch (error) {
       return `<section class="panel"><h2>Subscription growth review</h2><p role="status">${escape(error.message)}</p>${button('Retry workspace', 'refresh')}</section>`;
     }
+    const badge = (value) => statusBadge(human(value));
     const counts = metrics(value)
       .map(
         (item) =>
@@ -89,30 +90,30 @@
       )
       .join('');
     const issues = value.issues.map((item) => `<li>${escape(item.next_action)}</li>`).join('');
-    return `<section class="panel" id="growth-review-panel" aria-labelledby="growth-review-title"><p class="eyebrow">SUBSCRIPTION GROWTH / SAVED EVIDENCE</p><h2 id="growth-review-title">Find the next change worth testing</h2><p>Check your listing, subscription journey and experiment evidence in one place. Save a sourced benchmark to put an account report in context. Keep each decision tied to what you actually know.</p><p class="description">${escape(state.workspace.app.data.name)} · ${escape(value.observed_at)} · app setup ${escape(value.context.manifest_version)}. Counts below describe saved local evidence.</p><div class="page-metric-grid">${counts}</div>${evidenceStates(value)}<div class="toolbar"><button type="button" class="button outline" data-action="funnel-review">Review app-sales bottlenecks</button>${button('Save a listing', 'listing')}${button('Import keyword research', 'research')}${button('Import OpenSEO evidence', 'web-seo')}${button('Add benchmark source', 'reference')}${button('Compare saved report', 'comparison')}${button('Report / Save PDF', 'report')}</div>${issues ? `<details><summary>${value.issues.length} next steps and repairs</summary><ul>${issues}</ul></details>` : '<p>No missing inputs were identified by this local review. Provider acceptance remains separate.</p>'}${historyList(value.history.history)}${journeyList(value.journeys)}${experimentList(value.experiments)}<p class="description">Editorial notes record your reasoning. Human approval, store acceptance and measured growth require their own evidence.</p></section>`;
+    return `<section class="panel" id="growth-review-panel" aria-labelledby="growth-review-title"><p class="eyebrow">SUBSCRIPTION GROWTH / SAVED EVIDENCE</p><h2 id="growth-review-title">Find the next change worth testing</h2><p>Check your listing, subscription journey and experiment evidence in one place. Save a sourced benchmark to put an account report in context. Keep each decision tied to what you actually know.</p><p class="description">${escape(state.workspace.app.data.name)} · ${escape(value.observed_at)} · app setup ${escape(value.context.manifest_version)}. Counts below describe saved local evidence.</p><div class="page-metric-grid">${counts}</div>${evidenceStates(value, badge)}<div class="toolbar"><button type="button" class="button outline" data-action="funnel-review">Review app-sales bottlenecks</button>${button('Save a listing', 'listing')}${button('Import keyword research', 'research')}${button('Import OpenSEO evidence', 'web-seo')}${button('Add benchmark source', 'reference')}${button('Compare saved report', 'comparison')}${button('Report / Save PDF', 'report')}</div>${issues ? `<details><summary>${value.issues.length} next steps and repairs</summary><ul>${issues}</ul></details>` : '<p>No missing inputs were identified by this local review. Provider acceptance remains separate.</p>'}${historyList(value.history.history, badge)}${journeyList(value.journeys, badge)}${experimentList(value.experiments, badge)}<p class="description">Editorial notes record your reasoning. Human approval, store acceptance and measured growth require their own evidence.</p></section>`;
   }
 
-  function evidenceStates(value) {
+  function evidenceStates(value, badge) {
     return `<dl class="details-list">${Object.entries(value.evidence_states)
       .map(
         ([name, item]) =>
-          `<div class="detail-item"><dt>${escape(human(name))}</dt><dd>${escape(human(item.state))}${item.reason ? `<p>${escape(item.reason)}</p>` : ''}</dd></div>`,
+          `<div class="detail-item"><dt>${escape(human(name))}</dt><dd>${badge(item.state)}${item.reason ? `<p>${escape(item.reason)}</p>` : ''}</dd></div>`,
       )
       .join('')}</dl>`;
   }
 
-  function historyList(rows) {
+  function historyList(rows, badge) {
     if (!rows.length)
       return '<h3>Saved review history</h3><p>No saved entries yet. Begin with the original listing or an inspected benchmark source.</p>';
-    return `<h3>Saved review history</h3><div class="record-list">${rows.map((row) => `<button type="button" class="record-row" data-action="growth-detail" data-id="${escape(row.id)}"><span class="record-main"><strong>${escape(human(row.kind))} · ${escape(row.id)}</strong><small>${escape(row.created)} · ${escape(human(row.readout.availability))}</small></span><span>${escape(human(row.readout.analysis.status))}</span></button>`).join('')}</div>`;
+    return `<h3>Saved review history</h3><div class="record-list">${rows.map((row) => `<button type="button" class="record-row" data-action="growth-detail" data-id="${escape(row.id)}"><span class="record-main"><strong>${escape(human(row.kind))} · ${escape(row.id)}</strong><small>${escape(row.created)} · ${badge(row.readout.availability)}</small></span>${badge(row.readout.analysis.status)}</button>`).join('')}</div>`;
   }
 
-  function journeyList(rows) {
-    return `<h3>Subscription journeys</h3>${rows.length ? rows.map((row) => `<details><summary>${escape(row.cohort_id)} · ${escape(row.currency)} · ${escape(human(row.status))}</summary><p>As of ${escape(row.as_of)}. Supplied events remain separate for this cohort and configuration.</p><pre>${escape(JSON.stringify(row.journey, null, 2))}</pre><p>Source hash: <span class="app-mono">${escape(row.source_hash)}</span></p></details>`).join('') : '<p>Define a cohort and import its permitted event export using the existing event ledger below.</p>'}`;
+  function journeyList(rows, badge) {
+    return `<h3>Subscription journeys</h3>${rows.length ? rows.map((row) => `<details><summary>${escape(row.cohort_id)} · ${escape(row.currency)} · ${badge(row.status)}</summary><p>As of ${escape(row.as_of)}. Supplied events remain separate for this cohort and configuration.</p><pre>${escape(JSON.stringify(row.journey, null, 2))}</pre><p>Source hash: <span class="app-mono">${escape(row.source_hash)}</span></p></details>`).join('') : '<p>Define a cohort and import its permitted event export using the existing event ledger below.</p>'}`;
   }
 
-  function experimentList(rows) {
-    return `<h3>Paywall and offer experiments</h3>${rows.length ? rows.map((row) => `<article><h4>${escape(row.data.name)}</h4><p>${escape(human(row.review_state))}</p>${row.current_source_findings.map((issue) => `<p>${escape(issue)}</p>`).join('')}${button('Inspect experiment', 'experiment', row.id)}</article>`).join('') : '<p>No typed subscription experiment is registered. Billing configuration and eligibility must be supported by source evidence.</p>'}`;
+  function experimentList(rows, badge) {
+    return `<h3>Paywall and offer experiments</h3>${rows.length ? rows.map((row) => `<article><h4>${escape(row.data.name)}</h4><p>${badge(row.review_state)}</p>${row.current_source_findings.map((issue) => `<p>${escape(issue)}</p>`).join('')}${button('Inspect experiment', 'experiment', row.id)}</article>`).join('') : '<p>No typed subscription experiment is registered. Billing configuration and eligibility must be supported by source evidence.</p>'}`;
   }
 
   function input(name, label, value = '', type = 'text', hint = '', required = true) {

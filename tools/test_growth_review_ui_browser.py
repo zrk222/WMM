@@ -175,6 +175,12 @@ def exercise(page: Page, origin: str, store: Store, width: int, out: Path) -> JS
     page.goto(origin)
     page.locator('[data-view="results"]').click()
     expect(page.locator("#growth-review-title")).to_be_visible()
+    growth = page.locator("#growth-review-panel")
+    needs_input = growth.get_by_text("needs input", exact=True)
+    expect(needs_input).to_have_css("background-color", "rgb(249, 235, 206)")
+    expect(needs_input).to_have_css("color", "rgb(101, 70, 9)")
+    provider = growth.get_by_text("separate acceptance required", exact=True)
+    expect(provider).to_have_css("background-color", "rgb(249, 235, 206)")
     kpi = page.get_by_role("region", name="KPI gaps")
     metric = page.get_by_role("cell", name="ROAS_D30", exact=True)
     roas = kpi.get_by_role("row").filter(has=metric)
@@ -204,6 +210,12 @@ def exercise(page: Page, origin: str, store: Store, width: int, out: Path) -> JS
     listing = save_form(page)
     current = next(row for row in GrowthReviews(store).list("sample-one")["history"] if row["id"] == listing["id"])
     assert current["readout"]["analysis"]["status"] == "READY_FOR_REVIEW"
+    recorded = growth.get_by_text("recorded", exact=True)
+    expect(recorded).to_have_css("background-color", "rgb(229, 237, 249)")
+    expect(recorded).to_have_css("color", "rgb(36, 70, 99)")
+    history = growth.locator(f'[data-action="growth-detail"][data-id="{listing["id"]}"]')
+    expect(history.get_by_text("ready for review", exact=True)).to_have_css("background-color", "rgb(249, 235, 206)")
+    growth.locator(".details-list").screenshot(path=str(out / f"growth-status-{width}.png"))
     page.locator(f'[data-action="growth-detail"][data-id="{listing["id"]}"]').click()
     expect(page.locator("#modal-body")).to_contain_text("limit 30")
     page.evaluate(
@@ -275,6 +287,7 @@ def exercise(page: Page, origin: str, store: Store, width: int, out: Path) -> JS
         durable_readback=True,
         manifest_rejection=True,
         keyboard=True,
+        evidence_status_colors=True,
         privacy=True,
         app_switch=True,
         horizontal_overflow=False,
