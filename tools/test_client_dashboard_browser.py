@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import fitz
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
@@ -184,7 +185,13 @@ def run():
                 download.value.save_as(str(saved))
                 report = json.loads(saved.read_text(encoding="utf-8"))
                 assert report["receipt"] and report["access"] == "Read only"
-                page.pdf(path=str(output / f"summary-{width}.pdf"))
+                pdf_path = output / f"summary-{width}.pdf"
+                page.pdf(path=str(pdf_path), prefer_css_page_size=True)
+                with fitz.open(pdf_path) as pdf:
+                    printed = pdf[0].get_text()
+                    assert "Wize Marketing Machine" in printed and "What to do next" in printed
+                    assert "Alpha app" in printed and "read receipt" in printed.casefold()
+                    assert "PRIVATE_PROFILE_SENTINEL" not in printed and "Sign out" not in printed
 
                 def delay_dashboard():
                     page.evaluate("""() => {

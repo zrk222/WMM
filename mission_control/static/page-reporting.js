@@ -513,6 +513,35 @@
       .join('');
   }
 
+  function reportHeader(report) {
+    return `<header class="report-masthead"><div class="report-brand"><svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true" focusable="false"><rect width="36" height="36" rx="10" fill="#cbe584"/><path d="m8 14 4 10 6-8 4 8 6-12m-6 0h6v6" fill="none" stroke="#142c35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span><strong>Wize Marketing Machine</strong><small>WMM · Evidence report</small></span></div><h1>${escape(report.title)}</h1><p>${escape(report.app_name)} · ${escape(report.app_id || report.scope)}</p></header>`;
+  }
+
+  function metricSpotlight(metrics) {
+    if (!metrics.length) return '';
+    return `<section class="report-spotlight" aria-label="Key figures"><h2>Key figures</h2><ul>${metrics
+      .slice(0, 4)
+      .map(
+        (m) =>
+          `<li><span>${escape(m.label)}</span><strong>${m.value === null ? 'Unavailable' : escape(m.value)}</strong><small>${m.value === null ? '' : `${escape(m.unit)} · `}${escape(sourceLabel(m.source))}</small></li>`,
+      )
+      .join('')}</ul></section>`;
+  }
+
+  function reportScope(report) {
+    const filters = Object.entries(report.filters).map(([key, value]) => [
+      key.replaceAll('_', ' '),
+      value === null || value === undefined || value === '' ? 'None' : value,
+    ]);
+    const facts = [
+      ['Generated', report.generated_at],
+      ['Loaded / evaluated', report.loaded_at],
+      ['App setup version', report.manifest_version ?? 'Portfolio scope'],
+      ...filters,
+    ];
+    return `<section class="report-provenance"><h2>Scope and sources</h2><dl>${facts.map(([key, value]) => `<div><dt>${escape(key)}</dt><dd>${escape(value)}</dd></div>`).join('')}</dl></section>`;
+  }
+
   function reportHTML(report, origin) {
     const cohorts = report.cohorts
       .map(
@@ -528,16 +557,7 @@
             .join('')}</dl></section>`,
       )
       .join('');
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(report.title)} — WMM report</title><link rel="stylesheet" href="${escape(origin)}/page-reporting.css"></head><body class="wmm-print-report"><header><p>WMM · Evidence report</p><h1>${escape(report.title)}</h1><p>${escape(report.app_name)} · ${escape(report.app_id || report.scope)}</p></header><nav class="report-controls" aria-label="Report actions"><button type="button" id="print-page-report">Print / Save as PDF</button><button type="button" id="close-page-report">Close report</button><p>The browser print dialog lets you select Save as PDF. No file has been saved until you complete that step.</p></nav><main><p>${escape(report.purpose)}</p><p><strong>Next step:</strong> ${escape(report.next_step)}</p><dl><div><dt>Generated</dt><dd>${escape(report.generated_at)}</dd></div><div><dt>Loaded / evaluated</dt><dd>${escape(report.loaded_at)}</dd></div><div><dt>App setup version</dt><dd>${escape(report.manifest_version ?? 'Portfolio scope')}</dd></div>${Object.entries(
-      report.filters,
-    )
-      .map(
-        ([key, value]) =>
-          `<div><dt>${escape(key.replaceAll('_', ' '))}</dt><dd>${escape(value || 'None')}</dd></div>`,
-      )
-      .join(
-        '',
-      )}</dl>${sectionsHTML(report.sections)}${metricTable(report)}${cohorts}<section><h2>Evidence boundaries</h2><ul>${report.notes.map((note) => `<li>${escape(note)}</li>`).join('')}</ul></section></main><footer>Saved local evidence. No publication, spend or approval authority.</footer></body></html>`;
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(report.title)} — WMM report</title><link rel="stylesheet" href="${escape(origin)}/page-reporting.css"></head><body class="wmm-print-report">${reportHeader(report)}<nav class="report-controls" aria-label="Report actions"><button type="button" id="print-page-report">Print / Save as PDF</button><button type="button" id="close-page-report">Close report</button><p>Choose Save as PDF in the print dialog. No file has been saved until you complete that step.</p></nav><main id="wmm-report-content"><section class="report-decision" aria-label="Recommended decision"><h2>What to do next</h2><p><strong>Next step:</strong> ${escape(report.next_step)}</p><p>${escape(report.purpose)}</p></section>${metricSpotlight(report.metrics)}${sectionsHTML(report.sections)}${report.metrics.length ? metricTable(report) : ''}${cohorts}${reportScope(report)}<section class="report-limits"><h2>Evidence boundaries</h2><ul>${report.notes.map((note) => `<li>${escape(note)}</li>`).join('')}</ul></section></main><footer><strong>WMM · Wize Marketing Machine</strong><p>Saved local evidence. No publication, spend or approval authority.</p></footer></body></html>`;
   }
 
   function openInlineReport(report, browser, trigger) {
