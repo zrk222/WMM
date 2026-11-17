@@ -675,3 +675,42 @@ test('current campaign packet opens only a matched upstream input and leaves sav
   assert.match(saved, /Open current packet/);
   assert.doesNotMatch(saved, /observational-campaign-open|automatic-goal-repair/);
 });
+
+test('verified Apple report wait navigates to the exact panel without any read or reconnect', () => {
+  const h = fixture();
+  const row = {
+    state: 'WAITING_FOR_REPORTS',
+    source: 'App Store Connect',
+    repair_route: 'apple-analytics',
+  };
+  h.state.workspace.workflow = { exceptions: [row] };
+  const navigations = [];
+  h.c.guidedNavigate = (...args) => navigations.push(args);
+  const action = vm.runInContext('goalAction', h.c);
+  const node = {
+    isConnected: true,
+    dataset: { action: 'goal-apple-report-availability', app: 'one', version: '1' },
+  };
+  assert.match(
+    h.g.panel([row]),
+    /data-action="goal-apple-report-availability" data-app="one" data-version="1">Review Apple report availability/,
+  );
+  action(node);
+  assert.deepEqual(navigations, [['connections', '#apple-report-availability-heading']]);
+  action({ ...node, isConnected: false });
+  h.state.app = 'two';
+  action(node);
+  h.state.app = 'one';
+  h.state.workspace.app.version = 2;
+  action(node);
+  h.state.workspace.app.version = 1;
+  h.state.workspace.workflow.exceptions = [{ ...row, source: 'other' }];
+  action(node);
+  assert.equal(navigations.length, 1);
+  assert.deepEqual(h.calls, []);
+  assert.doesNotMatch(h.g.panel([{ ...row, source: 'other' }]), /goal-apple-report-availability/);
+  assert.match(
+    h.g.panel([{ ...row, state: 'APPLE_REPORT_SETUP_REQUIRED' }]),
+    /apple-analytics-open/,
+  );
+});

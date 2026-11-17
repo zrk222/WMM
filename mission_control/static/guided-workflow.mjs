@@ -169,7 +169,16 @@ const WMMExceptionGuidance = (() => {
     'owner',
     'apple-analytics',
   ]);
-  function repairButton(tool, batchId, monitorId) {
+  function repairButton(tool, batchId, monitorId, status) {
+    if (tool === 'apple-analytics' && status === 'WAITING_FOR_REPORTS') {
+      const app = state.workspace?.app;
+      if (!app || app.id !== state.app) return '';
+      return button(
+        'Review Apple report availability',
+        'goal-apple-report-availability',
+        `data-app="${esc(app.id)}" data-version="${esc(app.version)}"`,
+      );
+    }
     if (batchId)
       return button(
         'Review this scheduled batch',
@@ -222,7 +231,11 @@ const WMMExceptionGuidance = (() => {
         ? [row.evidence_ref]
         : [];
     const tool =
-      definition.tool !== 'rule-reviews' && allowedTools.has(row.repair_route)
+      definition.tool !== 'rule-reviews' &&
+      allowedTools.has(row.repair_route) &&
+      (status !== 'WAITING_FOR_REPORTS' ||
+        row.repair_route !== 'apple-analytics' ||
+        row.source === 'App Store Connect')
         ? row.repair_route
         : definition.tool;
     return {
@@ -243,7 +256,7 @@ const WMMExceptionGuidance = (() => {
     if (!Array.isArray(rows) || !rows.length) return '';
     const cards = rows.map(normalize).filter(Boolean);
     if (!cards.length) return '';
-    return `<section class="panel" aria-label="Workflow exceptions"><h2>Workflow updates</h2><p>See what WMM observed and what to do next.</p><div class="guided-exceptions">${cards.map((c) => `<article class="panel guided-exception" data-exception-state="${esc(c.status)}"><h3>${esc(c.headline)}</h3><p>${esc(c.reason)}</p><p><strong>Next:</strong> ${esc(c.action)}</p>${c.observed_at || c.next_due ? `<p><small>${c.observed_at ? `Observed: ${esc(c.observed_at)}` : ''}${c.next_due ? `${c.observed_at ? ' · ' : ''}next due ${esc(c.next_due)}` : ''}</small></p>` : ''}${c.evidence_refs.length ? `<p><small>Evidence: ${c.evidence_refs.map(esc).join(', ')}</small></p>` : ''}${c.source ? `<p><small>Source: ${esc(c.source)}</small></p>` : ''}${repairButton(c.tool, c.batchId, c.monitorId)}</article>`).join('')}</div></section>`;
+    return `<section class="panel" aria-label="Workflow exceptions"><h2>Workflow updates</h2><p>See what WMM observed and what to do next.</p><div class="guided-exceptions">${cards.map((c) => `<article class="panel guided-exception" data-exception-state="${esc(c.status)}"><h3>${esc(c.headline)}</h3><p>${esc(c.reason)}</p><p><strong>Next:</strong> ${esc(c.action)}</p>${c.observed_at || c.next_due ? `<p><small>${c.observed_at ? `Observed: ${esc(c.observed_at)}` : ''}${c.next_due ? `${c.observed_at ? ' · ' : ''}next due ${esc(c.next_due)}` : ''}</small></p>` : ''}${c.evidence_refs.length ? `<p><small>Evidence: ${c.evidence_refs.map(esc).join(', ')}</small></p>` : ''}${c.source ? `<p><small>Source: ${esc(c.source)}</small></p>` : ''}${repairButton(c.tool, c.batchId, c.monitorId, c.status)}</article>`).join('')}</div></section>`;
   }
   return { normalize, panel, definitions };
 })();
@@ -763,6 +776,24 @@ function goalOverview() {
 }
 
 function goalAction(node) {
+  if (node.dataset.action === 'goal-apple-report-availability') {
+    const workspace = state.workspace;
+    if (
+      node.isConnected !== true ||
+      !state.app ||
+      workspace?.app?.id !== state.app ||
+      node.dataset.app !== state.app ||
+      node.dataset.version !== String(workspace.app.version) ||
+      !workspace.workflow?.exceptions?.some(
+        (row) =>
+          row.state === 'WAITING_FOR_REPORTS' &&
+          row.source === 'App Store Connect' &&
+          row.repair_route === 'apple-analytics',
+      )
+    )
+      return;
+    return guidedNavigate('connections', '#apple-report-availability-heading');
+  }
   if (node.dataset.action === 'goal-agreement') return WMMAgreement.open();
   if (node.dataset.action === 'goal-readiness') return WMMGoalReadiness.open(node.dataset.mode);
   if (node.dataset.action === 'goal-repair') return WMMGoalReadiness.repair(node.dataset.tool);
