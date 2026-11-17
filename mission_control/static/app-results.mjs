@@ -242,7 +242,7 @@ function experimentSelect(name, title, choices) {
   return `<label class="field" for="field-${name}">${esc(title)}<select id="field-${name}" name="${name}" required><option value="">Chooseâ€¦</option>${choices.map(([id, text]) => `<option value="${esc(id)}">${esc(text)}</option>`).join('')}</select></label>`;
 }
 
-function experimentForm() {
+function experimentForm(preset = {}) {
   const cohorts = (state.workspace.ledger || []).map((r) => [
     r.cohort.cohort_id,
     `${r.cohort.cohort_id} Â· ${r.cohort.release} Â· ${r.cohort.locale}`,
@@ -253,7 +253,7 @@ function experimentForm() {
   const fields = [
     field('name'),
     field('owner'),
-    field('hypothesis', '', 'textarea'),
+    field('hypothesis', preset.hypothesis || '', 'textarea'),
     experimentSelect('primary_metric', 'Primary outcome', [
       ['activation_rate', 'Useful activation'],
       ['paid_conversion', 'Paid conversion'],
@@ -302,7 +302,7 @@ function experimentForm() {
     );
   modal(
     'Plan an experiment',
-    `<form id="experiment-form" data-app="${esc(state.app)}"><div class="modal-content">${notice('Create both cohorts with identical release, locale, currency and dates. Acquisition must start in the future. Authentic, rights-cleared image files are verified again when registering.')}${!cohorts.length || !assets.length ? notice('Define event cohorts and review creative assets before registering this test.', 'warning') : ''}<div class="form-grid">${fields.join('')}</div><p id="sample-preview" role="status">Enter baseline, detectable effect and allocation to preview the approximate sample.</p><div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">Register immutable test</button></div></form>`,
+    `<form id="experiment-form" data-app="${esc(state.app)}"><div class="modal-content">${preset.hypothesis ? notice('Suggested hypothesis only. Set the real baseline and cohorts before registering this experiment.') : ''}${notice('Create both cohorts with identical release, locale, currency and dates. Acquisition must start in the future. Authentic, rights-cleared image files are verified again when registering.')}${!cohorts.length || !assets.length ? notice('Define event cohorts and review creative assets before registering this test.', 'warning') : ''}<div class="form-grid">${fields.join('')}</div><p id="sample-preview" role="status">Enter baseline, detectable effect and allocation to preview the approximate sample.</p><div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">Register immutable test</button></div></form>`,
     'EXPERIMENT PLANNING',
   );
 }
