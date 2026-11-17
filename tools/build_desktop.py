@@ -143,19 +143,31 @@ def main():
         launcher.write_text(f'#!/bin/sh\ncd -- "$(dirname -- "$0")" || exit 1\nexec ./{binary}\n')
         launcher.chmod(0o755)
     entry = (
-        "Mission Control opens the private workspace in its own window. Close that window to stop the local engine. "
-        "This preview requires WebView2 on Windows or WebKitGTK 4.1 on Ubuntu."
+        "Mission Control opens in its own window. Closing that window stops local WMM work. "
+        "The native window needs WebView2 on Windows or WebKitGTK 4.1 on Ubuntu."
         if args.native_window
-        else "A controller opens the private workspace in your browser. Quit from that controller to stop approved local work."
+        else "WMM opens in your browser. Closing the browser tab leaves the worker running; quit from the WMM controller to stop it."
+    )
+    installed = (
+        "Installed with WMM-Setup.exe? Open Wize Marketing Machine from Start."
+        if sys.platform == "win32"
+        else "Installed the Ubuntu package? Open Wize Marketing Machine from Applications."
     )
     (folder / "START-HERE.txt").write_text(
-        "Wize Marketing Machine\n\nExtract this entire folder, then open Open WMM. "
-        f"No system Python or terminal commands are required. {entry}\n\n"
-        "Data is saved in your user application-data directory, outside this folder. "
-        "Keep it private and back it up. Updating this folder does not migrate keys or delete your data.\n\n"
-        "Linux needs a graphical desktop, browser and an unlocked Secret Service for protected keys. "
-        "Optional video/native tools and provider setup remain separate. This bundle is unsigned; "
-        "operating-system trust prompts may appear. No auto-updater or startup registration is installed.\n",
+        "Wize Marketing Machine\n\n"
+        f"{installed}\n"
+        "Using the portable bundle? Extract the entire folder and launch Open WMM.\n"
+        "You do not need to install Python or use a terminal.\n\n"
+        "First task: Add your app, select Set your goal, choose Find a useful marketing angle, "
+        "and open your first packet. This gives you a plan and its missing inputs. "
+        "Sign-in and provider connections can wait until the work needs them.\n\n"
+        f"{entry} Stopping WMM does not pause ads already running at Meta. Check the provider's "
+        "recorded status before relying on a pause.\n\n"
+        "Workspace data stays in your user application-data directory. Keep it private and backed up. "
+        "Updating the app does not move your credentials or register a worker to start automatically.\n\n"
+        "Check the release notes for signature status and verification instructions. If device policy prevents "
+        "installation, use the interactive sample or ask your administrator.\n"
+        "First-run guide and optional always-on hosting: https://github.com/zrk222/WMM/blob/main/docs/desktop-first-run.md\n",
         encoding="utf-8",
     )
 
