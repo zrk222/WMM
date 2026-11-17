@@ -113,7 +113,7 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
         with connection(host.store.path) as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM automation_policies").fetchone()[0], 0)
 
-    def test_watch_work_focuses_apple_availability_before_loading_the_saved_read(self):
+    def test_watch_work_focuses_apple_availability_before_loading_the_saved_read(self) -> None:
         from playwright.sync_api import expect, sync_playwright
 
         host = fixture.GrantTests()
