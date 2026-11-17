@@ -562,7 +562,10 @@ const WMMCampaignMonitor = (() => {
         return await campaignStatus(scope, null, node);
       }
       if (kind === 'campaign-monitor-report')
-        return WMMPageReports.openReport(report(t.data, WMMPageReports.model(state)), window);
+        return WMMPageReports.openReport(
+          report(t.data, WMMPageReports.appReportModel(state)),
+          window,
+        );
       if (kind === 'campaign-monitor-activate')
         await api('/api/apps/' + t.scope.app + '/campaign-monitor/activate', {
           monitor_id: t.data.id,

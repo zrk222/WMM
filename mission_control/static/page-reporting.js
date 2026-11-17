@@ -583,24 +583,40 @@
     };
   }
 
-  /** Build a whitelisted snapshot, rejecting app drift and unsupported page identifiers. */
-  function model(state, generatedAt) {
-    const definition = PAGES[state.view];
-    if (
-      !Object.hasOwn(PAGES, state.view) ||
-      !state.workspace ||
-      state.workspace.app?.id !== state.app
-    )
+  function requireSelectedApp(state) {
+    if (!state.app || !state.workspace || state.workspace.app?.id !== state.app)
       throw new Error('Load the selected app before preparing this page report.');
-    if (generatedAt === undefined) generatedAt = new Date().toISOString();
+  }
+
+  /** Share app provenance with individual exports without importing other evidence. */
+  function appReportModel(state, generatedAt = new Date().toISOString()) {
+    requireSelectedApp(state);
     return {
       schema: 'growth.page-report.v1',
+      page: 'selected-evidence',
+      ...reportContext({ ...state, view: 'overview' }),
+      generated_at: text(generatedAt),
+      filters: {},
+      metrics: [],
+      executive: null,
+      cohorts: [],
+      sections: [],
+      notes: [],
+    };
+  }
+
+  /** Build a whitelisted snapshot, rejecting app drift and unsupported page identifiers. */
+  function model(state, generatedAt) {
+    if (!Object.hasOwn(PAGES, state.view))
+      throw new Error('Load the selected app before preparing this page report.');
+    const definition = PAGES[state.view];
+    return {
+      ...appReportModel(state, generatedAt),
       page: state.view,
       title: definition[0],
       purpose: definition[1],
       next_step: definition[2],
       ...reportContext(state),
-      generated_at: text(generatedAt),
       filters: reportFilters(state),
       metrics: pageMetrics(state.view, state),
       executive: state.view === 'results' ? decisionSummary(state.workspace) : null,
@@ -817,6 +833,7 @@
     PAGES,
     overviewStory,
     model,
+    appReportModel,
     pageMetrics,
     evidenceMetrics,
     weeklyMetrics,

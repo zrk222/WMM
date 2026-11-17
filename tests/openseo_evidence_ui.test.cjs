@@ -88,7 +88,7 @@ test('Web report clears native metrics and retains unknowns and a real zero', ()
   const report = growth.report(
     state([row]),
     {
-      model: () => ({
+      appReportModel: () => ({
         metrics: [{ label: 'native installs' }],
       }),
     },
@@ -130,7 +130,7 @@ test('The exported web report leads with a measurable change and retains source 
       },
     },
   };
-  const report = growth.report(state([row]), { model: () => ({}) }, row.id);
+  const report = growth.report(state([row]), { appReportModel: () => ({}) }, row.id);
   assert.equal(report.executive.primary.value, '0.00% (0 / 250)');
   assert.equal(report.executive.next, 'Review the proposed change: Change the search title');
   assert.equal(report.sections[0].title, 'Next marketing test');

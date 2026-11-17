@@ -760,7 +760,7 @@
   function report(state, pageReports, id = '') {
     const value = review(state),
       rows = id ? [selected(state, id)] : history(state);
-    const base = pageReports.model({ ...state, view: 'results' });
+    const base = pageReports.appReportModel(state);
     if (id && rows[0].kind === 'WEB_SEO_EVIDENCE') return webReport(base, rows[0]);
     const research =
       id &&

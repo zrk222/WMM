@@ -698,7 +698,10 @@ const WMMOwnerReports = (() => {
     node.disabled = true;
     try {
       if (name === 'owner-report-pdf')
-        return WMMPageReports.openReport(model(t.data, WMMPageReports.model(state)), window);
+        return WMMPageReports.openReport(
+          model(t.data, WMMPageReports.appReportModel(state)),
+          window,
+        );
       if (name === 'owner-report-activate')
         await api(url(t, 'activate'), { plan_id: t.data.id, summary_hash: t.data.summary_hash });
       else if (name === 'owner-report-off')

@@ -1910,6 +1910,7 @@ const WMMAgreement = (() => {
       ...base,
       title: 'Combined automation agreement',
       purpose: 'Review selected independent scope identities, states and resource allowances.',
+      next_step: guidance(s).next,
       metrics: [
         {
           label: 'Selected scope families',
@@ -1949,7 +1950,10 @@ const WMMAgreement = (() => {
   }
   function report() {
     if (!active?.data || !valid(active)) throw new Error('Reload the current agreement first.');
-    return WMMPageReports.openReport(reportModel(active.data, WMMPageReports.model(state)), window);
+    return WMMPageReports.openReport(
+      reportModel(active.data, WMMPageReports.appReportModel(state)),
+      window,
+    );
   }
   return { open, submit, selection, guidance, markup, reportModel, report };
 })();

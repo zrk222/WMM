@@ -105,6 +105,7 @@ tests/feature_library_types.test.mjs
 tests/goal_journey.test.cjs
 tests/goal_readiness_ui.test.cjs
 tests/managed_media.test.cjs
+tests/measured_post.test.cjs
 tests/measurement_results_ui.test.cjs
 tests/mmp_import_model.test.mjs
 tests/openseo_evidence_ui.test.cjs

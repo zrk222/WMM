@@ -14,6 +14,39 @@ new Function(
 )(loaded);
 const reports = loaded.exports;
 const timestamp = '2026-10-23T12:00:00Z';
+test('an individual customer PDF cannot inherit experiment evidence from Results or Weekly', () => {
+  const module = { exports: {} };
+  new Function(
+    'module',
+    fs.readFileSync(path.join(__dirname, '../mission_control/static/customer-workflow.js'), 'utf8'),
+  )(module);
+  const state = { ...fixture(), view: 'results' };
+  state.workspace.subscription_growth = {
+    app_id: state.app,
+    context: { manifest_version: state.workspace.app.version },
+    customer_workflows: { app_id: state.app, history: [], source_hash: 'customer-sources-only' },
+    observed_at: timestamp,
+  };
+  state.workspace.experiments = [
+    { data: { name: 'UNRELATED_ASSESSMENT' }, assessments: [{ hash: 'other-experiment' }] },
+  ];
+  const render = (report) => reports.reportHTML(report, 'http://127.0.0.1:1');
+  assert.match(render(reports.model(state, timestamp)), /UNRELATED_ASSESSMENT/);
+  for (const view of ['results', 'weekly']) {
+    const report = module.exports.report({ ...state, view }, reports);
+    assert.equal(report.scope, 'SELECTED_APP');
+    assert.equal(report.app_id, state.app);
+    assert.equal(report.executive, null);
+    assert.deepEqual(report.sections, []);
+    assert.match(render(report), /customer-sources-only/);
+    assert.doesNotMatch(
+      render(report),
+      /UNRELATED_ASSESSMENT|other-experiment|PORTFOLIO_DISPLAYED_PAGE/,
+    );
+  }
+  assert.throws(() => reports.appReportModel({ ...state, app: 'another-app' }), /selected app/);
+});
+
 test('report status colors distinguish active, attention, verified, failed and neutral states', () => {
   const statuses = [
     ['RUNNING', 'info'],
