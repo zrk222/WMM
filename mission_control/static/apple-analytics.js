@@ -235,7 +235,7 @@
       show(
         d,
         'Apple analytics',
-        '<p>Sign in with the app owner account to inspect and manage Apple analytics.</p><button type="button" class="button outline" data-action="identity-login">Sign in</button>',
+        '<p>Sign in with the app owner account. WMM will return here so you can choose whether to read Apple reports.</p><button type="button" class="button outline" data-action="identity-login" data-id="apple-analytics">Sign in</button>',
       );
       return;
     }

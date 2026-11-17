@@ -18,8 +18,10 @@ sys.path.insert(0, str(ROOT))
 from mission_control.apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY  # noqa: E402
 from mission_control.apple_metrics_schedule import AppleMetricsSchedules  # noqa: E402
 from mission_control.common import digest, now  # noqa: E402
+from mission_control.device_signin import DeviceSignIns  # noqa: E402
 from mission_control.worker import run_once  # noqa: E402
 from tests.test_apple_metrics_http_route import AppleMetricsRouteTests  # noqa: E402
+from tests.test_device_signin import CLIENT, CODE, TOKEN  # noqa: E402
 
 OUT = ROOT / ".factory/apple-analytics-ui/browser"
 
@@ -47,6 +49,10 @@ def campaign_downloads(root: Any) -> None:
 def journey(browser: Any, width: int, height: int) -> dict[str, Any]:
     fixture = AppleMetricsRouteTests("test_owner_can_queue_observe_and_pause_without_provider_calls")
     fixture.setUp()
+    use_device = width == 1440
+    clock = [0.0]
+    if use_device:
+        fixture.server.device_signins = DeviceSignIns(fixture.server.identities, CLIENT, clock=lambda: clock[0])
     origin = "http://127.0.0.1:" + str(fixture.server.server_port)
     context = browser.new_context(viewport={"width": width, "height": height})
     # The complete application runs; external requests are forbidden.
@@ -56,6 +62,10 @@ def journey(browser: Any, width: int, height: int) -> dict[str, Any]:
     page = context.new_page()
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))
+    apple_requests: list[str] = []
+    page.on(
+        "request", lambda request: apple_requests.append(request.url) if "/apple-analytics/" in request.url else None
+    )
     try:
         page.goto(origin)
         page.locator("#main h1").wait_for()
@@ -65,18 +75,27 @@ def journey(browser: Any, width: int, height: int) -> dict[str, Any]:
         page.locator('[data-action="apple-analytics-open"]').click()
         dialog = page.locator("#modal")
         expect(dialog).to_contain_text("Sign in with the app owner account")
+        expect(dialog).to_contain_text("WMM will return here")
+        (OUT / f"sign-in-{width}.html").write_text(page.content(), encoding="utf-8")
         dialog.get_by_role("button", name="Sign in", exact=True).click()
-        page.locator("#identity-token").fill("synthetic_owner_identity_token")
-        dialog.get_by_role("button", name="Verify my identity", exact=True).click()
-        expect(dialog).not_to_be_visible()
-        page.wait_for_function(
-            "(state) => state.workspace?.identity?.status === 'AUTHENTICATED'",
-            arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"),
-        )
-        page.locator('[data-action="apple-analytics-open"]').click()
+        if use_device:
+            identity = dict(principal="owner", login="owner", provider="GITHUB", verified_at=now())
+            with (
+                patch("mission_control.device_signin.request", side_effect=[CODE, TOKEN]),
+                patch("mission_control.device_signin.github_read", return_value=identity),
+            ):
+                dialog.get_by_role("button", name="Start GitHub sign-in", exact=True).click()
+                expect(dialog).to_contain_text(CODE["user_code"])
+                clock[0] = float(CODE["interval"])
+                dialog.get_by_role("button", name="Check GitHub sign-in", exact=True).click()
+                dialog.get_by_role("button", name="Confirm this account", exact=True).click()
+        else:
+            page.locator("#identity-token").fill("synthetic_owner_identity_token")
+            dialog.get_by_role("button", name="Verify my identity", exact=True).click()
         root = page.locator("#apple-analytics-root")
         expect(root).to_contain_text("No saved refresh schedule")
         expect(root).to_contain_text("No current report inventory")
+        assert apple_requests == [f"{origin}/api/apps/sample-one/apple-analytics/view"]
         form = root.locator("#apple-analytics-form")
         choose_purpose = form.get_by_label("What should WMM check?", exact=True)
         expect(choose_purpose).to_have_value("@inventory")
@@ -199,6 +218,8 @@ def journey(browser: Any, width: int, height: int) -> dict[str, Any]:
             status="PASS",
             keyboard="VERIFIED",
             inventory="SYNTHETIC_HTTP_VERIFIED",
+            owner_sign_in="RESUMED_SAME_APP_SAVED_VIEW_WITHOUT_PROVIDER_READ",
+            owner_sign_in_method="DEVICE" if use_device else "MANUAL",
             schedule_save_pause="VERIFIED",
             availability_watch="OWNER_OPT_IN_THEN_SCHEDULED_INVENTORY",
             impressions="OWNER_QUEUE_AND_UNKNOWN_IF_NO_DAILY_REPORT",
