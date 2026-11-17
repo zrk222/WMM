@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from sqlite3 import Connection
 from typing import TYPE_CHECKING
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 from .aeo_transport import public_url
 from .common import Invalid, canonical, digest, now
@@ -101,15 +101,38 @@ def _validated_rows(payload: dict, config: dict, dimensions: list[str], start: s
     return rows
 
 
-def _app_pages(observations: list[dict], website: str) -> list[dict]:
-    """A broader Google property can include pages outside this app's path."""
+def _selected_rows(rows: list, config: dict) -> tuple[list[dict], dict[str, int]]:
+    """Omit unsupported full URLs without retaining parameters or merging pages."""
+    selected: list[dict] = []
+    omitted = {"outside_app": 0, "parameter_or_fragment": 0}
+    for row in rows:
+        page = _row_page(row, config)
+        if not _inside_app(page, config["website"]):
+            omitted["outside_app"] += 1
+        elif "?" in row["keys"][0] or "#" in row["keys"][0]:
+            omitted["parameter_or_fragment"] += 1
+        else:
+            selected.append(row)
+    return selected, omitted
+
+
+def _row_page(row: object, config: dict) -> str:
+    size = 2 if config["report_mode"] == "queries" else 1
+    if not isinstance(row, dict) or not isinstance(row.get("keys"), list) or len(row["keys"]) != size:
+        raise Invalid("OpenSEO page report returned an unsupported row")
+    raw = row["keys"][0]
+    if not isinstance(raw, str) or len(raw) > 2400 or re.search(r"[\x00-\x20\x7f\\]", raw):
+        raise Invalid("OpenSEO page URL is malformed")
+    parts = urlsplit(raw)
+    # This validates authority/path only. The reconstructed URL is never saved.
+    return public_url(urlunsplit((parts.scheme, parts.netloc, parts.path, "", "")))
+
+
+def _inside_app(page: str, website: str) -> bool:
     app = urlsplit(website)
+    target = urlsplit(page)
     prefix = app.path.rstrip("/")
-    return [
-        row
-        for row in observations
-        if urlsplit(row["page_url"]).path == prefix or urlsplit(row["page_url"]).path.startswith(prefix + "/")
-    ]
+    return target.netloc == app.netloc and (target.path == prefix or target.path.startswith(prefix + "/"))
 
 
 def read(config: dict, token: str) -> dict:
@@ -135,9 +158,9 @@ def read(config: dict, token: str) -> dict:
         ),
     )
     rows = _validated_rows(payload, config, dimensions, start.isoformat(), end.isoformat())
+    rows, omitted = _selected_rows(rows, config)
     stamp = now()
     observations = [_row(row, config, start.isoformat(), end.isoformat(), stamp) for row in rows]
-    observations = _app_pages(observations, config["website"])
     evidence = dict(
         release=config["release"],
         locale=config["locale"],
@@ -148,7 +171,9 @@ def read(config: dict, token: str) -> dict:
     )
     if observations:
         validate_web_evidence(evidence, {"locale": config["locale"]}, stamp)
-    coverage = "PARTIAL" if payload["hasMore"] else "COMPLETE" if observations else "NO_RESULTS"
+    coverage = (
+        "PARTIAL" if payload["hasMore"] or any(omitted.values()) else "COMPLETE" if observations else "NO_RESULTS"
+    )
     if coverage == "PARTIAL":
         for row in observations:
             row["coverage"] = "PARTIAL"
@@ -158,6 +183,7 @@ def read(config: dict, token: str) -> dict:
         observed_at=stamp,
         scope="APP_WEBSITE_GOOGLE_SEARCH",
         coverage=coverage,
+        omitted_rows=omitted,
         rows=[
             dict(
                 id=row["page_url"],
@@ -169,7 +195,8 @@ def read(config: dict, token: str) -> dict:
         ],
         web_evidence=evidence if observations else None,
         provider_response_sha256=digest(payload),
-        interpretation="Native OpenSEO response from the configured project and market. Google observations only, not App Store rank or native installs. A property-level top-20 slice may omit this app's pages; no rows does not mean zero traffic.",
+        interpretation="Native OpenSEO response from the configured project and market. Google observations only, not App Store rank or native installs. A property-level top-20 slice may omit this app's pages; no rows does not mean zero traffic. "
+        + f"Omitted {omitted['outside_app']} rows outside this app and {omitted['parameter_or_fragment']} app-page rows with URL parameters or fragments. Such URLs are not retained or merged; review a clean-page provider export to investigate omitted evidence.",
     )
 
 

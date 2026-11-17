@@ -29,6 +29,9 @@ and `web.research.save` under owner-issued grants. Both are documented in
 `wmm_catalog.domain_contracts.web_search_evidence`.
 
 This reader retains at most 20 page rows and labels truncation as PARTIAL.
+It also reports omitted out-of-app pages and pages with URL parameters or
+fragments. Those URLs are not retained or combined; any omission keeps the
+reading PARTIAL, including a reading with no usable rows.
 No matching page rows is NO_RESULTS, never a zero-traffic assertion. The native
 reader buys no SEO credits and cannot publish, submit indexing, modify projects
 or start paid research. Broader keyword, backlink, rank and AI research follows

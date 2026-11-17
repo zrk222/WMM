@@ -51,6 +51,55 @@ def provider_reply(token: str, tool: str, args: dict) -> dict:
 
 
 class OpenSEOReadTests(unittest.TestCase):
+    def _read_pages(self, pages: list[str], website: str = "https://sample.example") -> dict:
+        def reply(token: str, tool: str, args: dict) -> dict:
+            result = provider_reply(token, tool, args)
+            result["rows"] = [dict(result["rows"][0], keys=[page]) for page in pages]
+            result["rowCount"] = len(pages)
+            return result
+
+        with patch("mission_control.openseo_transport.call_tool", side_effect=reply):
+            return read(dict(setup(), website=website), setup()["api_key"])
+
+    def test_parameter_and_fragment_pages_are_omitted_without_merging(self) -> None:
+        result = self._read_pages(
+            [
+                "https://sample.example/guide",
+                "https://sample.example/guide?topic=sunset",
+                "https://sample.example/guide#contact-private",
+            ]
+        )
+        self.assertEqual(result["coverage"], "PARTIAL")
+        self.assertEqual(result["omitted_rows"], {"outside_app": 0, "parameter_or_fragment": 2})
+        self.assertEqual(len(result["rows"]), 1)
+        self.assertEqual(result["rows"][0]["values"]["impressions"], 100)
+        self.assertEqual(result["web_evidence"]["observations"][0]["coverage"], "PARTIAL")
+        self.assertNotIn("topic=sunset", json.dumps(result))
+        self.assertNotIn("contact-private", json.dumps(result))
+
+    def test_only_parameter_pages_are_partial_not_no_results(self) -> None:
+        result = self._read_pages(["https://sample.example/guide?topic=sunset"])
+        self.assertEqual(result["coverage"], "PARTIAL")
+        self.assertEqual(result["rows"], [])
+        self.assertIsNone(result["web_evidence"])
+        self.assertIn("1 app-page rows", result["interpretation"])
+
+    def test_outside_app_parameter_pages_are_filtered_before_conversion(self) -> None:
+        result = self._read_pages(
+            [
+                "https://sample.example/app/guide",
+                "https://sample.example/other?private=hidden",
+            ],
+            "https://sample.example/app",
+        )
+        self.assertEqual(result["coverage"], "PARTIAL")
+        self.assertEqual(result["omitted_rows"], {"outside_app": 1, "parameter_or_fragment": 0})
+        self.assertEqual(len(result["rows"]), 1)
+        self.assertNotIn("private=hidden", json.dumps(result))
+        for page in ("https://user:secret@sample.example/other?topic=x", "https://127.0.0.1/other?topic=x"):
+            with self.subTest(page=page), self.assertRaises(Invalid):
+                self._read_pages([page])
+
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
