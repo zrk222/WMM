@@ -265,21 +265,83 @@
 .analytics-status[data-tone='attention'] { --status-bg: #f9ebce; --status-ink: #654609; }
 .analytics-status[data-tone='alert'] { --status-bg: #fbe5e2; --status-ink: #83291f; }
 
-/* Rest, press and selection are separate states; disabled controls stay flat. */
-:where(.button, .icon-button, .sidebar-add):not(:disabled):not([aria-disabled='true']) {
-  box-shadow: inset 0 1px 0 #ffffff24, 0 2px 0 #183d3433;
+/* Action colors describe intent; status pills and content surfaces stay independent. */
+:root {
+  --action-top: #28685f;
+  --action-bottom: #1d524b;
+  --action-edge: #123b35;
+  --action-focus: #245a9b;
 }
-:where(.button, .icon-button, .sidebar-add):not(:disabled):active {
-  transform: translateY(1px);
-  box-shadow: inset 0 2px 4px #17373130;
+.button {
+  background: linear-gradient(180deg, var(--action-top), var(--action-bottom));
+  box-shadow: inset 0 1px 0 #ffffff38, 0 3px 0 var(--action-edge), 0 4px 7px #142c3514;
 }
-:where(.button, .icon-button, .nav-item)[aria-pressed='true'],
-.nav-item.active { box-shadow: inset 0 2px 4px #17373126; }
-:where(.button, .icon-button):disabled,
-:where(.button, .icon-button)[aria-disabled='true'] { box-shadow: none; transform: none; }
-:where(.button, .icon-button, .nav-item) :where(svg, .action-icon) {
-  filter: drop-shadow(0 1px 1px #142d3524);
+.button.light { --action-top: #dfefa9; --action-bottom: #cbe584; --action-edge: #9cb858; }
+.button.outline, .button.secondary {
+  --action-top: #f5f8ff; --action-bottom: #e6eefb; --action-edge: #bccce4;
+  color: #274f86;
+  border: 1px solid #a9bedb;
+}
+.button.danger {
+  --action-top: #fff7f4; --action-bottom: #fbe4df; --action-edge: #d7aaa1;
+  color: #8e302d;
+  border: 1px solid #d9aba3;
+}
+.button.warning, .button.caution {
+  --action-top: #fff7e8; --action-bottom: #f5e3bd; --action-edge: #cfb073;
+  color: #68470f;
+  border: 1px solid #cfb073;
+}
+:is(.button.light, .button.outline, .button.secondary, .button.danger, .button.warning, .button.caution) {
+  background: linear-gradient(180deg, var(--action-top), var(--action-bottom));
+}
+:is(.icon-button, .sidebar-add) {
+  box-shadow: inset 0 1px 0 #ffffff36, 0 2px 0 #183d343b;
+}
+.icon-button { background: linear-gradient(180deg, #fff, #e8eff8); color: #274f86; border-color: #b5c5da; }
+.sidebar-add { background: linear-gradient(180deg, #294a54, #203d46); }
+.button.subtle, .text-button {
+  background: transparent;
+  box-shadow: none;
+  color: #274f86;
+}
+@media (hover: hover) {
+  :is(.button, .icon-button, .sidebar-add):not(:disabled):not([aria-disabled='true']):hover {
+    background-image: linear-gradient(#ffffff0d, #ffffff0d), linear-gradient(180deg, var(--action-top), var(--action-bottom));
+    transform: translateY(-1px);
+  }
+  :is(.button.subtle, .text-button):not(:disabled):hover { background: #eaf0f8; }
+  .icon-button:not(:disabled):hover { background: #e4ecf8; }
+  .sidebar-add:not(:disabled):hover { background: #294a54; }
+}
+/* These states deliberately outrank hover: a held action presses into its edge. */
+:is(.button, .icon-button, .sidebar-add, .nav-item, .text-button):not(:disabled):not([aria-disabled='true']):active {
+  transform: translateY(2px);
+  box-shadow: inset 0 2px 4px #142c3533, 0 1px 0 #183d3424;
+}
+:is(.button, .icon-button, .nav-item)[aria-pressed='true'], .nav-item.active {
+  box-shadow: inset 0 2px 4px #17373126;
+}
+:is(button, .button):focus-visible {
+  outline: 3px solid var(--action-focus);
+  outline-offset: 3px;
+}
+.sidebar :is(button, .button):focus-visible { outline-color: #d9eea2; }
+:is(button, .button):is(:disabled, [aria-disabled='true']) {
+  opacity: .6;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+  filter: grayscale(.65);
+}
+:is(.button, .icon-button, .nav-item, .sidebar-add) :where(svg, .action-icon, [aria-hidden='true']) {
+  color: inherit;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 0 #ffffff26);
 }
 @media (prefers-reduced-motion: reduce) {
-  :is(.button, .icon-button, .sidebar-add):is(:hover, :active) { transform: none; transition: none; }
+  :is(.button, .icon-button, .sidebar-add, .nav-item, .text-button):is(:hover, :active) { transform: none !important; transition: none !important; }
+}
+@media (forced-colors: active) {
+  :is(.button, .icon-button, .sidebar-add) { border: 1px solid ButtonText; box-shadow: none; }
 }
