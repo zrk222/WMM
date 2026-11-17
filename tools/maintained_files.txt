@@ -148,6 +148,7 @@ mission_control/weekly_store_growth.py
 mission_control/worker.py
 tests/campaign_paid_schedule_browser.py
 tests/dashboard_fixture.py
+tests/test_action_buttons_browser.py
 tests/test_ads_reports.py
 tests/test_agent_context_tasks.py
 tests/test_agent_control_ui.py

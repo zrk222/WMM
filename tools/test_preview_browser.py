@@ -34,11 +34,29 @@ def exercise(browser, origin, width):
         expect(page.get_by_role("heading", name="Your next campaign, made clear.")).to_be_visible()
         example = page.locator("#completed-example")
         expect(example).to_be_visible()
-        expect(example).to_contain_text("15-second creative draft")
-        expect(example).to_contain_text("0 percentage points")
         expect(example).to_contain_text("Synthetic example, not a completed live campaign")
+        script = page.locator("#example-script")
+        expect(script).not_to_have_attribute("open", "")
+        for control in example.locator(".first-actions > *").all():
+            bounds = control.bounding_box()
+            assert bounds and bounds["y"] + bounds["height"] <= 844, "First-fold action missing"
+        packet_button = example.get_by_role("button", name="Download example packet")
+        packet_button.focus()
+        expect(packet_button).to_be_focused()
+        assert packet_button.evaluate("el => getComputedStyle(el).outlineStyle") != "none"
+        page.emulate_media(reduced_motion="reduce")
+        packet_button.hover()
+        assert packet_button.evaluate("el => getComputedStyle(el).transform") == "none"
+        assert packet_button.evaluate("el => getComputedStyle(el).transitionDuration") == "0s"
+        page.emulate_media(reduced_motion="no-preference")
+        script.locator("summary").click()
+        expect(script.get_by_role("heading", name="15-second creative draft")).to_be_visible()
+        script.locator("summary").click()
+        expect(script).not_to_have_attribute("open", "")
+        page.screenshot(path=str(OUT / f"first-fold-{width}.png"))
         expect(page.locator("#consent")).not_to_be_checked()
         expect(page.locator("#next")).to_be_disabled()
+        assert page.locator("#stop").evaluate("el => getComputedStyle(el).boxShadow") == "none"
         expect(page.locator("#receipts li")).to_have_count(0)
         video_link = example.get_by_role("link", name="Download walkthrough video (MP4)")
         expect(video_link).to_have_attribute("href", "media/video-production.mp4")
@@ -49,13 +67,24 @@ def exercise(browser, origin, width):
         with page.expect_download() as downloaded:
             example.get_by_role("button", name="Download example packet").click()
         packet = Path(downloaded.value.path()).read_text(encoding="utf-8")
-        for text in ("Know when to turn back", "0–3s:", "20/100", "NOT_SENT_SAMPLE", "EXTERNAL EFFECTS: 0"):
+        for text in (
+            "Know when to turn back",
+            "0–3s:",
+            "20/100",
+            "NOT_SENT_SAMPLE",
+            "EXTERNAL EFFECTS: 0",
+            "SOURCE:",
+            "DECISION:",
+            "UNKNOWN:",
+        ):
             assert text in packet, text
         expect(page.locator("#consent")).not_to_be_checked()
         expect(page.locator("#receipts li")).to_have_count(0)
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "Example overflow"
         page.screenshot(path=str(OUT / f"first-value-{width}.png"), full_page=True)
         context.set_offline(False)
+        expect(page.locator("#example-script")).not_to_have_attribute("open", "")
+        page.locator("#production-steps > summary").click()
         process = page.locator("#video-process")
         expect(process).to_be_visible()
         expect(process.locator(".video-steps li")).to_have_count(6)
@@ -80,6 +109,9 @@ def exercise(browser, origin, width):
         details.locator("summary").click()
         expect(details).not_to_have_attribute("open", "")
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "Process overflow"
+        page.locator("#try-walkthrough").click()
+        expect(page.locator("#walkthrough")).to_have_attribute("open", "")
+        expect(page.locator("#walkthrough > summary")).to_be_focused()
         channels = {
             "facebook": "Facebook Page",
             "instagram": "Instagram Reels",
