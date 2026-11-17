@@ -35,6 +35,14 @@ class ObservationalCampaignBrowserTests(unittest.TestCase):
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(self.fixture.fixture.origin)
         expect(page.locator("#app-select")).to_have_value("sample-one")
+
+        def open_guided_path() -> None:
+            first_experiment = page.get_by_role("region", name="Start your first experiment", exact=True)
+            guided_path = first_experiment.get_by_role("button", name="Start the guided path", exact=True)
+            if not guided_path.is_visible():
+                first_experiment.get_by_text("More options", exact=True).click()
+            guided_path.click()
+
         page.locator("#navigation > [data-view=activity]").click()
         page.get_by_role("button", name="Sign in for verified review", exact=True).click()
         page.get_by_label("GitHub identity token", exact=True).fill(OWNER_TOKEN)
@@ -124,7 +132,7 @@ class ObservationalCampaignBrowserTests(unittest.TestCase):
                 route.fulfill(response=route.fetch(post_data={"offset": 0}))
 
         page.route("**/observational-campaign/history", older_study)
-        page.locator('[data-action="first-post-open"]').click()
+        open_guided_path()
         expect(page.get_by_text("No current study registrations on this page.")).to_be_visible()
         page.get_by_role("button", name="Older activity").click()
         study = page.get_by_label("Registered study")
@@ -148,7 +156,7 @@ class ObservationalCampaignBrowserTests(unittest.TestCase):
         assert not errors, errors
         page.keyboard.press("Escape")
         page.unroute("**/observational-campaign/history", older_study)
-        page.locator('[data-action="first-post-open"]').click()
+        open_guided_path()
         page.get_by_label("Registered study").select_option(label=selected)
         page.get_by_role("button", name="Review this study in Results").click()
         heading = page.get_by_role("heading", name="What should you do next?")
