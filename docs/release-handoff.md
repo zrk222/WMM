@@ -37,8 +37,8 @@ unsigned Windows option controlled by the explicit `unsigned_windows_preview11`
 input (off by default), limited to `v0.1.0-preview.11`,
 `v0.1.0-preview.11.1`, `v0.1.0-preview.11.1.1` (Update 1),
 `v0.1.0-preview.11.1.2` (Update 2), `v0.1.0-preview.11.1.3` (Update 3),
-`v0.1.0-preview.11.1.4` (Update 4), `v0.1.0-preview.11.1.5` (Update 5) and
-`v0.1.0-preview.11.1.6` (Update 6), and `v0.1.0-preview.11.2`.
+`v0.1.0-preview.11.1.4` (Update 4), `v0.1.0-preview.11.1.5` (Update 5),
+`v0.1.0-preview.11.1.6` (Update 6), `v0.1.0-preview.11.2`, and `v0.1.0-preview.11.2.1`.
 Each update has its own checksums and
 attestations. The earlier published tags and assets stay intact.
 Preview 12 and later require signing. Build-only runs stay unsigned.
