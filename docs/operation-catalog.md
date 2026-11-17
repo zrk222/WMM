@@ -118,4 +118,6 @@ Each row mirrors a closed descriptor in `mission_control/operation_catalog.py`.
 | `studio.read` | `POST` | `/studio/{resource_id}/read` | `READ_PRIVATE_LOCAL_DATA` | - | - | - |
 | `studio.sessions` | `POST` | `/studio/sessions` | `READ_PRIVATE_LOCAL_DATA` | - | - | - |
 | `studio.start` | `POST` | `/studio/start` | `START_OWNED_LOCAL_NATIVE_SESSION` | `source_job_id`, `manifest_version`, `summary_hash`, `request_key` | - | - |
+| `web.research.read` | `POST` | `/insights/{resource_id}/web-read` | `READ_OWNED_PROVIDER_STATUS` | `confirm_read` | - | - |
+| `web.research.save` | `POST` | `/insights/{resource_id}/save-web-evidence` | `WRITE_LOCAL_EVIDENCE` | `id`, `manifest_version`, `report_id` | - | - |
 | `workspace.read` | `GET` | `/` | `READ_PRIVATE_LOCAL_DATA` | - | - | - |
