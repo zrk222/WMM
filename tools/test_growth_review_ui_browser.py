@@ -2,6 +2,7 @@
 
 # ruff: noqa: E402  - direct script invocation adds the repository root first.
 import json
+import re
 import sys
 import tempfile
 import threading
@@ -119,7 +120,7 @@ def close_inline_report(page: Page, report: Locator, trigger: Locator) -> None:
     expect(trigger).to_be_focused()
 
 
-def export_pdf(page: Page, path: Path, title: str, *, inline: bool = False) -> int:
+def export_pdf(page: Page, path: Path, title: str, source_hash: str, *, inline: bool = False) -> int:
     trigger = page.locator('#modal [data-action="growth-report"]')
     trigger.focus()
     if inline:
@@ -146,6 +147,7 @@ def export_pdf(page: Page, path: Path, title: str, *, inline: bool = False) -> i
             else surface.content().replace("</head>", "<style>" + css + "</style></head>")
         )
         path.with_suffix(".html").write_text(snapshot, encoding="utf-8")
+        surface.evaluate("async () => { await document.fonts.ready; }")
         surface.pdf(path=str(path), format="A4", print_background=True)
     finally:
         if inline:
@@ -157,7 +159,13 @@ def export_pdf(page: Page, path: Path, title: str, *, inline: bool = False) -> i
         assert "Café" in text and "東京" in text
         assert "DESCRIPTION_END_MARKER" in text
         assert "PRIVATE_SENTINEL" not in text
-        assert "limit 30" in text and "Source hash" in text
+        # PDF extraction emits different line breaks with different system fonts.
+        words = " ".join(text.split())
+        compact = re.sub(r"\s+", "", text)
+        assert "limit 30" in words, "The printed listing must retain the storefront limit."
+        assert "Source hash" in words and source_hash in compact, (
+            "The printout must retain the exact saved source hash."
+        )
         assert len(document) >= 2
         pages = len(document)
     return pages
@@ -205,11 +213,11 @@ def exercise(page: Page, origin: str, store: Store, width: int, out: Path) -> JS
     # This listing has no sections: it attempts a popup, then falls back when blocked.
     page.evaluate("window.wmmTestOpen=window.open; window.open=()=>null")
     try:
-        inline_pages = export_pdf(page, out / f"listing-inline-{width}.pdf", title, inline=True)
+        inline_pages = export_pdf(page, out / f"listing-inline-{width}.pdf", title, listing["hash"], inline=True)
         expect(page.locator("#modal")).to_be_visible()
     finally:
         page.evaluate("window.open=window.wmmTestOpen; delete window.wmmTestOpen")
-    pdf_pages = export_pdf(page, out / f"listing-{width}.pdf", title)
+    pdf_pages = export_pdf(page, out / f"listing-{width}.pdf", title, listing["hash"])
     page.locator('#modal [data-action="growth-note"]').click()
     page.locator("#growth-decision").select_option("REVISE")
     page.locator("#growth-rationale").fill("Keep the source and test a shorter title. Local reasoning only.")

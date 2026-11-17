@@ -162,7 +162,11 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: goal-first-browser-evidence
-          path: .factory/goal-first-automation/
+          path: |
+            .factory/goal-first-automation/
+            .factory/growth-review-ui/browser.json
+            .factory/growth-review-ui/listing*.pdf
+            .factory/growth-review-ui/failure-*.html
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 3
