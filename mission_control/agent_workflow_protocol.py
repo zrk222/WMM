@@ -1,6 +1,9 @@
 """Agent-neutral deterministic operation guidance derived from the live catalog."""
 
+from collections.abc import Collection, Mapping
 from copy import deepcopy
+from typing import cast
+
 from .common import digest
 
 WORKFLOWS = {
@@ -62,7 +65,7 @@ WORKFLOWS = {
 }
 
 
-def workflow_steps(available):
+def workflow_steps(available: Collection[str]) -> dict[str, dict[str, list[str] | bool]]:
     """Missing capabilities remain visible; a sequence is guidance, not an executable plan."""
     return {
         name: dict(
@@ -74,9 +77,9 @@ def workflow_steps(available):
     }
 
 
-def build(catalog):
+def build(catalog: Mapping[str, object]) -> dict[str, object]:
     """Cover every current operation without repeating host-specific claims or issuing grants."""
-    operations = deepcopy(catalog["operations"])
+    operations = deepcopy(cast(dict[str, object], catalog["operations"]))
     value = dict(
         schema="growth.agent-workflow-protocol.v1",
         catalog_sha256=digest(catalog),
@@ -93,23 +96,23 @@ def build(catalog):
             "report": "Report attributable landing and linked registration counts, coverage and source receipts. Lift requires a separate valid comparison.",
         },
         continuous_improvement={
-            "objective": "Prioritize measurable acquisition, activation, retention or revenue improvements for the owner.",
-            "start": "Preregister one primary KPI, baseline or control, sample threshold, measurement window and guardrails.",
+            "objective": "Choose one evidenced funnel problem tied to installs or paid subscriptions; use activation or retention when it explains that outcome.",
+            "start": "Before exposure, verify the exact destination and measurement path. Freeze one change, primary KPI, comparable baseline or control, sample threshold, window, guardrails and decision rule.",
             "evaluation": {
                 "operation": "experiment.evaluate",
                 "result_field": "iteration",
                 "cadence": "Use the owner-approved finite experiment schedule when available.",
-                "source": "Use the exact saved assessment and definition hashes, observed denominators and coverage.",
+                "source": "Use exact assessment and definition hashes. Reconcile conflicting sources by app, time window, metric definition, denominator and attribution; preserve disagreement when sources cannot be compared.",
             },
             "decisions": {
-                "COLLECT": "Close the largest measurement gap before changing creative.",
+                "COLLECT": "Name the missing source or denominator, the next useful read and its due time if known. Keep the result unknown until usable evidence arrives.",
                 "REPAIR": "Fix evidence or assignment integrity before using the result.",
                 "STOP": "Inspect the breached guardrail and use only separately approved protective action.",
                 "CONTINUE": "Preregister an untouched holdout before generalizing the observed pattern.",
                 "REVISE": "Draft one change against the retained control, preserve the other variables, then review and preregister before exposure.",
             },
-            "repeat": "Compare the next mature window with its own baseline, report the observed difference and uncertainty, and repeat within current owner bounds.",
-            "report": "Lead with business KPI change, numerator, denominator, window, evidence and next decision. Report measured efficiency separately.",
+            "repeat": "Retain negative and inconclusive tests. Reuse the prior finding to change one variable; compare the next mature window with its frozen baseline within current authority.",
+            "report": "Lead with the decision and its reason; include the business KPI, observed values, numerator, denominator, window, source receipt and uncertainty. Give one actionable next step and report efficiency separately.",
             "authority": "Drafting, evaluation and a recommendation grant no new publishing, allocation, spending or rollout authority.",
         },
         operation_contracts="Read exact effect, method, resource and input contracts by name from implemented_catalog.operations in the enclosing guide; do not duplicate the catalog in prompts.",
