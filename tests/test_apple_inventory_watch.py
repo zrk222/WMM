@@ -3,6 +3,7 @@
 import time
 import unittest
 from collections.abc import Mapping
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 from mission_control.apple_analytics import CAMPAIGN_DOWNLOADS
@@ -74,6 +75,50 @@ class AppleInventoryWatchTests(unittest.TestCase):
         self.assertEqual(report["Apple scheduled read"], "WAITING_FOR_REPORTS")
         self.assertIsNotNone(report["Apple next due"])
         self.assertIsNone(report["Apple numeric outcome"])
+
+    def test_deferred_first_watch_starts_once_at_the_exact_time_after_restart(self) -> None:
+        current = int(time.time())
+        due = current + 1800
+        stamp = datetime.fromtimestamp(due, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        with patch("mission_control.apple_metrics_schedule.time.time", return_value=current):
+            saved = self.schedules.save(APP, WATCH | {"first_read_at": stamp})
+            assert saved is not None
+            self.assertEqual(saved["next_due"], due)
+            self.assertEqual(self.schedules.tick(), 0)
+        restarted = AppleMetricsSchedules(Store(self.store.path))
+        with patch("mission_control.apple_metrics_schedule.time.time", return_value=due - 1):
+            self.assertEqual(restarted.tick(), 0)
+        self.assertEqual(jobs(self.store, APP), [])
+        with patch("mission_control.apple_metrics_schedule.time.time", return_value=due):
+            self.assertEqual(restarted.tick(), 1)
+            self.assertEqual(restarted.tick(), 0)
+        queued = jobs(self.store, APP)
+        self.assertEqual(len(queued), 1)
+        self.assertEqual(queued[0]["data"]["options"], {"operation": "analytics_reports"})
+        updated = restarted.get(APP)
+        assert updated is not None
+        self.assertEqual(updated["next_due"], due + 86400)
+        self.assertEqual(jobs(self.store, "sample-two"), [])
+
+    def test_bad_first_check_preserves_the_current_watch(self) -> None:
+        saved = self.schedules.save(APP, WATCH)
+        assert saved is not None
+        config = WATCH | {"version": saved["version"]}
+        for bad in (
+            None,
+            "not a time",
+            "2026-11-17T09:47:00",
+            "2026-11-17T09:47:00-05:00",
+            "2026-11-17T14:47:00.000001Z",
+            "2000-01-01T00:00:00Z",
+            "2099-01-01T00:00:00Z",
+        ):
+            with self.subTest(bad=bad), self.assertRaises(Invalid):
+                self.schedules.save(APP, config | {"first_read_at": bad})
+            self.assertEqual(self.schedules.get(APP), saved)
+        with self.assertRaises(Invalid):
+            self.schedules.save(APP, {"enabled": False, "version": saved["version"], "first_read_at": None})
+        self.assertEqual(jobs(self.store, APP), [])
 
     def test_listed_daily_detailed_file_is_actionable_but_not_a_count(self) -> None:
         self.schedules.save(APP, WATCH)
@@ -155,8 +200,11 @@ class AppleInventoryWatchRouteTests(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(Invalid):
                 fixture.dispatch("schedule", invalid)
         self.assertEqual(fixture.count("apple_metrics_schedules"), 0)
-        scheduled = fixture.dispatch("schedule", body)
+        due = (datetime.now(timezone.utc).timestamp() // 60 + 30) * 60
+        stamp = datetime.fromtimestamp(due, timezone.utc).isoformat().replace("+00:00", "Z")
+        scheduled = fixture.dispatch("schedule", body | {"first_read_at": stamp})
         assert isinstance(scheduled, dict)
         self.assertEqual(scheduled["mode"], "inventory")
         self.assertIsNone(scheduled["report_id"])
+        self.assertEqual(scheduled["next_due"], due)
         self.assertIsNone(view(fixture.store, APP)["inventory"])

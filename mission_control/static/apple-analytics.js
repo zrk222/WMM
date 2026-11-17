@@ -82,6 +82,21 @@
   function friendly(value) {
     return value ? String(value).replaceAll('_', ' ') : 'Not recorded';
   }
+  function localDateTime(date) {
+    if (!Number.isFinite(date.getTime())) return '';
+    const stamp = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString();
+    return stamp
+      .slice(0, -1)
+      .replace(/\.0+$/, '')
+      .replace(/(\.\d*?)0+$/, '$1')
+      .replace(/:00$/, '');
+  }
+  function pendingFirstRead(schedule) {
+    const next = Math.round(schedule?.next_due * 1000);
+    return schedule?.enabled && !schedule.last_job && next > Date.now()
+      ? localDateTime(new Date(next))
+      : '';
+  }
   function time(value, epoch = false) {
     if (value === null || value === undefined || value === '') return 'Not recorded';
     const d = new Date(epoch ? Number(value) * 1000 : value);
@@ -179,7 +194,7 @@
       ),
       `<option value="${inventoryOption}" ${s?.mode === 'inventory' ? 'selected' : ''}>Report availability</option>`,
     ].join('');
-    const form = `<form id="apple-analytics-form"><div class="field"><label for="apple-analytics-report">What should WMM check?</label><select id="apple-analytics-report" name="report_id" aria-describedby="apple-refresh-purpose" required>${selects}</select></div><p id="apple-refresh-purpose">Report availability checks whether Apple has files for this app. It does not collect download counts.</p><div class="field"><label for="apple-analytics-interval">Refresh every (hours)</label><input id="apple-analytics-interval" type="number" name="interval_hours" min="24" max="168" step="1" value="${esc(s?.interval_hours || 24)}" required></div><button class="button" type="submit">${s?.enabled ? 'Save refresh settings' : 'Enable refresh'}</button></form>`;
+    const form = `<form id="apple-analytics-form"><div class="field"><label for="apple-analytics-report">What should WMM check?</label><select id="apple-analytics-report" name="report_id" aria-describedby="apple-refresh-purpose" required>${selects}</select></div><p id="apple-refresh-purpose">Report availability checks whether Apple has files for this app. It does not collect download counts.</p><div class="field"><label for="apple-analytics-interval">Refresh every (hours)</label><input id="apple-analytics-interval" type="number" name="interval_hours" min="24" max="168" step="1" value="${esc(s?.interval_hours || 24)}" required></div><div class="field"><label for="apple-analytics-first-read">First check time (optional)</label><input id="apple-analytics-first-read" type="datetime-local" step="any" name="first_read_at" aria-describedby="apple-first-read-help" value="${esc(pendingFirstRead(s))}"><p id="apple-first-read-help">Use your device time zone. Choose a time within seven days, or leave blank to start when WMM is ready.</p></div><button class="button" type="submit">${s?.enabled ? 'Save refresh settings' : 'Enable refresh'}</button></form>`;
     const source = data.connection
       ? data.inventory
         ? 'Saved for this app. The successful inventory below records access at that time, not a guarantee of current access.'
@@ -442,10 +457,23 @@
       );
       return;
     }
+    const chosen = values.get('first_read_at');
+    const firstRead = chosen ? new Date(String(chosen)) : null;
+    const now = Date.now();
+    if (
+      firstRead &&
+      (localDateTime(firstRead) !== chosen ||
+        firstRead.getTime() < now ||
+        firstRead.getTime() > now + 7 * 86400000)
+    ) {
+      fail(t, Error('Choose a first Apple check within the next seven days.'));
+      return;
+    }
     const body = {
       manifest_version: t.scope.version,
       enabled: true,
       interval_hours: hours,
+      ...(firstRead ? { first_read_at: firstRead.toISOString() } : {}),
       ...(reportId === inventoryOption ? { mode: 'inventory' } : { report_id: reportId }),
       version: t.data.schedule?.version ?? null,
     };

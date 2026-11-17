@@ -319,6 +319,45 @@ test('a new source can schedule just report availability with no report ID', asy
   assert.match(f.html, /On · Report availability/);
   assert.match(f.html, /Pause refresh/);
 });
+test('the owner can choose an explicit local start for a report watch', async () => {
+  const f = fixture();
+  f.data.reports = [];
+  f.data.inventory = null;
+  const sent = [];
+  f.d.api = async (path, body) => {
+    if (path.endsWith('/view')) return f.data;
+    sent.push(body);
+    return f.data.schedule;
+  };
+  await apple.open(f.d);
+  assert.match(f.html, /First check time \(optional\)/);
+  assert.match(f.html, /Use your device time zone/);
+  const future = new Date(Date.now() + 3600000);
+  future.setSeconds(0, 0);
+  const local = new Date(future.getTime() - future.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+  await apple.submit(
+    form({ report_id: '@inventory', interval_hours: '24', first_read_at: local }),
+    f.d,
+  );
+  assert.deepEqual(sent, [
+    {
+      manifest_version: 2,
+      enabled: true,
+      interval_hours: 24,
+      first_read_at: future.toISOString(),
+      mode: 'inventory',
+      version: null,
+    },
+  ]);
+  await apple.submit(
+    form({ report_id: '@inventory', interval_hours: '24', first_read_at: '2000-01-01T00:00' }),
+    f.d,
+  );
+  assert.equal(sent.length, 1);
+  assert.match(f.node.fields['#apple-analytics-error'].textContent, /next seven days/);
+});
 test('invalid interval or foreign report cannot write and stale session stops post-response repaint', async () => {
   const f = fixture(),
     pending = defer(),

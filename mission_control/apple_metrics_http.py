@@ -500,6 +500,8 @@ def dispatch(service, app_id, action, body):
         availability = body.get("mode") == INVENTORY_MODE
         if body["enabled"]:
             expected |= {"interval_hours", "mode" if availability else "report_id"}
+            if "first_read_at" in body:
+                expected.add("first_read_at")
         if set(body) != expected:
             raise Invalid("Use the exact Apple analytics schedule fields")
         report_id = identity(body["report_id"]) if body["enabled"] and not availability else None
