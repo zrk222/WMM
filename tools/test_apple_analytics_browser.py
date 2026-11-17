@@ -5,6 +5,7 @@ Identity and provider responses are synthetic; this never accesses a real accoun
 
 import json
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -24,6 +25,20 @@ from tests.test_apple_metrics_http_route import AppleMetricsRouteTests  # noqa: 
 from tests.test_device_signin import CLIENT, CODE, TOKEN  # noqa: E402
 
 OUT = ROOT / ".factory/apple-analytics-ui/browser"
+
+
+def rendered_page(page: Any) -> str:
+    """Capture the running page with its resolved styles for the design audit."""
+    return page.evaluate(r"""() => {
+      const styles=Array.from(document.styleSheets).flatMap(sheet=>{
+        try{return Array.from(sheet.cssRules).map(rule=>rule.cssText)}catch{return []}
+      }).join('\n');
+      const snapshot=document.documentElement.cloneNode(true);
+      snapshot.querySelectorAll('script,link[rel="stylesheet"]').forEach(node=>node.remove());
+      const style=document.createElement('style');style.textContent=styles;
+      snapshot.querySelector('head').append(style);
+      return '<!doctype html>'+snapshot.outerHTML;
+    }""")
 
 
 def campaign_downloads(root: Any) -> None:
@@ -100,9 +115,17 @@ def journey(browser: Any, width: int, height: int) -> dict[str, Any]:
         choose_purpose = form.get_by_label("What should WMM check?", exact=True)
         expect(choose_purpose).to_have_value("@inventory")
         expect(form).to_contain_text("does not collect download counts")
+        stop = (datetime.now() + timedelta(hours=1)).replace(second=0, microsecond=0)
+        form.get_by_label("Stop checking at (optional)", exact=True).fill(stop.isoformat(timespec="minutes"))
         form.get_by_role("button", name="Enable refresh", exact=True).click()
         expect(root).to_contain_text("On · Report availability")
+        expect(root).to_contain_text("Stop time:")
         schedules = AppleMetricsSchedules(fixture.store)
+        schedule = schedules.get("sample-one")
+        assert schedule is not None and schedule["stop_at"] == stop.timestamp()
+        (OUT / f"bounded-watch-{width}.html").write_text(rendered_page(page), encoding="utf-8")
+        form.get_by_label("Stop checking at (optional)", exact=True).scroll_into_view_if_needed()
+        page.screenshot(path=str(OUT / f"bounded-watch-{width}.png"))
         assert schedules.tick() == 1
         result = dict(
             provider="app_store",
@@ -178,16 +201,7 @@ def journey(browser: Any, width: int, height: int) -> dict[str, Any]:
         expect(root).to_contain_text("Last metrics collected: Not recorded")
         assert root.evaluate("(node) => node.scrollWidth <= node.clientWidth + 1")
         page.locator("#modal").screenshot(path=str(OUT / f"analytics-{width}.png"))
-        rendered = page.evaluate(r"""() => {
-          const styles=Array.from(document.styleSheets).flatMap(sheet=>{
-            try{return Array.from(sheet.cssRules).map(rule=>rule.cssText)}catch{return []}
-          }).join('\n');
-          const snapshot=document.documentElement.cloneNode(true);
-          snapshot.querySelectorAll('script,link[rel="stylesheet"]').forEach(node=>node.remove());
-          const style=document.createElement('style');style.textContent=styles;
-          snapshot.querySelector('head').append(style);
-          return '<!doctype html>'+snapshot.outerHTML;
-        }""")
+        rendered = rendered_page(page)
         (OUT / f"analytics-{width}.html").write_text(rendered, encoding="utf-8")
         root.get_by_role("button", name="Pause refresh", exact=True).focus()
         page.keyboard.press("Enter")
@@ -221,6 +235,7 @@ def journey(browser: Any, width: int, height: int) -> dict[str, Any]:
             owner_sign_in="RESUMED_SAME_APP_SAVED_VIEW_WITHOUT_PROVIDER_READ",
             owner_sign_in_method="DEVICE" if use_device else "MANUAL",
             schedule_save_pause="VERIFIED",
+            schedule_stop_time="VERIFIED_LOCAL_TIME_TO_SAVED_DEADLINE",
             availability_watch="OWNER_OPT_IN_THEN_SCHEDULED_INVENTORY",
             impressions="OWNER_QUEUE_AND_UNKNOWN_IF_NO_DAILY_REPORT",
             apple_campaign_downloads="OWNER_READ_AND_UNKNOWN_WITHOUT_MATCHING_ROWS",

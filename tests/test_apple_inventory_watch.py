@@ -6,9 +6,10 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from unittest.mock import patch
 
+from mission_control import migrations
 from mission_control.apple_analytics import CAMPAIGN_DOWNLOADS
 from mission_control.apple_metrics_http import view
-from mission_control.apple_metrics_schedule import AppleMetricsSchedules
+from mission_control.apple_metrics_schedule import AppleMetricsSchedules, check_scheduled_db
 from mission_control.common import Invalid, canonical, digest
 from mission_control.db import connection
 from mission_control.ios_reports import read
@@ -20,6 +21,10 @@ from tests import test_apple_metrics_schedule as worker_fixture
 
 APP, STORE_APP = worker_fixture.APP, worker_fixture.STORE_APP
 WATCH = {"enabled": True, "version": None, "interval_hours": 24, "mode": "inventory"}
+
+
+def utc_stamp(value: float) -> str:
+    return datetime.fromtimestamp(value, tz=timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def waiting_inventory() -> dict[str, object]:
@@ -120,6 +125,93 @@ class AppleInventoryWatchTests(unittest.TestCase):
             self.schedules.save(APP, {"enabled": False, "version": saved["version"], "first_read_at": None})
         self.assertEqual(jobs(self.store, APP), [])
 
+    def test_deadline_persists_and_cancels_a_queued_job_on_restart(self) -> None:
+        current = int(time.time())
+        due, stop = current + 1800, current + 3600
+        clock = "mission_control.apple_metrics_schedule.time.time"
+        with patch(clock, return_value=current):
+            saved = self.schedules.save(APP, WATCH | {"first_read_at": utc_stamp(due), "stop_at": utc_stamp(stop)})
+        assert saved is not None
+        self.assertEqual(saved["stop_at"], stop)
+        with patch(clock, return_value=due):
+            self.assertEqual(self.schedules.tick(), 1)
+        queued = jobs(self.store, APP)[0]
+        restarted = AppleMetricsSchedules(Store(self.store.path))
+        with patch(clock, return_value=stop), connection(self.store.path) as db:
+            with self.assertRaisesRegex(Invalid, "window ended"):
+                check_scheduled_db(db, queued)
+            status = restarted.get(APP)
+            assert status is not None
+            self.assertEqual(status["status"], "EXPIRED")
+            self.assertEqual(restarted.tick(), 0)
+        self.assertEqual(jobs(self.store, APP)[0]["status"], "CANCELLED")
+        self.assertEqual(len(jobs(self.store, APP)), 1)
+        rows = _observed(read(self.store, APP))
+        self.assertEqual(rows["Apple schedule"], "EXPIRED")
+        self.assertIsNone(rows["Apple next due"])
+
+    def test_deadline_rejects_late_claim_before_provider_access(self) -> None:
+        current = int(time.time())
+        stop = current + 2
+        clock = "mission_control.apple_metrics_schedule.time.time"
+        with patch(clock, return_value=current):
+            self.schedules.save(APP, WATCH | {"stop_at": utc_stamp(stop)})
+            self.assertEqual(self.schedules.tick(), 1)
+        with (
+            patch(clock, return_value=stop),
+            patch("mission_control.provider_reports.read_analytics") as provider,
+        ):
+            self.assertTrue(run_once(self.store))
+        provider.assert_not_called()
+        self.assertEqual(jobs(self.store, APP)[0]["status"], "BLOCKED")
+        with patch(clock, return_value=stop):
+            self.assertEqual(self.schedules.tick(), 0)
+
+    def test_invalid_deadline_does_not_replace_an_open_schedule(self) -> None:
+        current = int(time.time())
+        due = current + 600
+        with patch("mission_control.apple_metrics_schedule.time.time", return_value=current):
+            saved = self.schedules.save(APP, WATCH)
+            assert saved is not None
+            self.assertIsNone(saved["stop_at"])
+            config = WATCH | {"version": saved["version"], "first_read_at": utc_stamp(due)}
+            for invalid in (None, "no", utc_stamp(due), utc_stamp(current + 7 * 86400 + 1)):
+                with self.subTest(invalid=invalid), self.assertRaises(Invalid):
+                    self.schedules.save(APP, config | {"stop_at": invalid})
+                self.assertEqual(self.schedules.get(APP), saved)
+
+    def test_inflight_read_does_not_replace_inventory_after_deadline(self) -> None:
+        started = int(time.time())
+        stop = started + 2
+        current = [started]
+
+        def respond(*_args, **_kwargs):
+            current[0] = stop
+            return waiting_inventory()
+
+        with (
+            patch("mission_control.apple_metrics_schedule.time.time", side_effect=lambda: current[0]),
+            patch("mission_control.provider_reports.read_analytics", side_effect=respond) as provider,
+        ):
+            self.schedules.save(APP, WATCH | {"stop_at": utc_stamp(stop)})
+            self.assertEqual(self.schedules.tick(), 1)
+            self.assertTrue(run_once(self.store))
+        provider.assert_called_once()
+        self.assertEqual(jobs(self.store, APP)[0]["status"], "BLOCKED")
+        self.assertIsNone(view(self.store, APP)["inventory"])
+
+    def test_forward_migration_keeps_existing_schedule(self) -> None:
+        saved = self.schedules.save(APP, WATCH)
+        assert saved is not None
+        with connection(self.store.path) as db:
+            # Recreate the previous schema shape around the actual schedule row.
+            db.execute("ALTER TABLE apple_metrics_schedules DROP COLUMN stop_at")
+            db.execute("DELETE FROM schema_migrations WHERE version=4")
+        Store(self.store.path)
+        self.assertEqual(self.schedules.get(APP), saved)
+        with connection(self.store.path) as db:
+            self.assertEqual(migrations.applied(db)[-1]["name"], "apple_watch_deadline")
+
     def test_listed_daily_detailed_file_is_actionable_but_not_a_count(self) -> None:
         self.schedules.save(APP, WATCH)
         self.assertEqual(self.schedules.tick(), 1)
@@ -207,4 +299,10 @@ class AppleInventoryWatchRouteTests(unittest.TestCase):
         self.assertEqual(scheduled["mode"], "inventory")
         self.assertIsNone(scheduled["report_id"])
         self.assertEqual(scheduled["next_due"], due)
+        boundary = utc_stamp(due + 86400)
+        updated = fixture.dispatch(
+            "schedule", body | {"version": scheduled["version"], "first_read_at": stamp, "stop_at": boundary}
+        )
+        assert isinstance(updated, dict)
+        self.assertEqual(updated["stop_at"], due + 86400)
         self.assertIsNone(view(fixture.store, APP)["inventory"])

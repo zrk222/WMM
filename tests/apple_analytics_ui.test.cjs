@@ -358,6 +358,43 @@ test('the owner can choose an explicit local start for a report watch', async ()
   assert.equal(sent.length, 1);
   assert.match(f.node.fields['#apple-analytics-error'].textContent, /next seven days/);
 });
+test('a bounded watch displays its stop time and never advertises a check past it', async () => {
+  const f = fixture();
+  const sent = [];
+  const stop = new Date(Date.now() + 3600000);
+  stop.setSeconds(0, 0);
+  const local = new Date(stop.getTime() - stop.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+  f.d.api = async (path, body) => {
+    if (path.endsWith('/view')) return f.data;
+    sent.push(body);
+    f.data.schedule = {
+      enabled: true,
+      mode: 'inventory',
+      status: 'ENABLED',
+      stop_at: stop.getTime() / 1000,
+      next_due: stop.getTime() / 1000,
+      version: 1,
+    };
+    return f.data.schedule;
+  };
+  await apple.open(f.d);
+  assert.match(f.html, /Stop checking at \(optional\)/);
+  await apple.submit(form({ report_id: '@inventory', interval_hours: '24', stop_at: local }), f.d);
+  assert.equal(sent[0].stop_at, stop.toISOString());
+  assert.match(f.html, /Next due: Not scheduled<br>Stop time:/);
+  assert.match(f.html, new RegExp(`name="stop_at"[^>]*value="${local}"`));
+  await apple.submit(
+    form({ report_id: '@inventory', interval_hours: '24', first_read_at: local, stop_at: local }),
+    f.d,
+  );
+  assert.equal(sent.length, 1);
+  assert.match(f.node.fields['#apple-analytics-error'].textContent, /after the first check/);
+  f.data.schedule = { ...f.data.schedule, status: 'EXPIRED', enabled: false };
+  await apple.open(f.d);
+  assert.match(f.html, /class="status expired">Check window ended<\/span> · Off/);
+});
 test('invalid interval or foreign report cannot write and stale session stops post-response repaint', async () => {
   const f = fixture(),
     pending = defer(),

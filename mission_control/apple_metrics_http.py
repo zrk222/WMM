@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 from .aeo_transport import public_url
 from .apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, DOWNLOADS, REPORTS, identity
 from .apple_campaign_links import campaign_parts
-from .apple_metrics_schedule import INVENTORY_MODE, AppleMetricsSchedules, public_row
+from .apple_metrics_schedule import INVENTORY_MODE, SCHEDULE_TIME_FIELDS, AppleMetricsSchedules, public_row
 from .apple_metrics_store import read_in_snapshot
 from .common import Invalid, digest, identifier, uid
 from .connection_setup import Connections
@@ -500,8 +500,7 @@ def dispatch(service, app_id, action, body):
         availability = body.get("mode") == INVENTORY_MODE
         if body["enabled"]:
             expected |= {"interval_hours", "mode" if availability else "report_id"}
-            if "first_read_at" in body:
-                expected.add("first_read_at")
+            expected |= SCHEDULE_TIME_FIELDS & body.keys()
         if set(body) != expected:
             raise Invalid("Use the exact Apple analytics schedule fields")
         report_id = identity(body["report_id"]) if body["enabled"] and not availability else None

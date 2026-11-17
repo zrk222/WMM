@@ -1,9 +1,9 @@
 """Opt-in local notices stay quiet by default and never repeat across restarts."""
 
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from mission_control.common import Invalid, canonical, digest, now
 from mission_control.db import connection
@@ -48,7 +48,7 @@ class NoticeTests(unittest.TestCase):
                     "FAILED",
                     1,
                     0,
-                    canonical(dict(secret="PRIVATE_RESULT")),
+                    canonical({"secret": "PRIVATE_RESULT"}),
                     stamp,
                     stamp,
                     "job-request",
@@ -80,7 +80,11 @@ class NoticeTests(unittest.TestCase):
                 ("monitor-1", APP, "owner", "{}", digest({}), "BLOCKED", 1, 0, 0, 0, 0, None, stamp, stamp),
             )
             db.execute(
-                "INSERT INTO apple_metrics_schedules VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                """INSERT INTO apple_metrics_schedules
+                   (app_id,id,connection_id,connection_version,connection_hash,app_version,report_id,
+                    interval_hours,enabled,version,next_due,last_due,last_job,reconciled_job,failures,
+                    status,last_success,last_error,updated)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     APP,
                     "connection",
@@ -106,6 +110,7 @@ class NoticeTests(unittest.TestCase):
 
     def test_study_windows_are_surfaced_without_inventing_results(self):
         import json
+
         from mission_control.observational_campaign import _tables
 
         configure(self.store, APP, True)

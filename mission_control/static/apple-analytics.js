@@ -80,6 +80,7 @@
     return active;
   }
   function friendly(value) {
+    if (value === 'EXPIRED') return 'Check window ended';
     return value ? String(value).replaceAll('_', ' ') : 'Not recorded';
   }
   function localDateTime(date) {
@@ -96,6 +97,10 @@
     return schedule?.enabled && !schedule.last_job && next > Date.now()
       ? localDateTime(new Date(next))
       : '';
+  }
+  function pendingStop(schedule) {
+    const stop = Math.round(schedule?.stop_at * 1000);
+    return schedule?.enabled && stop > Date.now() ? localDateTime(new Date(stop)) : '';
   }
   function time(value, epoch = false) {
     if (value === null || value === undefined || value === '') return 'Not recorded';
@@ -178,8 +183,17 @@
         ? button('Collect store impressions', 'impressions') +
           '<p>Read the latest daily Apple discovery file. Activity shows the counts Apple supplied for each report row. Unique counts can overlap across rows.</p>'
         : '';
+    const nextCheck =
+      s?.enabled && (!s.stop_at || s.next_due < s.stop_at)
+        ? time(s.next_due, true)
+        : 'Not scheduled';
+    const deadline = s?.stop_at ? `<br>Stop time: ${esc(time(s.stop_at, true))}` : '';
+    const refreshState =
+      s?.status === 'EXPIRED'
+        ? '<span class="status expired">Check window ended</span>'
+        : esc(friendly(s?.status));
     const state = s
-      ? `<p><strong>Refresh:</strong> ${esc(friendly(s.status))} · ${s.enabled ? 'On' : 'Off'}${s.mode === 'inventory' ? ' · Report availability' : ''}<br>Last job: ${esc(s.last_job || 'Not recorded')} · ${esc(s.last_job_status ? friendly(s.last_job_status) : 'No status')} · Failures: ${esc(s.failures)}<br>Last metrics collected: ${esc(time(s.last_success))} · Next due: ${s.enabled ? esc(time(s.next_due, true)) : 'Not scheduled'}</p>${['BLOCKED', 'FAILED'].includes(s.last_job_status) ? '<p>Inspect the latest refresh and repair the reported issue before trying again.</p>' : ''}${s.last_job ? button('Inspect latest refresh', 'job') : ''}`
+      ? `<p><strong>Refresh:</strong> ${refreshState} · ${s.enabled ? 'On' : 'Off'}${s.mode === 'inventory' ? ' · Report availability' : ''}<br>Last job: ${esc(s.last_job || 'Not recorded')} · ${esc(s.last_job_status ? friendly(s.last_job_status) : 'No status')} · Failures: ${esc(s.failures)}<br>Last metrics collected: ${esc(time(s.last_success))} · Next due: ${esc(nextCheck)}${deadline}</p>${['BLOCKED', 'FAILED'].includes(s.last_job_status) ? '<p>Inspect the latest refresh and repair the reported issue before trying again.</p>' : ''}${s.last_job ? button('Inspect latest refresh', 'job') : ''}`
       : '<p>No saved refresh schedule.</p>';
     const rows = reports
       .map(
@@ -194,7 +208,9 @@
       ),
       `<option value="${inventoryOption}" ${s?.mode === 'inventory' ? 'selected' : ''}>Report availability</option>`,
     ].join('');
-    const form = `<form id="apple-analytics-form"><div class="field"><label for="apple-analytics-report">What should WMM check?</label><select id="apple-analytics-report" name="report_id" aria-describedby="apple-refresh-purpose" required>${selects}</select></div><p id="apple-refresh-purpose">Report availability checks whether Apple has files for this app. It does not collect download counts.</p><div class="field"><label for="apple-analytics-interval">Refresh every (hours)</label><input id="apple-analytics-interval" type="number" name="interval_hours" min="24" max="168" step="1" value="${esc(s?.interval_hours || 24)}" required></div><div class="field"><label for="apple-analytics-first-read">First check time (optional)</label><input id="apple-analytics-first-read" type="datetime-local" step="any" name="first_read_at" aria-describedby="apple-first-read-help" value="${esc(pendingFirstRead(s))}"><p id="apple-first-read-help">Use your device time zone. Choose a time within seven days, or leave blank to start when WMM is ready.</p></div><button class="button" type="submit">${s?.enabled ? 'Save refresh settings' : 'Enable refresh'}</button></form>`;
+    const form = `<form id="apple-analytics-form"><div class="field"><label for="apple-analytics-report">What should WMM check?</label><select id="apple-analytics-report" name="report_id" aria-describedby="apple-refresh-purpose" required>${selects}</select></div><p id="apple-refresh-purpose">Report availability checks whether Apple has files for this app. It does not collect download counts.</p><div class="field"><label for="apple-analytics-interval">Refresh every (hours)</label><input id="apple-analytics-interval" type="number" name="interval_hours" min="24" max="168" step="1" value="${esc(s?.interval_hours || 24)}" required></div><div class="field"><label for="apple-analytics-first-read">First check time (optional)</label><input id="apple-analytics-first-read" type="datetime-local" step="any" name="first_read_at" aria-describedby="apple-first-read-help" value="${esc(pendingFirstRead(s))}"><p id="apple-first-read-help">Use your device time zone. Choose a time within seven days, or leave blank to start when WMM is ready.</p></div>
+<div class="field"><label for="apple-analytics-stop">Stop checking at (optional)</label><input id="apple-analytics-stop" type="datetime-local" step="any" name="stop_at" aria-describedby="apple-stop-help" value="${esc(pendingStop(s))}"><p id="apple-stop-help">Choose a local time after the first check and within seven days. Leave blank to keep checking until you pause.</p></div>
+<button class="button" type="submit">${s?.enabled ? 'Save refresh settings' : 'Enable refresh'}</button></form>`;
     const source = data.connection
       ? data.inventory
         ? 'Saved for this app. The successful inventory below records access at that time, not a guarantee of current access.'
@@ -469,11 +485,23 @@
       fail(t, Error('Choose a first Apple check within the next seven days.'));
       return;
     }
+    const stopChosen = values.get('stop_at');
+    const stop = stopChosen ? new Date(String(stopChosen)) : null;
+    if (
+      stop &&
+      (localDateTime(stop) !== stopChosen ||
+        stop.getTime() <= (firstRead?.getTime() ?? now) ||
+        stop.getTime() > now + 7 * 86400000)
+    ) {
+      fail(t, Error('Choose a stop time after the first check and within the next seven days.'));
+      return;
+    }
     const body = {
       manifest_version: t.scope.version,
       enabled: true,
       interval_hours: hours,
       ...(firstRead ? { first_read_at: firstRead.toISOString() } : {}),
+      ...(stop ? { stop_at: stop.toISOString() } : {}),
       ...(reportId === inventoryOption ? { mode: 'inventory' } : { report_id: reportId }),
       version: t.data.schedule?.version ?? null,
     };

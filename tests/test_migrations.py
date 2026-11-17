@@ -117,6 +117,8 @@ class MigrationLedgerTests(unittest.TestCase):
 
     def test_legacy_database_without_ledger_is_adopted_and_indexed(self):
         with connection(self.path) as db:
+            # A pre-ledger database never had migration 0004's column.
+            db.execute("ALTER TABLE apple_metrics_schedules DROP COLUMN stop_at")
             db.execute("DROP TABLE schema_migrations")
             db.execute("DROP INDEX IF EXISTS audit_app")
             db.execute("DROP INDEX IF EXISTS workflow_events_job")
@@ -134,6 +136,7 @@ class MigrationLedgerTests(unittest.TestCase):
         import threading
 
         with connection(self.path) as db:
+            db.execute("ALTER TABLE apple_metrics_schedules DROP COLUMN stop_at")
             db.execute("DROP TABLE schema_migrations")
             db.execute("DROP INDEX IF EXISTS audit_app")
         errors = []
