@@ -1,0 +1,80 @@
+[
+  {
+    "command": [
+      "python",
+      "tools/test_preview_browser.py"
+    ],
+    "exit": 0,
+    "output": "{\"state\": \"PASS\", \"profiles\": [{\"width\": 1440, \"flow\": \"PASS\", \"consent_and_revocation\": \"PASS\", \"real_export_hashes\": \"PASS\", \"offline\": \"PASS\", \"video_process\": \"PASS\", \"immediate_example_and_downloads\": \"PASS\", \"studio_overview_to_demo\": \"PASS\", \"captioned_video_controls\": \"PASS\", \"overflow\": false, \"javascript_errors\": [], \"external_requests\": []}, {\"width\": 390, \"flow\": \"PASS\", \"consent_and_revocation\": \"PASS\", \"real_export_hashes\": \"PASS\", \"offline\": \"PASS\", \"video_process\": \"PASS\", \"immediate_example_and_downloads\": \"PASS\", \"studio_overview_to_demo\": \"PASS\", \"captioned_video_controls\": \"PASS\", \"overflow\": false, \"javascript_errors\": [], \"external_requests\": []}], \"local_links\": \"PASS\", \"screenshots\": \"ACTUAL_SYNTHETIC_SAMPLE_UI\"}\n"
+  },
+  {
+    "command": [
+      "python",
+      "tools/check_distribution.py"
+    ],
+    "exit": 0,
+    "output": "PASS: distribution contains no forbidden operational files or recognized credential patterns.\n"
+  },
+  {
+    "command": [
+      "python",
+      "-m",
+      "unittest",
+      "tests.test_check_distribution",
+      "-q"
+    ],
+    "exit": 0,
+    "output": "----------------------------------------------------------------------\nRan 5 tests in 0.069s\n\nOK\nPASS: distribution contains no forbidden operational files or recognized credential patterns.\nPASS: distribution contains no forbidden operational files or recognized credential patterns.\nPASS: distribution contains no forbidden operational files or recognized credential patterns.\nPASS: distribution contains no forbidden operational files or recognized credential patterns.\nPASS: distribution contains no forbidden operational files or recognized credential patterns.\nPASS: distribution contains no forbidden operational files or recognized credential patterns.\nPASS: distribution contains no forbidden operational files or recognized credential patterns.\n"
+  },
+  {
+    "command": [
+      "python",
+      "tools/source_ratchet.py",
+      "--base",
+      "origin/main"
+    ],
+    "exit": 0,
+    "output": "{\"enrolled\": [], \"errors\": [], \"ok\": true, \"schema\": \"wmm.source-ratchet.v1\"}\n"
+  },
+  {
+    "command": [
+      "prestige",
+      "audit",
+      "docs/demo.html",
+      "--strict"
+    ],
+    "exit": 0,
+    "output": "\n\u001b[96mPrestige audit - docs/demo.html\u001b[0m\nOverall: 96/100   Verdict: \u001b[92mPASS\u001b[0m\n\u001b[2mhalo:80  fluency:100  trust:100  peak:100  horn:100\u001b[0m\n\n  \u001b[93mWARN\u001b[0m [halo] H_NO_COVER_IMG: No object-fit/background cover image ? hero imagery drives the halo.\n"
+  },
+  {
+    "command": [
+      "prestige",
+      "critique",
+      "docs/demo.html",
+      "--challenge",
+      "--strict",
+      "--out",
+      ".prestige/demo-first-value.json"
+    ],
+    "exit": 0,
+    "output": "Prestige seven-lens critique: PASS\n  P1:0  P2:0  P3:1\n  P3 [heuristic] information_density:DENSITY_SCAN_LOAD\n    observation: Observed approximately 374 words per content section.\n    fix: Split the longest section with headings, summaries, or progressive disclosure.\nreceipt: C:\\Users\\rkatz\\Documents\\Codex\\wmm-demo-first-value\\.prestige\\demo-first-value.json\n"
+  },
+  {
+    "command": [
+      "prestige",
+      "render-audit",
+      "docs/demo.html"
+    ],
+    "exit": 0,
+    "output": "render audit: PASS\nreceipt: .prestige\\render\\render-receipt.json\n"
+  },
+  {
+    "command": [
+      "prestige",
+      "challenge",
+      "docs/demo.html"
+    ],
+    "exit": 0,
+    "output": "{\n  \"schema\": \"factory.challenge.v1\",\n  \"brick\": \"prestige\",\n  \"feature\": null,\n  \"stage\": \"design_counterfactual\",\n  \"passed\": true,\n  \"baseline\": {\n    \"passed\": true,\n    \"score\": 87,\n    \"grade\": \"B\"\n  },\n  \"mutants_total\": 3,\n  \"mutants_killed\": 3,\n  \"mutations\": [\n    {\n      \"unit\": \"hidden_surface\",\n      \"killed\": true,\n      \"evidence\": \"audit_passed=False; score_passed=False; score=87; mobile=60; cta=80\"\n    },\n    {\n      \"unit\": \"broken_mobile\",\n      \"killed\": true,\n      \"evidence\": \"audit_passed=False; score_passed=True; score=79; mobile=0; cta=80\"\n    },\n    {\n      \"unit\": \"empty_primary_action\",\n      \"killed\": true,\n      \"evidence\": \"audit_passed=False; score_passed=False; score=78; mobile=60; cta=0\"\n    }\n  ],\n  \"scope\": \"source challenge; pair with render-audit for browser evidence\",\n  \"receipt_path\": \".prestige\\\\challenge.json\"\n}\n"
+  }
+]

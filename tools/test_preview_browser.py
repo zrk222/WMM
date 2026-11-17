@@ -32,6 +32,30 @@ def exercise(browser, origin, width):
     try:
         page.goto(origin + "/demo.html")
         expect(page.get_by_role("heading", name="Your next campaign, made clear.")).to_be_visible()
+        example = page.locator("#completed-example")
+        expect(example).to_be_visible()
+        expect(example).to_contain_text("15-second creative draft")
+        expect(example).to_contain_text("0 percentage points")
+        expect(example).to_contain_text("Synthetic example, not a completed live campaign")
+        expect(page.locator("#consent")).not_to_be_checked()
+        expect(page.locator("#next")).to_be_disabled()
+        expect(page.locator("#receipts li")).to_have_count(0)
+        video_link = example.get_by_role("link", name="Download walkthrough video (MP4)")
+        expect(video_link).to_have_attribute("href", "media/video-production.mp4")
+        with page.expect_download() as downloaded:
+            video_link.click()
+        assert Path(downloaded.value.path()).read_bytes() == (ROOT / "docs/media/video-production.mp4").read_bytes()
+        context.set_offline(True)
+        with page.expect_download() as downloaded:
+            example.get_by_role("button", name="Download example packet").click()
+        packet = Path(downloaded.value.path()).read_text(encoding="utf-8")
+        for text in ("Know when to turn back", "0–3s:", "20/100", "NOT_SENT_SAMPLE", "EXTERNAL EFFECTS: 0"):
+            assert text in packet, text
+        expect(page.locator("#consent")).not_to_be_checked()
+        expect(page.locator("#receipts li")).to_have_count(0)
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "Example overflow"
+        page.screenshot(path=str(OUT / f"first-value-{width}.png"), full_page=True)
+        context.set_offline(False)
         process = page.locator("#video-process")
         expect(process).to_be_visible()
         expect(process.locator(".video-steps li")).to_have_count(6)
@@ -143,13 +167,12 @@ def exercise(browser, origin, width):
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "Mobile overflow"
         page.screenshot(path=str(OUT / f"sample-{width}.png"), full_page=True)
         if width == 1440:
-            page.screenshot(path=str(ROOT / "docs/images/sample-workflow.png"), full_page=True)
             page.pdf(path=str(OUT / "sample-report.pdf"), print_background=True)
             assert (OUT / "sample-report.pdf").read_bytes().startswith(b"%PDF")
         context.set_offline(False)
         page.goto(origin + "/index.html")
         expect(
-            page.get_by_role("heading", level=1, name="Give your personal agent a marketing workspace.")
+            page.get_by_role("heading", level=1, name="From growth goal to reviewable results.")
         ).to_be_visible()
         expect(page.locator("#channels .channel-logo")).to_have_count(5)
         for name in channels.values():
@@ -178,6 +201,7 @@ def exercise(browser, origin, width):
             real_export_hashes="PASS",
             offline="PASS",
             video_process="PASS",
+            immediate_example_and_downloads="PASS",
             studio_overview_to_demo="PASS",
             captioned_video_controls="PASS",
             overflow=False,

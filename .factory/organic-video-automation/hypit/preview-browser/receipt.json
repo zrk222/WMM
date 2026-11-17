@@ -1,0 +1,35 @@
+{
+  "state": "PASS",
+  "profiles": [
+    {
+      "width": 1440,
+      "flow": "PASS",
+      "consent_and_revocation": "PASS",
+      "real_export_hashes": "PASS",
+      "offline": "PASS",
+      "video_process": "PASS",
+      "immediate_example_and_downloads": "PASS",
+      "studio_overview_to_demo": "PASS",
+      "captioned_video_controls": "PASS",
+      "overflow": false,
+      "javascript_errors": [],
+      "external_requests": []
+    },
+    {
+      "width": 390,
+      "flow": "PASS",
+      "consent_and_revocation": "PASS",
+      "real_export_hashes": "PASS",
+      "offline": "PASS",
+      "video_process": "PASS",
+      "immediate_example_and_downloads": "PASS",
+      "studio_overview_to_demo": "PASS",
+      "captioned_video_controls": "PASS",
+      "overflow": false,
+      "javascript_errors": [],
+      "external_requests": []
+    }
+  ],
+  "local_links": "PASS",
+  "screenshots": "ACTUAL_SYNTHETIC_SAMPLE_UI"
+}

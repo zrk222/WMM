@@ -1,0 +1,129 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "wmm-demo-first-value",
+  "candidate": [
+    {
+      "path": "docs/demo.html",
+      "sha256": "96073213cec3e8e85ee6c98c12fa380e944a2ab6103a86cdfd497e372a708431",
+      "kind": "source"
+    },
+    {
+      "path": "tools/test_preview_browser.py",
+      "sha256": "0d06747096a95457b6c210cef5828335301fed4b93ff3f18b7c74e6e5316df6b",
+      "kind": "source"
+    },
+    {
+      "path": "specs/demo-first-value.md",
+      "sha256": "f858c67225c5882362d96c5629e0a02c602b3e64203f49cf41c8bd39e9b0b078",
+      "kind": "contract"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "Immediate example and both downloadable artifacts work"
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "Existing invalid input and channel validation remains enforced"
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "Revocation and reset retain existing safe behavior"
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Downloads leave consent unchecked and receipts empty"
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "HTML-shaped names remain text and no external requests occur"
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "No autoplay; video preload remains none"
+    },
+    {
+      "category": "accessibility",
+      "applicable": true,
+      "reason": "390/1440px no overflow, named controls and captions remain"
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "All walkthrough activity and exports remain local and synthetic"
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "requirement": "Immediate example and both downloadable artifacts work",
+      "category": "happy_path",
+      "profiles": [
+        "chromium-1440-390-offline"
+      ]
+    },
+    {
+      "id": "validation",
+      "requirement": "Existing invalid input and channel validation remains enforced",
+      "category": "validation",
+      "profiles": [
+        "chromium-1440-390-offline"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "requirement": "Revocation and reset retain existing safe behavior",
+      "category": "failure_recovery",
+      "profiles": [
+        "chromium-1440-390-offline"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "requirement": "Downloads leave consent unchecked and receipts empty",
+      "category": "state_consistency",
+      "profiles": [
+        "chromium-1440-390-offline"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "requirement": "HTML-shaped names remain text and no external requests occur",
+      "category": "security_privacy",
+      "profiles": [
+        "chromium-1440-390-offline"
+      ]
+    },
+    {
+      "id": "performance",
+      "requirement": "No autoplay; video preload remains none",
+      "category": "performance",
+      "profiles": [
+        "chromium-1440-390-offline"
+      ]
+    },
+    {
+      "id": "accessibility",
+      "requirement": "390/1440px no overflow, named controls and captions remain",
+      "category": "accessibility",
+      "profiles": [
+        "chromium-1440-390-offline"
+      ]
+    },
+    {
+      "id": "external_effects",
+      "requirement": "All walkthrough activity and exports remain local and synthetic",
+      "category": "external_effects",
+      "profiles": [
+        "chromium-1440-390-offline"
+      ]
+    }
+  ]
+}
