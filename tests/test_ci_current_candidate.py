@@ -8,11 +8,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 # The browser profile provisions Chromium and the local render runtime and runs
 # both owner-bound OneSignal journeys, creative batches, organic research and
-# exact-approved publication with retained synthetic desktop/mobile evidence.
+# exact-approved publication and shared action states with retained synthetic desktop/mobile evidence.
 # All backend tests and native/package jobs are retained; Windows uses duration-based assignment.
 # One Ubuntu shard also runs the isolated native Secret Service acceptance.
 BASELINES = {
-    ".github/workflows/checks.yml": "e17530b08625e2fed876fa8ec83436dd83521061a00d975774328237bea97f5f",
+    ".github/workflows/checks.yml": "e27d8772f7af32b479799860bc16c97498b88c4e6628fdd40a2de9c48b09ccac",
     ".github/workflows/platform-checks.yml": "8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",
     ".github/workflows/desktop-packages.yml": "bec9c46515b7bf94c9571992787a9bf51bb6a3df51e5d4c4a638bc2fc8d51e07",
 }
@@ -54,7 +54,7 @@ class CurrentCandidateCITests(unittest.TestCase):
         self.assertIn("path: .factory/multichannel/browser/", browser)
         self.assertIn("retention-days: 3", browser)
         self.assertIn(
-            "python -m unittest tests.test_insights_history_browser tests.test_observational_campaign_browser -v",
+            "python -m unittest tests.test_insights_history_browser tests.test_observational_campaign_browser tests.test_action_buttons_browser -v",
             browser,
         )
         self.assertIn("python tools/test_owner_onboarding_browser.py", browser)
