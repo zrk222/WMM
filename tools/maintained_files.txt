@@ -5,9 +5,11 @@ mission_control/aeo_transport.py
 mission_control/agent_access.py
 mission_control/agent_context.py
 mission_control/agent_contract.py
+mission_control/agent_grant_http.py
 mission_control/agent_grants.py
 mission_control/agent_review_dispatch.py
 mission_control/agent_review_policy.py
+mission_control/agent_setup.py
 mission_control/agent_tasks.py
 mission_control/app_launch_history.py
 mission_control/app_launch_status.py
@@ -153,6 +155,8 @@ tests/test_ads_reports.py
 tests/test_agent_context_tasks.py
 tests/test_agent_control_ui.py
 tests/test_agent_review_dispatch.py
+tests/test_agent_setup_entrypoint.py
+tests/test_agent_setup_http.py
 tests/test_analytics_read_indexes.py
 tests/test_app_launch_status.py
 tests/test_apple_ads_economics.py
@@ -313,6 +317,7 @@ tools/query_budget.py
 tools/run_ci_tests.py
 tools/smoke_desktop_bundle.py
 tools/source_ratchet.py
+tools/test_agent_setup_browser.py
 tools/test_agreement_paid_browser.py
 tools/test_apple_analytics_browser.py
 tools/test_campaign_monitor_browser.py

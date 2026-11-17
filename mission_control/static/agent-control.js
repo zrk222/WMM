@@ -81,7 +81,13 @@
       '</p>' +
       '<h3>CLI catalog command</h3><pre>' +
       esc(JSON.stringify(data.cli.catalog, null, 2)) +
-      '</pre><h3>MCP host configuration</h3><pre>' +
+      '</pre>' +
+      (data.owner_host_verification
+        ? '<h3>Verify scoped access for this app</h3><p>Run on the WMM host after setting the grant in its protected environment. This uses one scoped read attempt and does not contact a provider. Cloud-only agents need a supported connection to the host.</p><pre>' +
+          esc(JSON.stringify(data.owner_host_verification.command, null, 2)) +
+          '</pre>'
+        : '') +
+      '<h3>MCP host configuration</h3><pre>' +
       esc(JSON.stringify(data.mcp_config, null, 2)) +
       '</pre><p>MCP: ' +
       esc(data.mcp.status) +

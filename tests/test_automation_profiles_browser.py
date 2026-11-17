@@ -113,7 +113,7 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
         with connection(host.store.path) as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM automation_policies").fetchone()[0], 0)
 
-    def test_watch_work_opens_the_saved_apple_read(self):
+    def test_watch_work_focuses_apple_availability_before_loading_the_saved_read(self) -> None:
         from playwright.sync_api import expect, sync_playwright
 
         host = fixture.GrantTests()
@@ -177,7 +177,11 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
                     expect(card).to_contain_text("The scheduled refresh is overdue.")
                     expect(card).to_contain_text("Check that the WMM worker is running")
                     self.save_render(page, f"waiting-{width}", '[aria-label="Workflow exceptions"]')
-                    card.get_by_role("button", name="Review Apple analytics", exact=True).press("Enter")
+                    card.get_by_role("button", name="Review Apple report availability", exact=True).press("Enter")
+                    panel = page.get_by_role("region", name="Apple analytics", exact=True)
+                    expect(panel.get_by_role("heading", name="Keep Apple analytics current")).to_be_focused()
+                    self.assertEqual([url for method, url in requests if method == "POST"], [])
+                    panel.get_by_role("button", name="Review Apple analytics", exact=True).press("Enter")
                     expect(page.get_by_role("dialog")).to_contain_text("Inspect latest refresh")
                     self.assertEqual(
                         [url for method, url in requests if method == "POST"],
