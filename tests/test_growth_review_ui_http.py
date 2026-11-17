@@ -32,7 +32,7 @@ class GrowthReviewUIHTTPTests(unittest.TestCase):
                 self.request("/app.mjs")[1] + self.request("/app-results.mjs")[1] + self.request("/app-events.mjs")[1]
             ).decode("utf-8"),
         )
-        self.assertIn("WMMGrowthReview.panel(state)", source)
+        self.assertIn("WMMGrowthReview.panel(state,WMMPageReports.statusBadge)", source)
         self.assertIn("measurementIntegrityPanel()", source)
         self.assertIn("WMMGrowthReview.submit(form,growthReviewServices())", source)
         self.assertIn("legacyResultsView()", source)

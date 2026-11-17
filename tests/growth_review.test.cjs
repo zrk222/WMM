@@ -26,9 +26,9 @@ test('review, history and selected enforce app ownership and current manifest',(
 });
 test('panel and historyList render guide, operational metrics, evidence states and recovery',()=>{
   const s=state();s.workspace.subscription_growth.history.history=[listingRow()];s.workspace.subscription_growth.issues=[{next_action:'Inspect source <safe>'}];
-  const html=growth.panel(s);
+  const html=growth.panel(s,pages.statusBadge);
   for(const text of ['Save a listing','Add benchmark source','Compare saved report','Report / Save PDF','Journey cohorts','No causal growth','Inspect source &lt;safe&gt;'])assert.ok(html.includes(text));
-  assert.ok(growth.panel({...s,app:'two'}).includes('Retry workspace'));
+  assert.ok(growth.panel({...s,app:'two'},pages.statusBadge).includes('Retry workspace'));
   assert.equal(growth.metrics(s.workspace.subscription_growth)[0].value,1);
 });
 test('listingData preserves original localized text and supported store field sets',()=>{

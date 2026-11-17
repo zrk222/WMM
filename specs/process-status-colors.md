@@ -38,6 +38,16 @@ Scenario: stopped_state
  Then muted states distinguish them from running work
 ```
 
+### Growth Review and report labels
+
+- In Results → Growth Review, evidence availability, review history, journeys and
+  experiment review states use the report badge renderer and retain their text.
+- Blue means local evidence is recorded or under evaluation. Amber means evidence,
+  provider acceptance or a review decision is still needed. A saved listing that
+  is ready for review is amber; it does not establish approval or growth.
+- Keep the recorded source, reason and app scope visible. Treat unfamiliar labels
+  as neutral; never infer meaning from a substring.
+
 ## SHOULD - Technical
 - Preserve stored process states and approval authority.
 - Keep state labels readable at mobile widths and with reduced motion.

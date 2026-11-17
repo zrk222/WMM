@@ -98,7 +98,7 @@ function resultsView() {
     automationRulesPanel() +
     WMMFunnels.panel() +
     installAttributionPanel() +
-    WMMGrowthReview.panel(state) +
+    WMMGrowthReview.panel(state, WMMPageReports.statusBadge) +
     WMMSubscriptionAuthoring.panel(state) +
     WMMCustomerWorkflow.panel(state) +
     measurementIntegrityPanel() +
