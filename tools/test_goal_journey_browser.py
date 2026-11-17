@@ -27,8 +27,10 @@ def rendered_page(page: Page) -> str:
 
 
 def run(browser, width, out):
+    from mission_control.creative_library import Library
     from mission_control.server import Server
     from mission_control.worker import jobs
+    from tests.test_creative_library import reference
     from tests.test_guided_workflow import GuidedWorkflowTests
 
     fixture = GuidedWorkflowTests()
@@ -65,8 +67,21 @@ def run(browser, width, out):
         intro = page.get_by_role("region", name="Start your first experiment")
         expect(intro).to_contain_text("one reviewable plan, its sources and a clear next step")
         expect(intro).to_contain_text("A prepared packet is not a published campaign")
+        expect(intro).to_contain_text("An empty packet shows what to collect")
+        expect(intro.locator('[aria-label="Start here"] button')).to_have_count(1)
         expect(intro).to_contain_text("not guaranteed")
-        expect(page.get_by_role("button", name="Start the guided path", exact=True)).to_be_visible()
+        guide = page.get_by_role("button", name="Start the guided path", exact=True)
+        expect(guide).to_be_hidden()
+        intro.get_by_text("More options", exact=True).press("Enter")
+        expect(guide).to_be_visible()
+        intro.get_by_text("More options", exact=True).press("Enter")
+        example = page.locator("#goal-completed-example")
+        example.locator("summary").press("Enter")
+        expect(example.get_by_text("Pantry Planner: test a clearer promise", exact=True)).to_be_visible()
+        expect(example).to_contain_text("invented data")
+        expect(example).to_contain_text("2 of 40 eligible users")
+        expect(intro).not_to_contain_text("Pantry Planner")
+        example.locator("summary").press("Enter")
         expect(page.get_by_role("button", name="Review combined automation agreement")).to_be_hidden()
         page.get_by_role("button", name="Open your first packet", exact=True).press("Enter")
         packet = page.get_by_role("dialog")
@@ -271,6 +286,39 @@ def run(browser, width, out):
         expect(worker).to_contain_text("The worker has not confirmed a healthy check")
         assert not jobs(fixture.store, "sample-one")
         assert not writes, writes
+        nav.get_by_role("button", name="Set your goal", exact=True).click()
+        page.get_by_role("button", name="Find a useful marketing angle", exact=True).click()
+        page.get_by_role("button", name="Open your first packet", exact=True).press("Enter")
+        packet.get_by_role("button", name="Add a research reference", exact=True).press("Enter")
+        expect(packet.get_by_role("heading", name="Add permitted reference", exact=True)).to_be_visible()
+        for field, value in {
+            "title": "Saved synthetic meal-plan reference",
+            "post_id": "meal-plan-example",
+            "url": "https://example.com/meal-plan-example",
+            "source": "Synthetic public-source fixture",
+            "format": "product demo",
+            "topic": "clarity",
+            "relevance_note": "Shows the result before asking the viewer to act.",
+        }.items():
+            packet.locator(f"#field-{field}").fill(value)
+        packet.locator("#field-platform").select_option("other")
+        packet.locator("#field-rights").select_option("REFERENCE_ONLY")
+        packet.locator("#field-permission_confirmed").select_option("true")
+        with page.expect_response(lambda response: response.url.endswith("/api/apps/sample-one/references")) as saved:
+            packet.get_by_role("button", name="Save source capture", exact=True).press("Enter")
+        assert saved.value.status in (401, 403), saved.value.text()
+        expect(packet.locator("#form-error")).to_contain_text("Sign in with GitHub")
+        assert not Library(fixture.store).list("sample-one")
+        # Supply an existing saved source in the isolated fixture, with the owner gate unchanged.
+        Library(fixture.store).save("sample-one", {"data": reference(title="Saved synthetic meal-plan reference")})
+        page.reload()
+        expect(page.get_by_role("heading", name="Set your goal", exact=True)).to_be_visible()
+        page.get_by_role("button", name="Open your first packet", exact=True).press("Enter")
+        packet.get_by_role("button", name="Review your saved reference", exact=True).press("Enter")
+        expect(page.get_by_role("heading", name="Creative source library", exact=True)).to_be_focused()
+        expect(page.get_by_role("button", name="Saved synthetic meal-plan reference", exact=False)).to_be_visible()
+        assert len(writes) == 1 and writes[0].endswith("/api/apps/sample-one/references"), writes
+        assert not jobs(fixture.store, "sample-one")
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
         assert not errors, errors
         return dict(
@@ -279,6 +327,9 @@ def run(browser, width, out):
             late_close_preserves_focus=True,
             late_close_preserves_reopened_dialog=True,
             goal_packets=["research", "creative", "campaign", "measurement"],
+            separated_fictional_example=True,
+            saved_reference_returns_to_source=True,
+            anonymous_source_save_denied=True,
             scoped_downloads=True,
             advanced_twelve_stages=True,
             campaign_missing_input_opens_exact_form=True,

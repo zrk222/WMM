@@ -342,7 +342,7 @@ const WMMGoalPacket = (() => {
       a = attributes(m);
     modal(
       m.title + ' — evidence packet',
-      `<div class="modal-content">${view(m, true)}${m.goal ? historyView(m) : ''}</div><div class="modal-actions">${m.goal ? button(WMMGoalJourney.choices[m.goal].next, 'automatic-goal-next', a) + (m.source_hash && m.outputs.some((x) => x.output) ? button('Save packet in this workspace', 'automatic-goal-save', a) + button('Download goal packet', 'automatic-goal-download', a) : '') : ''}${button('See all twelve stages', 'automatic-open')}${button('Close', 'close')}</div>`,
+      `<div class="modal-content">${view(m, true)}${m.goal ? historyView(m) : ''}</div><div class="modal-actions">${m.goal ? button(WMMGoalJourney.nextLabel(state.workspace, m.goal), 'automatic-goal-next', a) + (m.source_hash && m.outputs.some((x) => x.output) ? button('Save packet in this workspace', 'automatic-goal-save', a) + button('Download goal packet', 'automatic-goal-download', a) : '') : ''}${button('See all twelve stages', 'automatic-open')}${button('Close', 'close')}</div>`,
       'SELECTED GOAL / LOCAL DRAFT',
     );
   }

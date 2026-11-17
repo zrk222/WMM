@@ -44,20 +44,25 @@ prepare your first evidence packet: a plan, its sources and what is still missin
 You do not need an account, a paid model or a provider connection for these
 steps.
 
-1. **Add your app.** Give it a name, who it helps, what it helps them do, the
+1. **See the example, then add your app.** On **Set your goal**, open **See a
+   completed example · fictional** to see an example result and decision.
+   Give your own app a name, who it helps, what it helps them do, the
    first useful action, the version or build you tested, and the language/locale.
    Choose **Save and choose a goal**.
 2. **Pick a goal.** Choose **Find a useful marketing angle**. In **Start here**
    above, choose **Open your first packet**.
 3. **Read the packet.** It lists the research and creative steps for this app
-   and the missing pieces you can add next.
+   and the missing pieces you can add next. When those inputs are missing, you
+   have a plan rather than completed research, publication or results.
 4. **Keep your place.** Choose **Save packet in this workspace**. Reopen it
    under **Pick up where you left off** after restarting WMM. Once it is saved,
    **Report / Save PDF** opens a readable report. **Download goal packet** keeps
    a JSON copy if you need one. These steps do not publish or spend.
-5. **Add one reference.** Choose **Add a research reference** and save a source
-   you want to study. To qualify as viral, a source also needs 100,000 views and
-   10× a documented creator baseline. That is evidence, not a promise.
+5. **Add one reference.** Sign in with GitHub to save a source. Choose **Add a
+   research reference** and save one you want to study. To qualify as viral, a
+   source also needs 100,000 views and
+   10× a documented creator baseline. That is evidence, not a promise. Then
+   choose **Review your saved reference** to inspect the source before using it.
 
 ## Around Day 30, with regular use
 
