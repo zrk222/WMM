@@ -168,6 +168,13 @@ def summary(db, app_id, store_app_id, observed_at):
     )
     try:
         ceiling = iso_time(observed_at)
+        stop = row["stop_at"]
+        if row["status"] == "EXPIRED" or (row["enabled"] == 1 and stop is not None and stop <= ceiling.timestamp()):
+            result.update(
+                schedule="EXPIRED",
+                next_action="The Apple check window ended. Review saved inventory or set a new check window.",
+            )
+            return result
         valid, _ = source_state(db, row)
         if not valid:
             result.update(
@@ -200,8 +207,12 @@ def summary(db, app_id, store_app_id, observed_at):
         result.update(
             schedule="ENABLED",
             read="NOT_RUN",
-            next_due=due,
-            next_action="Keep the local service running until the next scheduled read.",
+            next_due=due if stop is None or row["next_due"] < stop else None,
+            next_action=(
+                "Keep the local service running until the next scheduled read."
+                if stop is None or row["next_due"] < stop
+                else "No further read is due before the check window ends."
+            ),
         )
         if not row["last_job"]:
             return result
@@ -257,6 +268,8 @@ def summary(db, app_id, store_app_id, observed_at):
             )
         else:
             result.update(read="UNCONFIRMED", next_action="Review the scheduled read and connection before retrying.")
+        if result["read"] == "WAITING_FOR_REPORTS" and result["next_due"] is None:
+            result["next_action"] = "Apple had no files at this check. No further read is due before the window ends."
         return result
     except (Invalid, ValueError, TypeError, KeyError, AttributeError, OverflowError):
         result.update(

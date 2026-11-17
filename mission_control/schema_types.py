@@ -169,6 +169,7 @@ class AppleMetricsSchedulesRow(TypedDict):
     last_success: str | None
     last_error: str | None
     updated: str
+    stop_at: float | None
 
 
 class ApprovalsRow(TypedDict):

@@ -12,10 +12,13 @@ from .db import connection
 
 MIN_INTERVAL_HOURS = 24
 MAX_INTERVAL_HOURS = 168
+MAX_SCHEDULE_WINDOW_SECONDS = 604800
 MAX_FAILURES = 3
 MAX_SCHEDULES_PER_TICK = 100
 INVENTORY_MODE = "inventory"
 INVENTORY_SELECTION = "@inventory"  # Not a valid Apple report ID.
+SCHEDULE_ENDED = "Apple report check window ended"
+SCHEDULE_TIME_FIELDS = {"first_read_at", "stop_at"}
 
 
 def schedule_options(row: Row) -> dict[str, str]:
@@ -32,8 +35,7 @@ def configuration(body):
         raise Invalid("Choose whether Apple analytics refresh is enabled")
     if body["enabled"]:
         common = {"enabled", "interval_hours", "version"}
-        if "first_read_at" in body:
-            common.add("first_read_at")
+        common |= SCHEDULE_TIME_FIELDS & body.keys()
         if set(body) == common | {"report_id"}:
             analytics_identity(body["report_id"])
         elif set(body) != common | {"mode"} or body["mode"] != INVENTORY_MODE:
@@ -53,15 +55,31 @@ def configuration(body):
 def _first_due(body: dict[str, Any], current: float) -> float:
     if "first_read_at" not in body:
         return current
-    stamp = body["first_read_at"]
+    due = _schedule_time(body["first_read_at"], "first Apple check")
+    if not current <= due <= current + MAX_SCHEDULE_WINDOW_SECONDS:
+        raise Invalid("Choose a first Apple check within the next seven days")
+    return due
+
+
+def _schedule_time(stamp: object, label: str) -> float:
     if not isinstance(stamp, str) or not re.fullmatch(
         r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,3})?Z", stamp
     ):
-        raise Invalid("Choose an exact UTC time for the first Apple check")
-    due = iso_time(stamp).timestamp()
-    if not current <= due <= current + MAX_INTERVAL_HOURS * 3600:
-        raise Invalid("Choose a first Apple check within the next seven days")
-    return due
+        raise Invalid(f"Choose an exact UTC time for {label}")
+    return iso_time(stamp).timestamp()
+
+
+def _schedule_stop(body: dict[str, Any], current: float, due: float) -> float | None:
+    if "stop_at" not in body:
+        return None
+    stop = _schedule_time(body["stop_at"], "the Apple check stop")
+    if not due < stop <= current + MAX_SCHEDULE_WINDOW_SECONDS:
+        raise Invalid("Choose an Apple check stop time after the first check and within the next seven days")
+    return stop
+
+
+def _window_ended(row: Row, current: float) -> bool:
+    return row["stop_at"] is not None and current >= row["stop_at"]
 
 
 def schedule_audit(db, app_id, operation, detail):
@@ -170,20 +188,22 @@ class AppleMetricsSchedules:
                     cancel_queued(db, old)
                 schedule_id = old["id"] if old else uid()
                 version = (expected or 0) + 1
-                due = _first_due(body, time.time())
+                current = time.time()
+                due = _first_due(body, current)
+                stop = _schedule_stop(body, current, due)
                 selection = INVENTORY_SELECTION if body.get("mode") == INVENTORY_MODE else body["report_id"]
                 db.execute(
                     """INSERT INTO apple_metrics_schedules
                     (app_id,id,connection_id,connection_version,connection_hash,app_version,report_id,
                      interval_hours,enabled,version,next_due,last_due,last_job,reconciled_job,failures,
-                     status,last_success,last_error,updated)
-                    VALUES(?,?,?,?,?,?,?,?,1,?,?,NULL,NULL,NULL,0,'ENABLED',NULL,NULL,?)
+                     status,last_success,last_error,updated,stop_at)
+                    VALUES(?,?,?,?,?,?,?,?,1,?,?,NULL,NULL,NULL,0,'ENABLED',NULL,NULL,?,?)
                     ON CONFLICT(app_id) DO UPDATE SET id=excluded.id,connection_id=excluded.connection_id,
                      connection_version=excluded.connection_version,connection_hash=excluded.connection_hash,
                      app_version=excluded.app_version,report_id=excluded.report_id,
                      interval_hours=excluded.interval_hours,enabled=1,version=excluded.version,
                      next_due=excluded.next_due,last_due=NULL,last_job=NULL,reconciled_job=NULL,
-                     failures=0,status='ENABLED',last_error=NULL,updated=excluded.updated""",
+                     failures=0,status='ENABLED',last_error=NULL,updated=excluded.updated,stop_at=excluded.stop_at""",
                     (
                         app_id,
                         schedule_id,
@@ -196,6 +216,7 @@ class AppleMetricsSchedules:
                         version,
                         due,
                         now(),
+                        stop,
                     ),
                 )
                 schedule_audit(
@@ -209,6 +230,7 @@ class AppleMetricsSchedules:
                         "mode": INVENTORY_MODE if selection == INVENTORY_SELECTION else "downloads",
                         "interval_hours": body["interval_hours"],
                         "first_due": due,
+                        "stop_at": stop,
                     },
                 )
         return self.get(app_id)
@@ -216,7 +238,6 @@ class AppleMetricsSchedules:
     def tick(self):
         """Reconcile current jobs, reject stale sources, and queue at most 100 due reads."""
         count = 0
-        current = time.time()
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
             rows = db.execute(
@@ -224,6 +245,9 @@ class AppleMetricsSchedules:
                 (MAX_SCHEDULES_PER_TICK,),
             ).fetchall()
             for row in rows:
+                if _window_ended(row, time.time()):
+                    disable(db, row, "EXPIRED", SCHEDULE_ENDED)
+                    continue
                 valid, reason = source_state(db, row)
                 if not valid:
                     disable(db, row, "CONNECTION_CHANGED", reason)
@@ -231,9 +255,13 @@ class AppleMetricsSchedules:
                 if not reconcile(db, row):
                     continue
                 fresh = db.execute("SELECT * FROM apple_metrics_schedules WHERE app_id=?", (row["app_id"],)).fetchone()
-                if fresh and fresh["enabled"] and fresh["next_due"] <= current:
-                    dispatch(db, fresh, current)
-                    count += 1
+                if fresh and fresh["enabled"]:
+                    current = time.time()
+                    if _window_ended(fresh, current):
+                        disable(db, fresh, "EXPIRED", SCHEDULE_ENDED)
+                    elif fresh["next_due"] <= current:
+                        dispatch(db, fresh, current)
+                        count += 1
         return count
 
 
@@ -260,9 +288,12 @@ def public_row(db, row):
             "last_success",
             "last_error",
             "updated",
+            "stop_at",
         )
     }
     result["enabled"] = bool(row["enabled"])
+    if result["enabled"] and _window_ended(row, time.time()):
+        result.update(enabled=False, status="EXPIRED")
     if result["report_id"] == INVENTORY_SELECTION:
         result.update(mode=INVENTORY_MODE, report_id=None)
     job = (
@@ -550,7 +581,10 @@ def check_scheduled_db(db, job):
     valid, reason = source_state(db, row)
     if not valid:
         raise Invalid(reason)
-    if row["last_due"] > time.time():
+    current = time.time()
+    if _window_ended(row, current):
+        raise Invalid(SCHEDULE_ENDED)
+    if row["last_due"] > current:
         raise Invalid("Apple analytics schedule is not due")
     return row
 
