@@ -183,6 +183,14 @@ provider effects retain their exact review, idempotency and readback requirement
 | `hypit_authoring.py`, `hypit_runtime.py`, `hypit_studio_process.py`, browser/CLI/process/port controls | Native local declarative scene compiler, typed parameter broker and revisioned preview/export session | No arbitrary user code; preserve scene/text/font/timing/layout semantics and source ledgers; an unsupported template remains a blocking parity gap, not removed scope |
 | File paths, symlinks, upload and Drive browser loopback callbacks | App-container file handles, Photos/Files selection, scoped URL access, native HTTPS/auth session | Copy selected bytes into owned storage; permission loss/cancel/expired token preserves existing imports; cloud file absence is explicit |
 | Provider HTTP/signing and webhook listeners | Native URLSession and Keychain signing/auth adapters with exact provider contracts | Optional API accounts remain external providers; no required remote WMM worker; unavailable inbound delivery needs permitted polling/import plus duplicate-proof reconciliation before parity acceptance |
+
+An App Store workspace exposes **Apple analytics** in its main view. After an
+explicit inventory check, WMM offers a daily download read only from a complete,
+current app and connection inventory containing the supported Standard report.
+No report ID entry is needed. Missing, incomplete and disabled reports show their
+next step; inventory dates are processing metadata, never downloaded metrics.
+The user confirms each foreground provider read and can open the saved outcome
+and receipt. This does not create Apple report requests or grant store mutations.
 | PDF/browser print and downloads | Native PDF generation/share sheet plus shared canonical JSON/CSV/report calculations | Export failure retains local report; preview and reopened exported bytes must match source evidence |
 
 This table chooses adapter boundaries, not untested API equivalence. Codec and

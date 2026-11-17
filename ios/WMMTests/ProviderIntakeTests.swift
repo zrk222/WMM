@@ -49,7 +49,7 @@ final class ProviderIntakeTests: XCTestCase {
         let setup = try JSONSerialization.data(withJSONObject: ["app_id": appID, "confirm_owner": true,
             "manifest": ["name": "Synthetic Apple app", "release": "build-1", "locale": "en-US", "currency": "USD", "store_app_id": "123"]] as [String: Any])
         _ = try await bridge.createWorkspace(session: session, request: setup)
-        let model = NativeStoreConnectionModel(storeAppID: "123", execute: { action, request in
+        let model = NativeStoreConnectionModel(appID: appID, appVersion: 1, storeAppID: "123", execute: { action, request in
             try await bridge.storeConnection(session: session, appID: appID, action: action, request: request)
         })
         await model.refresh()
@@ -64,6 +64,70 @@ final class ProviderIntakeTests: XCTestCase {
             XCTFail("Locked store history admitted")
         } catch {}
         await bridge.close(); try await identity.forgetPrincipal()
+    }
+
+    @MainActor
+    func testNativeAppleDownloadReadUsesOnlyCurrentInventoryWithoutManualIDs() async throws {
+        func inventory(app: String = "app-a", version: Int = 3, connection: Int = 2,
+                       coverage: String = "COMPLETE", daily: Bool = true) -> [String: Any] {
+            let instances = daily ? [["granularity": "DAILY", "processing_date": "2026-11-16"]] : []
+            return [
+                "id": UUID().uuidString, "app_id": app, "status": "SUCCEEDED",
+                "data": ["manifest_version": version, "connection_id": "apple-key",
+                         "connection_version": connection, "options": ["operation": "analytics_reports"]] as [String: Any],
+                "result": ["provider": "app_store", "app_id": app, "store_app_id": "789",
+                           "operation": "analytics_reports", "coverage": coverage,
+                           "source_hash": String(repeating: "b", count: 64), "external_writes": false,
+                           "status": daily ? "METRIC_DOWNLOAD_REQUIRED" : "WAITING_FOR_REPORTS",
+                           "reports": [["id": "bound-report", "name": "App Downloads Standard",
+                                        "coverage": coverage, "instances": instances] as [String: Any]]] as [String: Any],
+            ]
+        }
+        var history = [inventory(app: "foreign-app"), inventory(version: 2), inventory(connection: 1)]
+        var keyStatus = "PROTECTED_KEY_PRESENT"
+        var effects: [(String, String?)] = []
+        let model = NativeStoreConnectionModel(appID: "app-a", appVersion: 3, storeAppID: "789", execute: { action, request in
+            let response: [String: Any]
+            switch action {
+            case "view":
+                response = ["connections": [["id": "apple-key", "version": 2, "store_app_id": "789",
+                                             "status": ["status": keyStatus]] as [String: Any]]]
+            case "history":
+                response = ["jobs": history]
+            default:
+                let args = try XCTUnwrap(JSONSerialization.jsonObject(with: request) as? [String: Any])
+                effects.append((action, args["report_id"] as? String))
+                response = ["id": "download-job"]
+            }
+            return try JSONSerialization.data(withJSONObject: response)
+        })
+        await model.refresh()
+        let connection = try XCTUnwrap(model.connections.first)
+        XCTAssertEqual(model.downloadReports[connection.id], .unchecked)
+        let valid = NativeStoreConnectionModel.DownloadReport(id: "bound-report", lastProcessingDate: "2026-11-16")
+        await model.read(connection, report: valid)
+        XCTAssertTrue(effects.isEmpty)
+        history.append(inventory(daily: false))
+        await model.refresh()
+        XCTAssertEqual(model.downloadReports[connection.id], .waiting)
+        history.insert(inventory(), at: 0)
+        await model.refresh()
+        XCTAssertEqual(model.downloadReports[connection.id], .ready(valid))
+        let wrong = NativeStoreConnectionModel.DownloadReport(id: "other-report", lastProcessingDate: "2026-11-16")
+        await model.read(connection, report: wrong)
+        XCTAssertTrue(effects.isEmpty)
+        await model.read(connection, report: valid)
+        XCTAssertEqual(effects.map { $0.0 }, ["queue_metrics", "run_metrics"])
+        XCTAssertEqual(effects.first?.1, "bound-report")
+        history.insert(inventory(coverage: "PARTIAL"), at: 0)
+        await model.refresh()
+        XCTAssertEqual(model.downloadReports[connection.id], .incomplete)
+        await model.read(connection, report: valid)
+        XCTAssertEqual(effects.count, 2)
+        keyStatus = "PROTECTED_STORAGE_UNAVAILABLE"
+        await model.refresh()
+        await model.read(connection)
+        XCTAssertEqual(effects.count, 2)
     }
 
     @MainActor
@@ -95,7 +159,7 @@ final class ProviderIntakeTests: XCTestCase {
             ["id": "boolean-count", "app_id": "synthetic-app", "status": "SUCCEEDED", "data": data, "result": booleanCount],
         ]
         var calls: [String] = []
-        let model = NativeStoreConnectionModel(storeAppID: "123", execute: { action, _ in
+        let model = NativeStoreConnectionModel(appID: "synthetic-app", appVersion: 1, storeAppID: "123", execute: { action, _ in
             calls.append(action)
             let response: [String: Any] = action == "history" ? ["jobs": rows] : ["connections": []]
             return try JSONSerialization.data(withJSONObject: response)
