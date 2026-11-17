@@ -1,6 +1,8 @@
 import { status } from './app.mjs';
 import { $, api, button, esc, json, notice, refresh, state, toast } from './app.mjs';
 import { download, modal } from './app-ui.mjs';
+import { growthReviewServices } from './app-results.mjs';
+import { WMMAppleAnalytics } from './feature-apis.mjs';
 ('use strict');
 
 function reviewIdentity() {
@@ -65,17 +67,18 @@ function verifiedOwnerNext(workspace, task) {
 
 /** Collect an ephemeral identity token and optionally retain the explicit first-owner task. */
 function identityLogin(next = '', manual = false) {
+  const continuation = next === 'owner-bootstrap' || next === 'apple-analytics' ? next : '';
   if (!manual && state.workspace.device_signin_available) {
     modal(
       'Sign in for verified review',
-      `<form id="identity-form" data-device="true" data-app="${esc(state.app)}" data-app-version="${state.workspace.app.version}" data-next="${next === 'owner-bootstrap' ? 'owner-bootstrap' : ''}"><div class="modal-content"><p>Use your GitHub account to verify your identity for this workspace.</p><div data-device-status aria-live="polite"></div><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions" data-device-actions>${button('Start GitHub sign-in', 'identity-device-begin')}${button('Use a personal access token', 'identity-device-manual')}</div></form>`,
+      `<form id="identity-form" data-device="true" data-app="${esc(state.app)}" data-app-version="${state.workspace.app.version}" data-next="${continuation}"><div class="modal-content"><p>Use your GitHub account to verify your identity for this workspace.</p><div data-device-status aria-live="polite"></div><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions" data-device-actions>${button('Start GitHub sign-in', 'identity-device-begin')}${button('Use a personal access token', 'identity-device-manual')}</div></form>`,
       'VERIFIED REVIEW SESSION',
     );
     return;
   }
   modal(
     'Sign in for verified review',
-    `<form id="identity-form" data-app="${esc(state.app)}" data-app-version="${state.workspace.app.version}" data-next="${next === 'owner-bootstrap' ? 'owner-bootstrap' : ''}"><div class="modal-content">${notice('Use your own GitHub fine-grained token with no repository permissions. This verifies your numeric account ID through GitHub; it does not connect product data or repositories.')}<p><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Create a GitHub identity token</a> · <a href="https://docs.github.com/en/rest/users/users#get-the-authenticated-user" target="_blank" rel="noopener noreferrer">Review the identity permissions</a></p><label class="field" for="identity-token">GitHub identity token<input id="identity-token" name="token" type="password" autocomplete="off" minlength="20" maxlength="256" required></label><p class="description">The token is cleared from this form after submission and never saved to workspace files or browser storage. Sign-out or server restart clears the session.</p><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Verify my identity</button></div></form>`,
+    `<form id="identity-form" data-app="${esc(state.app)}" data-app-version="${state.workspace.app.version}" data-next="${continuation}"><div class="modal-content">${notice('Use your own GitHub fine-grained token with no repository permissions. This verifies your numeric account ID through GitHub; it does not connect product data or repositories.')}<p><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Create a GitHub identity token</a> · <a href="https://docs.github.com/en/rest/users/users#get-the-authenticated-user" target="_blank" rel="noopener noreferrer">Review the identity permissions</a></p><label class="field" for="identity-token">GitHub identity token<input id="identity-token" name="token" type="password" autocomplete="off" minlength="20" maxlength="256" required></label><p class="description">The token is cleared from this form after submission and never saved to workspace files or browser storage. Sign-out or server restart clears the session.</p><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Verify my identity</button></div></form>`,
     'EPHEMERAL REVIEW SESSION',
   );
 }
@@ -153,7 +156,7 @@ async function deviceClick(node, step) {
       delete form.dataset.flow;
       $('#modal').close();
       await refresh();
-      if (ownerContinuation(form, form.dataset.app, true)) accessBootstrap();
+      await resumeIdentityTask(form, form.dataset.app, true);
     } else {
       showDeviceState(form, result);
     }
@@ -228,18 +231,21 @@ function verifiedOpen(id) {
   );
 }
 
-/** Resume only the still-connected original app task after authenticated sign-in. */
-function ownerContinuation(form, app, active) {
-  return (
-    active &&
-    form.isConnected &&
-    !$('#modal').open &&
-    form.dataset.next === 'owner-bootstrap' &&
-    state.app === app &&
-    String(state.workspace.app.version) === form.dataset.appVersion &&
-    reviewIdentity().status === 'AUTHENTICATED' &&
-    state.workspace.access?.configured === false
-  );
+/** Reopen only the original app task. Sign-in never schedules or reads from Apple. */
+function resumeIdentityTask(form, app, active) {
+  if (
+    !active ||
+    !form.isConnected ||
+    $('#modal').open ||
+    state.app !== app ||
+    String(state.workspace.app.version) !== form.dataset.appVersion ||
+    reviewIdentity().status !== 'AUTHENTICATED'
+  )
+    return;
+  if (form.dataset.next === 'owner-bootstrap' && state.workspace.access?.configured === false)
+    return accessBootstrap();
+  if (form.dataset.next === 'apple-analytics')
+    return WMMAppleAnalytics.open(growthReviewServices());
 }
 /** Submit one selected review form through its existing closed API route. */
 async function verifiedRequest(form, id, data, app) {
@@ -270,7 +276,7 @@ async function verifiedSubmitted(form, id, data, app) {
   const active = form.isConnected && $('#modal').open;
   if (active) $('#modal').close();
   await refresh();
-  if (ownerContinuation(form, app, active)) return accessBootstrap();
+  if (id === 'identity-form') return resumeIdentityTask(form, app, active);
   if (id === 'verified-prepare-form' && result && active && state.app === app)
     return verifiedOpen(result.id);
 }
@@ -312,7 +318,7 @@ async function verifiedClick(event) {
   if (action.startsWith('identity-device-'))
     return deviceClick(node, action.slice('identity-device-'.length));
   const simple = {
-    'identity-login': identityLogin,
+    'identity-login': () => identityLogin(id === 'apple-analytics' ? id : ''),
     'access-bootstrap': accessBootstrap,
     'access-member': () => accessMember(id),
     'verified-review-prepare': verifiedPrepare,
@@ -364,7 +370,7 @@ export {
   accessMember,
   verifiedPrepare,
   verifiedOpen,
-  ownerContinuation,
+  resumeIdentityTask,
   verifiedRequest,
   verifiedSubmitted,
   verifiedSubmit,
