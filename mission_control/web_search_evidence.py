@@ -51,7 +51,7 @@ TOOLS = {
     ),
     "get_search_console_performance": _group(
         "Google Search Console",
-        "Match one page headline to an observed search query.",
+        "Match one page's search title to an observed search query.",
         "Google clicks divided by impressions",
         clicks="count",
         impressions="count",
@@ -474,6 +474,42 @@ def _page_repairs(items: list[dict]) -> None:
             )
 
 
+def _test_brief(row: dict, territory: str) -> dict[str, object] | None:
+    """Draft one measurable web change from the same record as the retained baseline."""
+    window, baseline, page = row["period"], row["observed_rate"], row["page_url"]
+    if row["status"] != "REVIEW_ACTION" or not window or not baseline or not page:
+        return None
+    if row["tool"] == "get_search_console_performance":
+        if row["subject"] == page:
+            return None
+        change = "Change only the search title for this page, aligned with the observed query."
+        hypothesis = "A title that answers this search intent may earn more qualified clicks."
+        guardrail = "Keep the existing canonical URL, body and store CTA. Verify indexing and the observed title."
+    else:
+        change = "Change only the text of the main store call to action."
+        hypothesis = "A clearer reason to try the app may increase the share of visitors opening its store listing."
+        guardrail = "Keep the store destination, placement and click-event definition fixed."
+    days = (date.fromisoformat(window["end"]) - date.fromisoformat(window["start"])).days + 1
+    return dict(
+        state="DRAFT_FOR_REVIEW",
+        page=page,
+        subject=row["subject"],
+        territory=territory,
+        device=window["device"],
+        source_sha256=row["sha256"],
+        baseline=baseline,
+        baseline_window=window,
+        comparison_days=days,
+        change=change,
+        hypothesis=hypothesis,
+        comparison="Use the same source, page, market and device in the next comparable complete window. "
+        "Keep the query fixed for a title test. Record other changes; this comparison cannot establish causal lift.",
+        guardrail=guardrail,
+        decision="Before changing the page, confirm the source and set minimum sample and useful improvement. "
+        "Collect if the sample is too small; stop on a guardrail breach; otherwise continue or revise against the frozen rule.",
+    )
+
+
 def web_evidence_readout(data: dict, context: dict, as_of: str, current: bool) -> dict:
     """Select a reproducible next step without creating any measured outcome."""
     items = []
@@ -507,6 +543,7 @@ def web_evidence_readout(data: dict, context: dict, as_of: str, current: bool) -
         status=items[0]["status"],
         next_action=items[0]["next_action"],
         recommendation=items[0],
+        test_brief=_test_brief(items[0], data["territory"]),
         observations=items,
         repairs=[row for row in items if row["status"] in ("RECHECK_SOURCE", "COLLECT_EVIDENCE")],
         scope="WEB_SEARCH_ONLY",

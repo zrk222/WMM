@@ -615,9 +615,43 @@
     ];
   }
 
+  function observedRate(rate) {
+    return (rate.value * 100).toFixed(2) + '% (' + rate.numerator + ' / ' + rate.denominator + ')';
+  }
+
   function webSections(row) {
-    const observations = row.readout.analysis.observations || [];
+    const analysis = row.readout.analysis;
+    const observations = analysis.observations || [];
+    const brief = analysis.test_brief;
     return [
+      ...(brief
+        ? [
+            {
+              title: 'Next marketing test',
+              items: [
+                {
+                  title: brief.change,
+                  status: human(brief.state),
+                  facts: [
+                    ['Page', brief.page],
+                    ['Search or landing page', brief.subject],
+                    ['Market and device', brief.territory + ' · ' + human(brief.device)],
+                    ['Why try it', brief.hypothesis],
+                    [brief.baseline.label + ' baseline', observedRate(brief.baseline)],
+                    [
+                      'Baseline window',
+                      brief.baseline_window.start + ' to ' + brief.baseline_window.end,
+                    ],
+                    ['Compare', String(brief.comparison_days) + ' days. ' + brief.comparison],
+                    ['Keep fixed', brief.guardrail],
+                    ['Decision', brief.decision],
+                    ['Evidence SHA-256', brief.source_sha256],
+                  ],
+                },
+              ],
+            },
+          ]
+        : []),
       {
         title: 'Web SEO observations',
         items: observations.map((item) => ({
@@ -644,17 +678,7 @@
             ['Next action', item.next_action],
             ['Measure', item.measure || 'Collect evidence first'],
             ...(item.observed_rate
-              ? [
-                  [
-                    item.observed_rate.label,
-                    (item.observed_rate.value * 100).toFixed(2) +
-                      '% (' +
-                      item.observed_rate.numerator +
-                      ' / ' +
-                      item.observed_rate.denominator +
-                      ')',
-                  ],
-                ]
+              ? [[item.observed_rate.label, observedRate(item.observed_rate)]]
               : []),
           ],
         })),

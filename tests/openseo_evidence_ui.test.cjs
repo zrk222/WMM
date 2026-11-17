@@ -101,3 +101,40 @@ test('Web report clears native metrics and retains unknowns and a real zero', ()
   assert.equal(facts['position (position)'], 'Unknown');
   assert.equal(facts['clicks (count)'], '0');
 });
+
+test('The exported web report leads with a measurable change and retains source observations', () => {
+  const row = {
+    id: 'web-test',
+    kind: 'WEB_SEO_EVIDENCE',
+    data,
+    hash: 'source',
+    readout: {
+      analysis: {
+        test_brief: {
+          state: 'DRAFT_FOR_REVIEW',
+          page: 'https://example.com/guide',
+          subject: 'Buyer query',
+          territory: 'US',
+          device: 'MOBILE',
+          change: 'Change the search title',
+          hypothesis: 'Match the query',
+          baseline: { label: 'Google organic CTR', value: 0, numerator: 0, denominator: 250 },
+          baseline_window: { start: '2026-11-01', end: '2026-11-14' },
+          comparison_days: 14,
+          comparison: 'Use the same window.',
+          guardrail: 'Keep the CTA fixed.',
+          decision: 'Collect if sample is too small.',
+          source_sha256: 'a'.repeat(64),
+        },
+        observations: [],
+      },
+    },
+  };
+  const report = growth.report(state([row]), { model: () => ({}) }, row.id);
+  assert.equal(report.sections[0].title, 'Next marketing test');
+  const facts = Object.fromEntries(report.sections[0].items[0].facts);
+  assert.equal(facts['Google organic CTR baseline'], '0.00% (0 / 250)');
+  assert.equal(facts['Compare'], '14 days. Use the same window.');
+  assert.equal(facts['Evidence SHA-256'], 'a'.repeat(64));
+  assert.equal(report.sections[1].title, 'Web SEO observations');
+});

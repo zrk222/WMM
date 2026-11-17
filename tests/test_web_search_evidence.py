@@ -91,6 +91,7 @@ class OpenSEOTests(unittest.TestCase):
         analysis = self.readout()["analysis"]
         self.assertEqual(analysis["status"], "RECHECK_SOURCE")
         self.assertIsNone(analysis["recommendation"]["measure"])
+        self.assertIsNone(analysis["test_brief"])
         self.assertEqual(analysis["observations"][0]["values"]["best_position"], 5)
 
     def test_export_restore_retains_hash_and_requires_recheck(self) -> None:
@@ -130,6 +131,21 @@ class OpenSEOTests(unittest.TestCase):
         recommendation = self.readout()["analysis"]["recommendation"]
         self.assertEqual(recommendation["subject"], "best time planner")
         self.assertAlmostEqual(recommendation["observed_rate"]["value"], 30 / 700)
+        brief = self.readout()["analysis"]["test_brief"]
+        self.assertEqual((brief["page"], brief["territory"], brief["device"]), (large["page_url"], "US", "MOBILE"))
+        self.assertEqual(brief["source_sha256"], large["sha256"])
+        self.assertEqual(brief["baseline"], recommendation["observed_rate"])
+        self.assertEqual(brief["comparison_days"], 14)
+        self.assertIn("search title", brief["change"])
+        self.assertIn("cannot establish causal lift", brief["comparison"])
+
+    def test_default_page_total_needs_query_before_a_title_test(self) -> None:
+        row = observation(clicks=0, impressions=250)
+        row["subject"] = row["page_url"]
+        self.review.save("main-app", packet(row))
+        analysis = self.readout()["analysis"]
+        self.assertIsNone(analysis["test_brief"])
+        self.assertIn("queries", analysis["next_action"])
 
     def test_generic_ga4_events_are_not_store_clicks(self) -> None:
         tool = "get_google_analytics_organic_landing_pages"
@@ -151,6 +167,7 @@ class OpenSEOTests(unittest.TestCase):
         self.review.save("main-app", packet(observation(clicks=2, impressions=70), index))
         analysis = self.readout()["analysis"]
         self.assertEqual(len(analysis["repairs"]), 2)
+        self.assertIsNone(analysis["test_brief"])
         self.assertFalse(any(row["status"] == "REVIEW_ACTION" for row in analysis["observations"]))
         issues = recovery_issues(self.review.list("main-app"), [])
         self.assertEqual(len(issues), 2)
