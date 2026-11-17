@@ -75,7 +75,7 @@ not make an old reporting period fresh.
 | Evidence | Action WMM helps choose | Measurement |
 | --- | --- | --- |
 | Indexing or canonical problem | Repair the owned page before testing copy | Rechecked URL inspection |
-| Search Console query impressions and clicks | Match a page headline to the observed intent | Google clicks / impressions |
+| Search Console query impressions and clicks | Match a page's search title to the observed intent | Google clicks / impressions |
 | GA4 organic sessions and store-bound sessions | Test one store call to action | Store-bound sessions / eligible organic sessions |
 | Google keyword demand and competitor search results | Draft a differentiated long-tail landing page or creative angle | Owned query clicks and store-bound sessions |
 | Google rank history | Review a trend within the same device and market | Observed Google position |
@@ -84,6 +84,14 @@ not make an old reporting period fresh.
 WMM orders repairs before research and owned opportunities before estimates.
 Within one source and reporting window it prioritizes higher observed exposure.
 It does not blend unlike metrics into a predicted growth score.
+
+When comparable counts support one change, **Next marketing test** leads the
+report, PDF and JSON with the exact page, audience segment, observed baseline
+and source. Set the minimum sample and useful improvement before publishing a
+change. Compare the same market and device over a complete window of the same
+length. The draft makes no change itself. If page totals are all you have,
+inspect eligible query evidence before choosing a title test. If the store-link
+event is missing, repair tracking before interpreting a CTA test.
 
 Generic GA4 key events are not store clicks. Supply store-bound sessions only
 when a verified store-link event identifies eligible sessions. A website visit

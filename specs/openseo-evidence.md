@@ -11,6 +11,7 @@ Use OpenSEO evidence in WMM's existing app-scoped report to choose and measure a
 - If evidence is stale, partial, absent or missing a supporting source, the system shall withhold a ready recommendation through web_unknown.
 - While evaluating web research, the system shall never copy Google rankings, search volumes or GA4 events into ASO or native attribution through web_isolation.
 - When a user reviews an observation, the system shall offer a measurable next action with native outcomes only when verified separately through web_action.
+- When the top recommendation has comparable scoped rate evidence, the system shall show one change, its exact baseline, a same-scope comparison and a decision checklist in the report and its exports through web_action_brief.
 - When an owner connects OpenSEO inside WMM, the system shall protect its key, check the actual Search Console property, and retain a bounded app/market-scoped observation through native_read.
 - When a scoped agent requests web research, the system shall enforce the current app/source grant and save only an exact retained source receipt through native_agent.
 - If provider rows contain unsupported parameterized pages or pages outside this app, the system shall retain safe rows, disclose omission counts and mark the entire reading partial without merging page identities through native_omissions.
@@ -38,6 +39,10 @@ Scenario: web_action
   Given current Google Search Console evidence for a landing page
   When web_action ranks proposed actions
   Then the operator receives one web hypothesis and measurement step
+Scenario: web_action_brief
+  Given a complete owned search query or store-link rate and no unresolved same-page source issue
+  When web_action_brief projects the highest ranked recommendation
+  Then the draft preserves the original counts, window, scope and source hash and grants no external action
 Scenario: native_read
   Given an owner-confirmed dedicated OpenSEO project
   When native_read retrieves final Search Console data
