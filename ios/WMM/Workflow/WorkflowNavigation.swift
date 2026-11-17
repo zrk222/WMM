@@ -90,6 +90,12 @@ struct WorkflowNavigation: View {
                             Button("Refresh stages and activity", systemImage: "arrow.clockwise") {
                                 Task { await model.open(snapshot.app) }
                             }.disabled(model.busy)
+                            if let storeID = snapshot.app.data.store_app_id, !storeID.isEmpty {
+                                Button("Apple analytics", systemImage: "chart.bar.xaxis") {
+                                    storeConnection = model.makeStoreConnection()
+                                }.disabled(model.busy)
+                                    .accessibilityHint("Check reports and read downloads for this app")
+                            }
                         }
                         ForEach(snapshot.stages) { stage in
                             Section("\(stage.id). \(stage.title)") {

@@ -5,24 +5,51 @@ import CoreFoundation
 @MainActor
 final class NativeStoreConnectionModel: ObservableObject, Identifiable {
     static let waitingMessage = "Apple returned no daily report; no new metrics were collected. Read again later while the app is open."
-    struct Connection: Identifiable { let id: String; let version: Int; let storeAppID: String; let status: String }
+    struct Connection: Identifiable {
+        let id: String
+        let version: Int
+        let storeAppID: String
+        let status: String
+        var keyAvailable: Bool { status == "PROTECTED_KEY_PRESENT" }
+        var statusMessage: String {
+            switch status {
+            case "PROTECTED_KEY_PRESENT": "Key saved on this device. Check reports to verify Apple access."
+            case "PROTECTED_STORAGE_UNAVAILABLE": "Unlock this device and refresh to access the key."
+            case "DISCONNECTED": "Disconnected on this device. Add a key to reconnect."
+            default: "Add a private App Store key to reconnect."
+            }
+        }
+    }
+    struct DownloadReport: Equatable {
+        let id: String
+        let lastProcessingDate: String
+    }
+    enum ReportAvailability: Equatable {
+        case unchecked, setupRequired, incomplete, waiting, ready(DownloadReport)
+    }
     enum MetricsAvailability: Equatable { case notApplicable, waiting, available, unavailable }
     struct Job: Identifiable {
         let id: String; let status: String; let operation: String; let detail: String
         let metricsAvailability: MetricsAvailability
     }
     let id = UUID()
+    private let appID: String
+    private let appVersion: Int
     let storeAppID: String
     @Published var connections: [Connection] = []
     @Published var jobs: [Job] = []
+    @Published private(set) var downloadReports: [String: ReportAvailability] = [:]
     @Published var metrics = ""
     @Published var busy = false
     @Published var message: String?
     private let execute: (String, Data) async throws -> Data
     private var closed = false
     private var requests: [String: String] = [:]
-    init(storeAppID: String, execute: @escaping (String, Data) async throws -> Data) {
-        self.storeAppID = storeAppID; self.execute = execute
+    init(appID: String, appVersion: Int, storeAppID: String, execute: @escaping (String, Data) async throws -> Data) {
+        self.appID = appID
+        self.appVersion = appVersion
+        self.storeAppID = storeAppID
+        self.execute = execute
     }
     private func call(_ action: String, _ body: [String: Any] = [:]) async throws -> [String: Any] {
         guard !closed else { throw DomainBridge.Failure.closed }
@@ -99,20 +126,65 @@ final class NativeStoreConnectionModel: ObservableObject, Identifiable {
         guard observedTotal == total else { return .unavailable }
         return .available
     }
+    private func reportAvailability(in rows: [[String: Any]], for connection: Connection) -> ReportAvailability {
+        guard connection.keyAvailable, connection.storeAppID == storeAppID, !storeAppID.isEmpty,
+              let row = rows.first(where: { row in
+                  guard row["app_id"] as? String == appID,
+                        row["status"] as? String == "SUCCEEDED",
+                        let data = row["data"] as? [String: Any],
+                        Self.integer(data["manifest_version"]) == appVersion,
+                        data["connection_id"] as? String == connection.id,
+                        Self.integer(data["connection_version"]) == connection.version,
+                        let options = data["options"] as? [String: Any] else { return false }
+                  return options["operation"] as? String == "analytics_reports"
+              }) else { return .unchecked }
+        guard let result = row["result"] as? [String: Any],
+              result["provider"] as? String == "app_store",
+              result["operation"] as? String == "analytics_reports",
+              result["app_id"] as? String == appID,
+              result["store_app_id"] as? String == storeAppID,
+              result["coverage"] as? String == "COMPLETE",
+              Self.hash(result["source_hash"]),
+              Self.isFalse(result["external_writes"]),
+              let status = result["status"] as? String else { return .incomplete }
+        if status == "REPORT_SETUP_REQUIRED" { return .setupRequired }
+        guard ["METRIC_DOWNLOAD_REQUIRED", "WAITING_FOR_REPORTS"].contains(status),
+              let reports = result["reports"] as? [[String: Any]] else { return .incomplete }
+        let matches = reports.filter { $0["name"] as? String == "App Downloads Standard" }
+        if matches.isEmpty { return .waiting }
+        guard matches.count == 1, let report = matches.first,
+              report["coverage"] as? String == "COMPLETE",
+              let reportID = report["id"] as? String, !reportID.isEmpty,
+              let instances = report["instances"] as? [[String: Any]] else { return .incomplete }
+        let daily = instances.filter { $0["granularity"] as? String == "DAILY" }
+        if daily.isEmpty { return .waiting }
+        guard status == "METRIC_DOWNLOAD_REQUIRED" else { return .incomplete }
+        let dates = daily.compactMap { $0["processing_date"] as? String }
+        guard dates.count == daily.count,
+              dates.allSatisfy({ $0.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil }),
+              let latest = dates.max() else { return .incomplete }
+        return .ready(DownloadReport(id: reportID, lastProcessingDate: latest))
+    }
     private func load() async throws {
+        downloadReports = [:]
         let view = try await call("view")
-        connections = try (view["connections"] as? [[String: Any]] ?? []).compactMap { row in
-            guard let id = row["id"] as? String, let version = row["version"] as? Int else { return nil }
-            return Connection(id: id, version: version, storeAppID: row["store_app_id"] as? String ?? "",
-                status: try pretty(row["status"] ?? [:]))
+        connections = (view["connections"] as? [[String: Any]] ?? []).compactMap { row in
+            guard let id = row["id"] as? String, let version = Self.integer(row["version"]), version > 0,
+                  let target = row["store_app_id"] as? String, target == storeAppID, !target.isEmpty else { return nil }
+            let status = row["status"] as? [String: Any]
+            return Connection(id: id, version: version, storeAppID: target, status: status?["status"] as? String ?? "")
         }
         let history = try await call("history")
-        jobs = try (history["jobs"] as? [[String: Any]] ?? []).compactMap { row in
+        let rows = history["jobs"] as? [[String: Any]] ?? []
+        jobs = try rows.compactMap { row in
             guard let id = row["id"] as? String, let status = row["status"] as? String else { return nil }
             let data = row["data"] as? [String: Any]
             let options = data?["options"] as? [String: Any]
             return Job(id: id, status: status, operation: options?["operation"] as? String ?? "analytics_reports",
                 detail: try pretty(row), metricsAvailability: Self.metricsAvailability(row, storeAppID: storeAppID))
+        }
+        for connection in connections {
+            downloadReports[connection.id] = reportAvailability(in: rows, for: connection)
         }
         metrics = ""
     }
@@ -140,8 +212,15 @@ final class NativeStoreConnectionModel: ObservableObject, Identifiable {
     func cleanup() async {
         await perform { _ = try await call("cleanup"); try await load(); message = "Protected-key cleanup checked. Active connection keys are retained." }
     }
-    func read(_ connection: Connection, reportID: String? = nil) async {
+    func read(_ connection: Connection, report: DownloadReport? = nil) async {
         await perform {
+            guard connections.contains(where: {
+                $0.id == connection.id && $0.version == connection.version && $0.storeAppID == storeAppID && $0.keyAvailable
+            }) else { throw DomainBridge.Failure.invalidRequest }
+            if let report, downloadReports[connection.id] != .ready(report) {
+                throw DomainBridge.Failure.invalidRequest
+            }
+            let reportID = report?.id
             let operation = reportID == nil ? "inventory" : "metrics"
             let identity = connection.id + ":" + String(connection.version) + ":" + (reportID ?? "inventory")
             let requestKey = requests[identity] ?? UUID().uuidString.lowercased()
@@ -173,7 +252,7 @@ final class NativeStoreConnectionModel: ObservableObject, Identifiable {
         }
         await perform { metrics = try pretty(await call("metrics", ["id": job.id])) }
     }
-    func close() { closed = true; connections = []; jobs = []; metrics = "" }
+    func close() { closed = true; connections = []; jobs = []; downloadReports = [:]; metrics = "" }
 }
 
 @MainActor
@@ -185,10 +264,12 @@ struct NativeStoreConnectionView: View {
     @State private var pem = ""
     @State private var importing = false
     @State private var confirmed = false
-    @State private var reportID = ""
-    @State private var reading: NativeStoreConnectionModel.Connection?
+    private struct ReadRequest {
+        let connection: NativeStoreConnectionModel.Connection
+        let report: NativeStoreConnectionModel.DownloadReport?
+    }
+    @State private var reading: ReadRequest?
     @State private var disconnecting: NativeStoreConnectionModel.Connection?
-    @State private var readMetrics = false
     @State private var fileMessage: String?
     var body: some View {
         NavigationStack {
@@ -221,9 +302,10 @@ struct NativeStoreConnectionView: View {
                     pem = text; fileMessage = "Key file loaded privately. Confirm storage to save it."
                 } catch { pem = ""; fileMessage = "Choose an unencrypted PKCS8 .p8 file up to 2,000 bytes." }
             }
-            .confirmationDialog(readMetrics ? "Read this selected Apple download report?" : "Read Apple report inventory?", isPresented: Binding(get: { reading != nil }, set: { if !$0 { reading = nil } })) {
-                if let connection = reading { Button("Read approved app analytics") {
-                    reading = nil; Task { await model.read(connection, reportID: readMetrics ? reportID : nil) }
+            .confirmationDialog(reading?.report == nil ? "Check this app's Apple reports?" : "Read this app's daily downloads?", isPresented: Binding(get: { reading != nil }, set: { if !$0 { reading = nil } })) {
+                if let request = reading { Button("Read approved app analytics") {
+                    reading = nil
+                    Task { await model.read(request.connection, report: request.report) }
                 } }
             } message: { Text("Only this workspace's current app and connection are used. Runs in the foreground; inspect saved history if interrupted.") }
             .confirmationDialog("Disconnect this exact Apple connection?", isPresented: Binding(get: { disconnecting != nil }, set: { if !$0 { disconnecting = nil } })) {
@@ -251,13 +333,34 @@ struct NativeStoreConnectionView: View {
             if model.connections.isEmpty { Text("No private Apple connection saved yet.") }
             ForEach(model.connections) { connection in
                 Text("App \(connection.storeAppID) · revision \(connection.version)").font(.headline)
-                Text(connection.status).font(.caption.monospaced())
-                Button("Read available reports") { readMetrics = false; reading = connection }.disabled(model.busy)
-                TextField("App Downloads Standard report ID", text: $reportID).textInputAutocapitalization(.never).autocorrectionDisabled()
-                Text("Choose the App Downloads Standard ID shown in the inventory receipt. Apple must already have its reports enabled.").font(.caption)
-                Button("Read latest daily download metrics") { readMetrics = true; reading = connection }.disabled(model.busy || reportID.isEmpty)
-                Button("Disconnect private key", role: .destructive) { disconnecting = connection }.disabled(model.busy)
+                Text(connection.statusMessage).font(.caption)
+                if connection.keyAvailable {
+                    Button("Check available Apple reports") { reading = ReadRequest(connection: connection, report: nil) }
+                        .disabled(model.busy)
+                    downloadAction(for: connection)
+                }
+                if connection.status != "DISCONNECTED" {
+                    Button("Disconnect private key", role: .destructive) { disconnecting = connection }.disabled(model.busy)
+                }
             }
+        }
+    }
+    @ViewBuilder
+    private func downloadAction(for connection: NativeStoreConnectionModel.Connection) -> some View {
+        switch model.downloadReports[connection.id] ?? .unchecked {
+        case .unchecked:
+            Label("Check for reports first", systemImage: "magnifyingglass")
+        case .setupRequired:
+            Label("Enable ongoing reports in App Store Connect, then check again.", systemImage: "gearshape")
+        case .incomplete:
+            Label("Refresh the Apple report list before reading downloads.", systemImage: "exclamationmark.circle")
+        case .waiting:
+            Label("No daily download file is available yet.", systemImage: "clock")
+        case .ready(let report):
+            Label("Apple file processed \(report.lastProcessingDate) · download count not read yet", systemImage: "doc")
+                .font(.caption)
+            Button("Read latest daily downloads") { reading = ReadRequest(connection: connection, report: report) }
+                .disabled(model.busy)
         }
     }
     private var historySection: some View {
