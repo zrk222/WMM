@@ -137,12 +137,20 @@ def run(browser, width):
         expect(report.locator("body")).to_contain_text("Maximum total media commitment 100 minor CAD")
         expect(report.locator("body")).to_contain_text("Held by this approval")
         expect(report.locator("body")).to_contain_text("Other commitments on the same Meta ad account")
-        expected_padding = "20px" if width <= 600 else "32px"
-        report.wait_for_function(
-            "(padding) => getComputedStyle(document.body).paddingLeft === padding",
-            arg=expected_padding,
+        expect(report.locator("header.report-masthead")).to_contain_text("Wize Marketing Machine")
+        report.wait_for_function("() => getComputedStyle(document.body).getPropertyValue('--ink').trim().length > 0")
+        layout = report.evaluate(
+            """() => {
+                const styles = getComputedStyle(document.body);
+                return {
+                    left: parseFloat(styles.paddingLeft),
+                    right: parseFloat(styles.paddingRight),
+                    fits: document.documentElement.scrollWidth <= innerWidth,
+                };
+            }"""
         )
-        assert report.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        assert 16 <= layout["left"] <= 36 and layout["left"] == layout["right"]
+        assert layout["fits"]
         report_text = report.locator("body").inner_text()
         for expected in (
             "WMM background worker",
@@ -240,6 +248,8 @@ def main():
         "mission_control/static/guided-workflow.mjs",
         "mission_control/static/campaign-monitor.mjs",
         "mission_control/static/app.mjs",
+        "mission_control/static/page-reporting.js",
+        "mission_control/static/page-reporting.css",
         "mission_control/automation_agreement.py",
         "mission_control/campaign_monitor.py",
         "tests/test_automation_agreement.py",
