@@ -1,0 +1,39 @@
+{
+  "schema": "wmm.dogfood-progress.v1",
+  "observed_at_utc": "2026-11-17T14:49:12.545Z",
+  "trial": "E15",
+  "app": "SUDHĪ",
+  "storefront": "US",
+  "status": "PENDING_UNPUBLISHED",
+  "prior_checkpoint": "sudhi-e15-progress-2026-11-17.json",
+  "frozen_plan_sha256": "d2d6d65c0cae1462b1ade6e3794bcd57c605a88a252003ec50abdb69428f23f9",
+  "private_preflight_sha256": "e18e0cd4b9b85b6d2a2009e03126601ff424eb9601336fceac497bdd4f7de463",
+  "plan": {
+    "post_count": 1,
+    "spend_minor": 0,
+    "channel": "Facebook Page",
+    "destination_type": "Apple campaign link for SUDHĪ",
+    "conditional_publication_due_utc": "2026-11-19T16:00:00Z",
+    "measurement_start_utc": "2026-11-19T00:00:00Z",
+    "measurement_end_exclusive_utc": "2026-11-26T00:00:00Z",
+    "decision_cutoff_utc": "2026-11-29T00:00:00Z"
+  },
+  "current_source_inventory": {
+    "observed_at_utc": "2026-11-17T14:47:38Z",
+    "status": "WAITING_FOR_REPORTS",
+    "report_families": 6,
+    "report_instances": 0,
+    "app_downloads_detailed_instances": 0
+  },
+  "facebook_page_preflight": {
+    "observed_at_utc": "2026-11-17T14:49:12.545Z",
+    "status": "CONNECTED_READ_TESTED",
+    "scope": "READ_TEST_ONLY"
+  },
+  "publication_receipt": null,
+  "processing_dates_utc": null,
+  "first_time_downloads": null,
+  "paid_subscriptions": null,
+  "decision": null,
+  "limits": "Report instances count available files. The inventory and Page read do not establish delivery, downloads, subscriptions, or growth. The frozen campaign tag and window were not changed."
+}
