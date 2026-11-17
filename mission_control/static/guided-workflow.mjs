@@ -169,6 +169,13 @@ const WMMExceptionGuidance = (() => {
     'owner',
     'apple-analytics',
   ]);
+  const urgentStates = new Set([
+    'UNKNOWN',
+    'CANCEL_REQUESTED',
+    'CAMPAIGN_SCHEDULE_NEEDS_RECONCILIATION',
+    'CAMPAIGN_MONITOR_NEEDS_RECONCILIATION',
+    'CAMPAIGN_MONITOR_PAUSE_UNAVAILABLE',
+  ]);
   function repairButton(tool, batchId, monitorId, status) {
     if (tool === 'apple-analytics' && status === 'WAITING_FOR_REPORTS') {
       const app = state.workspace?.app;
@@ -240,6 +247,14 @@ const WMMExceptionGuidance = (() => {
         : definition.tool;
     return {
       status,
+      attention: urgentStates.has(status)
+        ? 'urgent'
+        : status === 'WAITING_FOR_REPORTS' &&
+            row.source === 'App Store Connect' &&
+            row.repair_route === 'apple-analytics' &&
+            row.monitoring === true
+          ? 'monitoring'
+          : 'review',
       headline: definition.headline,
       reason: typeof row.reason === 'string' ? row.reason : definition.reason,
       action: typeof row.next_action === 'string' ? row.next_action : definition.action,
@@ -252,11 +267,33 @@ const WMMExceptionGuidance = (() => {
       next_due: typeof row.next_due === 'string' ? row.next_due : null,
     };
   }
+  function card(c) {
+    const kind = {
+      urgent: ['failed', 'Review first'],
+      review: ['needs_review', 'Needs review'],
+      monitoring: ['checking', 'Monitoring'],
+    }[c.attention];
+    return `<article class="panel guided-exception" data-exception-state="${esc(c.status)}"><span class="status ${kind[0]}">${kind[1]}</span><h3>${esc(c.headline)}</h3><p>${esc(c.reason)}</p><p><strong>Next:</strong> ${esc(c.action)}</p>${c.observed_at || c.next_due ? `<p><small>${c.observed_at ? `Observed: ${esc(c.observed_at)}` : ''}${c.next_due ? `${c.observed_at ? ' · ' : ''}next due ${esc(c.next_due)}` : ''}</small></p>` : ''}${c.evidence_refs.length ? `<p><small>Evidence: ${c.evidence_refs.map(esc).join(', ')}</small></p>` : ''}${c.source ? `<p><small>Source: ${esc(c.source)}</small></p>` : ''}${repairButton(c.tool, c.batchId, c.monitorId, c.status)}</article>`;
+  }
+
   function panel(rows) {
     if (!Array.isArray(rows) || !rows.length) return '';
     const cards = rows.map(normalize).filter(Boolean);
     if (!cards.length) return '';
-    return `<section class="panel" aria-label="Workflow exceptions"><h2>Workflow updates</h2><p>See what WMM observed and what to do next.</p><div class="guided-exceptions">${cards.map((c) => `<article class="panel guided-exception" data-exception-state="${esc(c.status)}"><h3>${esc(c.headline)}</h3><p>${esc(c.reason)}</p><p><strong>Next:</strong> ${esc(c.action)}</p>${c.observed_at || c.next_due ? `<p><small>${c.observed_at ? `Observed: ${esc(c.observed_at)}` : ''}${c.next_due ? `${c.observed_at ? ' · ' : ''}next due ${esc(c.next_due)}` : ''}</small></p>` : ''}${c.evidence_refs.length ? `<p><small>Evidence: ${c.evidence_refs.map(esc).join(', ')}</small></p>` : ''}${c.source ? `<p><small>Source: ${esc(c.source)}</small></p>` : ''}${repairButton(c.tool, c.batchId, c.monitorId, c.status)}</article>`).join('')}</div></section>`;
+    const urgent = cards.filter((c) => c.attention === 'urgent');
+    const ordinary = cards.filter((c) => c.attention === 'review');
+    const monitoring = cards.filter((c) => c.attention === 'monitoring');
+    const review = [...urgent, ...ordinary];
+    const grid = (items) => `<div class="guided-exceptions">${items.map(card).join('')}</div>`;
+    const waiting = monitoring.length
+      ? review.length
+        ? `<details><summary>Monitoring · ${monitoring.length}</summary>${grid(monitoring)}</details>`
+        : grid(monitoring)
+      : '';
+    const summary = review.length
+      ? `${review.length === 1 ? '1 item needs review.' : `${review.length} items need review.`} Start with the first item.`
+      : 'Monitoring only. Check the saved observations and next scheduled time.';
+    return `<section class="panel" aria-label="Workflow exceptions"><h2>Workflow updates</h2><p>${summary}</p>${review.length ? grid(review) : ''}${waiting}</section>`;
   }
   return { normalize, panel, definitions };
 })();
@@ -658,7 +695,7 @@ function startHerePanel() {
     WMMGoalPacket.attributes(WMMGoalPacket.model()),
     '',
   );
-  return `<section class="panel goal-proof-layout" aria-label="Start your first experiment"><div><p class="eyebrow">ONE APP. ONE QUESTION. YOUR NEXT DECISION.</p><h2>Turn your app question into a plan you can review.</h2><p>Your agent can research, prepare creative and carry approved marketing work forward here.</p><p>${missing.length ? `Add ${esc(missing.join(', '))} to prepare a useful plan for this app.` : 'Choose a goal below, then open your first packet. No provider sign-in is needed.'}</p><div class="toolbar" aria-label="Start here">${primary}</div><p><strong>What you leave with:</strong> one reviewable plan, its sources and a clear next step. An empty packet shows what to collect; it contains no completed research or measured result. A prepared packet is not a published campaign.</p><p class="description">After approved work runs, inspect its receipts and available measurements. Missing measurements stay unknown; growth and time savings are not guaranteed. You still approve what goes live.</p><details><summary>More options</summary><div class="toolbar">${missing.length ? button('Finish app setup', 'edit-app') : button('Build your campaign plan', 'campaign-plan-open')}${button('Start the guided path', 'first-post-open')}${button('What should I do next?', 'next-answer')}${button('Measure one organic post', 'observational-campaign-open')}</div>${exceptions.length ? `<p class="description">${exceptions.length} saved item${exceptions.length === 1 ? '' : 's'} need attention. <button type="button" class="button outline" data-view="workflow">Review workflow</button></p>` : ''}<p class="description">Each path keeps its own approval. Nothing publishes or spends on its own.</p></details></div>${goalProofIllustration()}</section>`;
+  return `<section class="panel goal-proof-layout" aria-label="Start your first experiment"><div><p class="eyebrow">ONE APP. ONE QUESTION. YOUR NEXT DECISION.</p><h2>Turn your app question into a plan you can review.</h2><p>Your agent can research, prepare creative and carry approved marketing work forward here.</p><p>${missing.length ? `Add ${esc(missing.join(', '))} to prepare a useful plan for this app.` : 'Choose a goal below, then open your first packet. No provider sign-in is needed.'}</p><div class="toolbar" aria-label="Start here">${primary}</div><p><strong>What you leave with:</strong> one reviewable plan, its sources and a clear next step. An empty packet shows what to collect; it contains no completed research or measured result. A prepared packet is not a published campaign.</p><p class="description">After approved work runs, inspect its receipts and available measurements. Missing measurements stay unknown; growth and time savings are not guaranteed. You still approve what goes live.</p><details><summary>More options</summary><div class="toolbar">${missing.length ? button('Finish app setup', 'edit-app') : button('Build your campaign plan', 'campaign-plan-open')}${button('Start the guided path', 'first-post-open')}${button('What should I do next?', 'next-answer')}${button('Measure one organic post', 'observational-campaign-open')}</div>${exceptions.length ? `<p class="description">${exceptions.length} saved workflow update${exceptions.length === 1 ? '' : 's'}. <button type="button" class="button outline" data-view="workflow">Review workflow</button></p>` : ''}<p class="description">Each path keeps its own approval. Nothing publishes or spends on its own.</p></details></div>${goalProofIllustration()}</section>`;
 }
 
 function launchStatusPanel(workspace) {
