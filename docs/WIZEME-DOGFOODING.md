@@ -1,7 +1,7 @@
 # WizeMe dogfooding: operations with receipts
 
-**Evidence review: November 15, 2026 (UTC).** We are using Wize Marketing Machine on
-WizeMe.APP to prove the working marketing loop: connect a real app, collect
+**Evidence review: November 17, 2026 (UTC).** We are using Wize Marketing Machine on
+WizeMe.APP and SUDHĪ to test the marketing loop: connect a real app, collect
 evidence, make one approved change, then measure what happened.
 
 ## Current acceptance status
@@ -15,6 +15,28 @@ On November 13, the automated Windows and Ubuntu package run at source `4ac6587c
 [Desktop Preview 10](https://github.com/zrk222/WMM/releases/tag/v0.1.0-preview.10) shipped on November 13 from commit f80234b. Both installer lifecycles and all six artifact attestations passed the [release checks](https://github.com/zrk222/WMM/actions/runs/43455759453). The Windows installer is unsigned. Independent first-use, agent-host operation on the released installer and a measured tagged-campaign result are still awaiting verification.
 
 On November 15, both WizeMe and SUDHĪ opened separate private app workspaces and exported all four goal packets in WMM. The installed Windows runtime also completed first-packet and restart checks in a fresh synthetic profile. The private-workspace check used an isolated read-only copy and made no provider requests. WizeMe's Apple schedule was paused and its saved Apple and Facebook credentials could not be opened on this host; the prior Facebook delivery receipt is still retained. SUDHĪ had no saved Facebook destination in its own workspace. The next step is to restore app-scoped access, then verify the destination and measurement source before scheduling the next zero-spend post. [November 15 receipt](evidence/dogfood-continuity-2026-11-15.json).
+
+## SUDHĪ E15: preparation recorded, result pending
+
+- **Source:** On November 16, an app-scoped Apple inventory read returned
+  `WAITING_FOR_REPORTS`: six report families, no available files. The November 17
+  checkpoint found a protected Apple connection, with no retained inventory
+  bound to its current version. The next inventory read is eligible from
+  **November 17 at 14:47 UTC (9:47 a.m. Eastern)**. Neither check counted downloads.
+- **Planned campaign:** One zero-spend Facebook post using a SUDHĪ App Store
+  campaign link for the US storefront. The tagged WizeMe signup path repaired
+  after E14 is a separate test; it cannot establish SUDHĪ downloads.
+  The frozen post is due November 19 at 16:00 UTC only if the current source,
+  Page and exact owner approval are verified. The measurement window is
+  November 19–25 UTC, with a November 29 decision cutoff.
+- **Result:** No post, Apple processing dates, or campaign download count yet.
+  First-time downloads remain **unknown** until the approved post is verified and
+  each event day has an exact Detailed row processed at least two days later.
+  Record explicit zeroes as zero; record missing or provisional days as unknown.
+  Append the actual count or unknown result and the decision after the run.
+
+[November 17 redacted progress receipt](evidence/sudhi-e15-progress-2026-11-17.json).
+E14 remains in the record as originally measured.
 
 ## Retained operations
 
