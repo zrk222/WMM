@@ -114,7 +114,6 @@ class CurrentCandidateCITests(unittest.TestCase):
         self.assertIn("-r requirements-report-pdf.txt", maintained)
         self.assertRegex(pdf, r"(?m)^PyMuPDF==1\.27\.2\.2 --hash=sha256:[0-9a-f]{64}(?: |$)")
 
-
     def test_native_library_types_run_with_pinned_local_tooling(self):
         text = (ROOT / ".github/workflows/checks.yml").read_text(encoding="utf-8")
         maintained = text.split("  maintainability:\n", 1)[1].split("  browser:\n", 1)[0]
