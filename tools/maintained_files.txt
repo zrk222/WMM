@@ -8,6 +8,7 @@ mission_control/agent_contract.py
 mission_control/agent_grants.py
 mission_control/agent_review_dispatch.py
 mission_control/agent_review_policy.py
+mission_control/agent_setup.py
 mission_control/agent_tasks.py
 mission_control/app_launch_history.py
 mission_control/app_launch_status.py
@@ -153,6 +154,7 @@ tests/test_ads_reports.py
 tests/test_agent_context_tasks.py
 tests/test_agent_control_ui.py
 tests/test_agent_review_dispatch.py
+tests/test_agent_setup_entrypoint.py
 tests/test_analytics_read_indexes.py
 tests/test_app_launch_status.py
 tests/test_apple_ads_economics.py
