@@ -439,6 +439,41 @@ test('exception panel keeps evidence escaped and renders no panel for absent sta
   assert.match(html, /data-tool="connections"/);
 });
 
+test('delivery uncertainty comes first while only a verified future Apple wait is folded', () => {
+  const { g } = fixture();
+  const watch = {
+    state: 'WAITING_FOR_REPORTS',
+    source: 'App Store Connect',
+    repair_route: 'apple-analytics',
+    monitoring: true,
+  };
+  const rows = [
+    watch,
+    { state: 'BLOCKED', reason: 'Repair an ordinary blocker.' },
+    { state: 'CAMPAIGN_MONITOR_PAUSE_UNAVAILABLE' },
+    { state: 'FUTURE_UNKNOWN_STATE', monitoring: true, reason: 'Keep this uncertainty visible.' },
+  ];
+  const html = g.panel(rows);
+  assert.match(html, /3 items need review/);
+  assert.ok(
+    html.indexOf('Protective pause is unavailable') < html.indexOf('Repair an ordinary blocker'),
+  );
+  assert.ok(
+    html.indexOf('Keep this uncertainty visible') < html.indexOf('<summary>Monitoring · 1'),
+  );
+  assert.ok(
+    html.indexOf('<summary>Monitoring · 1') < html.indexOf('Report rows are not available yet'),
+  );
+  assert.doesNotMatch(g.panel([watch]), /<details>/);
+  for (const row of [
+    { ...watch, monitoring: false },
+    { ...watch, source: 'Another provider' },
+    { ...watch, repair_route: 'connections' },
+  ]) {
+    assert.equal(g.normalize(row).attention, 'review');
+  }
+});
+
 test('campaign warning opens only the exact saved schedule for review', () => {
   const { g } = fixture();
   const batch = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';

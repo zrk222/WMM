@@ -179,17 +179,27 @@ class Service:
             if viewer:
                 campaigns.extend(watch_monitor_exceptions(db, app["id"], viewer))
                 campaigns.sort(key=lambda item: not item["state"].endswith("_NEEDS_RECONCILIATION"))
-            health = apple_readiness(db, app["id"], store_app_id, now()) if apple else None
+            checked_at = now() if apple else None
+            health = apple_readiness(db, app["id"], store_app_id, checked_at) if checked_at else None
         exceptions = campaigns + ([rule] if rule is not None else [])
         if not isinstance(health, dict) or (state := health.get("read")) not in WATCH_REASONS:
             return exceptions
+        due = health.get("next_due")
+        monitoring = (
+            state == "WAITING_FOR_REPORTS"
+            and health.get("schedule") == "ENABLED"
+            and isinstance(due, str)
+            and checked_at is not None
+            and iso_time(due) > iso_time(checked_at)
+        )
         return [
             *exceptions,
             dict(
                 state=state,
                 source="App Store Connect",
                 observed_at=health.get("observed_at"),
-                next_due=health.get("next_due"),
+                next_due=due,
+                monitoring=monitoring,
                 reason=WATCH_REASONS[state],
                 next_action=health.get("next_action"),
                 repair_route="apple-analytics",

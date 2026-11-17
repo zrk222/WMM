@@ -175,6 +175,7 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
                     expect(card).to_contain_text("This does not mean zero activity.")
                     expect(card).to_contain_text("next due")
                     expect(card).to_contain_text("The scheduled refresh is overdue.")
+                    expect(card.get_by_text("Needs review", exact=True)).to_be_visible()
                     expect(card).to_contain_text("Check that the WMM worker is running")
                     self.save_render(page, f"waiting-{width}", '[aria-label="Workflow exceptions"]')
                     card.get_by_role("button", name="Review Apple report availability", exact=True).press("Enter")
@@ -202,6 +203,15 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
                     self.assertTrue(page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
             browser.close()
         self.assertEqual(schedules.get(apple.APP), before)
+
+        with connection(host.store.path) as db:
+            db.execute(
+                "UPDATE apple_metrics_schedules SET next_due=? WHERE app_id=?",
+                (datetime.now(timezone.utc).timestamp() + 3600, apple.APP),
+            )
+        future = host.server.service.workspace(apple.APP)["workflow"]["exceptions"]
+        waiting = next(row for row in future if row["state"] == "WAITING_FOR_REPORTS")
+        self.assertIs(waiting["monitoring"], True)
 
     def test_watch_stopped_rule_review_is_owner_only_and_read_only(self) -> None:
         from playwright.sync_api import expect, sync_playwright
