@@ -33,7 +33,7 @@ def setup() -> dict:
     )
 
 
-def provider_reply(token, tool, args) -> dict:
+def provider_reply(token: str, tool: str, args: dict) -> dict:
     if tool != "get_search_console_performance":
         raise AssertionError("Unexpected native tool")
     if args["filters"] != [dict(dimension="country", operator="equals", expression="usa")]:
@@ -51,7 +51,7 @@ def provider_reply(token, tool, args) -> dict:
 
 
 class OpenSEOReadTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.store = Store(Path(self.temp.name) / "native.sqlite", seed=False)
@@ -67,7 +67,7 @@ class OpenSEOReadTests(unittest.TestCase):
         self.addCleanup(self.remote.stop)
         self.work = Insights(self.store)
 
-    def test_native_setup_read_save_and_disconnect(self):
+    def test_native_setup_read_save_and_disconnect(self) -> None:
         result = self.work.setup("sample-app", setup())
         sid = result["source_id"]
         view = self.work.list("sample-app")
@@ -86,11 +86,11 @@ class OpenSEOReadTests(unittest.TestCase):
         self.work.disconnect("sample-app", sid, dict(version=1, confirm_disconnect=True))
         self.assertEqual(FakeVault.values, {})
 
-    def test_wrong_property_cannot_replace_a_working_source(self):
+    def test_wrong_property_cannot_replace_a_working_source(self) -> None:
         source = self.work.setup("sample-app", setup())["source_id"]
 
-        def wrong(*args):
-            return dict(provider_reply(*args), siteUrl="sc-domain:other.example")
+        def wrong(token: str, tool: str, args: dict) -> dict:
+            return dict(provider_reply(token, tool, args), siteUrl="sc-domain:other.example")
 
         with patch("mission_control.openseo_transport.call_tool", side_effect=wrong), self.assertRaises(Invalid):
             self.work.setup("sample-app", dict(setup(), version=1))
@@ -99,7 +99,7 @@ class OpenSEOReadTests(unittest.TestCase):
         self.assertEqual(len(view["reports"]), 1)
         self.assertEqual(len(FakeVault.values), 1)
 
-    def test_app_scope_change_stops_refresh_before_remote_access(self):
+    def test_app_scope_change_stops_refresh_before_remote_access(self) -> None:
         source = self.work.setup("sample-app", setup())["source_id"]
         app = self.store.app("sample-app")
         self.store.save_app("sample-app", dict(app["data"], website="https://other.example"), app["version"])
@@ -108,7 +108,7 @@ class OpenSEOReadTests(unittest.TestCase):
                 self.work.refresh("sample-app", source, dict(confirm_read=True))
             remote.assert_not_called()
 
-    def test_forged_native_provenance_and_partial_results(self):
+    def test_forged_native_provenance_and_partial_results(self) -> None:
         source = self.work.setup("sample-app", setup())["source_id"]
         report = self.work.list("sample-app")["reports"][0]
         data = copy.deepcopy(report["data"]["web_evidence"])
@@ -132,7 +132,7 @@ class OpenSEOReadTests(unittest.TestCase):
         self.assertEqual(result["coverage"], "PARTIAL")
         self.assertEqual(result["web_evidence"]["observations"][0]["coverage"], "PARTIAL")
 
-    def test_native_recommendation_expires_on_disconnect_and_rotation(self):
+    def test_native_recommendation_expires_on_disconnect_and_rotation(self) -> None:
         sid = self.work.setup("sample-app", setup())["source_id"]
         report = self.work.list("sample-app")["reports"][0]
         save_reading(self.store, "sample-app", sid, dict(id="native-test", manifest_version=1, report_id=report["id"]))
@@ -147,8 +147,8 @@ class OpenSEOReadTests(unittest.TestCase):
         after = GrowthReviews(self.store).list("sample-app")["history"][0]["readout"]
         self.assertEqual(after["availability"], "SOURCE_REVIEW_NEEDED")
 
-    def test_native_query_mode_retains_only_permitted_bounded_query_page_pairs(self):
-        def queries(token, tool, args):
+    def test_native_query_mode_retains_only_permitted_bounded_query_page_pairs(self) -> None:
+        def queries(token: str, tool: str, args: dict) -> dict:
             self.assertEqual(args["dimensions"], ["page", "query"])
             result = provider_reply(token, tool, args)
             result["dimensions"] = args["dimensions"]

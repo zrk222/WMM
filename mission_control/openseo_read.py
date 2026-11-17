@@ -4,6 +4,8 @@ import json
 import re
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
+from sqlite3 import Connection
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 from .aeo_transport import public_url
@@ -14,6 +16,10 @@ from .web_search_evidence import validate_web_binding, validate_web_evidence
 
 COUNTRIES = {"US": "USA", "CA": "CAN", "GB": "GBR", "AU": "AUS", "NZ": "NZL", "IE": "IRL", "ZA": "ZAF"}
 SOURCE = "https://openseo.so/docs/mcp-tools"
+
+if TYPE_CHECKING:
+    from .service import Service
+    from .store import Store
 
 
 def assert_app_scope(data: dict, app_data: dict) -> None:
@@ -167,7 +173,7 @@ def read(config: dict, token: str) -> dict:
     )
 
 
-def native_reading(db, app: str, source_id: str, report_id: str) -> tuple[dict, dict]:
+def native_reading(db: Connection, app: str, source_id: str, report_id: str) -> tuple[dict, dict]:
     """Select a same-app immutable report and check the current source binding."""
     from .insights import decoded
 
@@ -189,7 +195,7 @@ def native_reading(db, app: str, source_id: str, report_id: str) -> tuple[dict, 
     return source, report
 
 
-def verify_native_source(db, app: str, data: dict) -> None:
+def verify_native_source(db: Connection, app: str, data: dict) -> None:
     """Prevent a caller from asserting a native read without its retained provider report."""
     ref = data.get("native_source")
     if ref is None:
@@ -205,7 +211,7 @@ def verify_native_source(db, app: str, data: dict) -> None:
     assert_app_scope(source["data"], json.loads(app_row[0]))
 
 
-def save_reading(store, app: str, source_id: str, body: dict) -> dict:
+def save_reading(store: "Store", app: str, source_id: str, body: dict) -> dict:
     """Save an exact retained native reading through the existing immutable local review."""
     from .growth_review_store import GrowthReviews
 
@@ -229,7 +235,7 @@ def save_reading(store, app: str, source_id: str, body: dict) -> dict:
     )
 
 
-def require_web_source(store, app: str, source_id: str) -> None:
+def require_web_source(store: "Store", app: str, source_id: str) -> None:
     """Validate one exact app-owned OpenSEO source before scoped dispatch."""
     from .insights import Insights
 
@@ -239,7 +245,7 @@ def require_web_source(store, app: str, source_id: str) -> None:
             raise Invalid("Choose this app's OpenSEO source")
 
 
-def dispatch(service, envelope: dict) -> dict:
+def dispatch(service: "Service", envelope: dict) -> dict:
     """Reuse existing read and save services under the admitted agent scope."""
     from .insights import Insights
     from .operation_authority import protected

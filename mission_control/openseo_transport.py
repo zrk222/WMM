@@ -24,11 +24,11 @@ READ_TOOLS = frozenset(
 )
 
 
-def invalid():
+def invalid() -> ProviderFailure:
     return ProviderFailure("INVALID_RESPONSE", "OpenSEO returned an invalid protocol response")
 
 
-def decode(raw):
+def decode(raw: str) -> dict:
     try:
         value = json.loads(raw, object_pairs_hook=unique_pairs)
         bounded_tree(value)
@@ -39,7 +39,7 @@ def decode(raw):
     return value
 
 
-def sse_response(text):
+def sse_response(text: str) -> dict:
     events, lines = [], []
     for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n") + [""]:
         if not line:
@@ -54,7 +54,7 @@ def sse_response(text):
     return matches[0]
 
 
-def response_result(raw, content_type, request_id):
+def response_result(raw: bytes, content_type: str, request_id: int) -> dict:
     """Accept one matching response, including bounded SSE data events."""
     try:
         text = raw.decode("utf-8")
@@ -75,7 +75,7 @@ def response_result(raw, content_type, request_id):
     return value["result"]
 
 
-def validate_call(token, tool, args):
+def validate_call(token: str, tool: str, args: dict) -> None:
     if tool not in READ_TOOLS:
         raise ProviderFailure("TOOL_DENIED", "OpenSEO tool is outside the approved read scope")
     if not isinstance(token, str) or not token or len(token) > 8192 or any(ord(c) < 33 or ord(c) > 126 for c in token):
@@ -85,12 +85,12 @@ def validate_call(token, tool, args):
 
 
 class Client:
-    def __init__(self, token):
+    def __init__(self, token: str) -> None:
         self.token = token
         self.opener = build_opener(NoRedirect())
         self.session: str | None = None
 
-    def encode(self, method, params, request_id):
+    def encode(self, method: str, params: dict | None, request_id: int | None) -> bytes:
         body: dict[str, object] = {"jsonrpc": "2.0", "method": method}
         if params is not None:
             body["params"] = params
@@ -105,7 +105,7 @@ class Client:
             raise ProviderFailure("INVALID_ARGUMENTS", "OpenSEO arguments exceed the size limit")
         return data
 
-    def headers(self):
+    def headers(self) -> dict[str, str]:
         headers = {
             "Authorization": "Bearer " + self.token,
             "Content-Type": "application/json",
@@ -116,7 +116,7 @@ class Client:
             headers["Mcp-Session-Id"] = self.session
         return headers
 
-    def exchange(self, data):
+    def exchange(self, data: bytes) -> tuple[bytes, int, str]:
         try:
             with self.opener.open(
                 Request(ENDPOINT, data=data, headers=self.headers(), method="POST"),  # noqa: S310 -- constant HTTPS endpoint, NoRedirect.
@@ -142,7 +142,7 @@ class Client:
         self.accept_session(returned_session)
         return raw, status, content_type
 
-    def accept_session(self, returned_session):
+    def accept_session(self, returned_session: str | None) -> None:
         if returned_session is not None:
             if not re.fullmatch(r"[\x21-\x7e]{1,512}", returned_session) or (
                 self.session is not None and returned_session != self.session
@@ -150,7 +150,7 @@ class Client:
                 raise invalid()
             self.session = returned_session
 
-    def post(self, method, params=None, request_id=None):
+    def post(self, method: str, params: dict | None = None, request_id: int | None = None) -> dict:
         raw, status, content_type = self.exchange(self.encode(method, params, request_id))
         if request_id is None:
             if status != 202 or raw.strip():
@@ -160,7 +160,7 @@ class Client:
             raise invalid()
         return response_result(raw, content_type, request_id)
 
-    def initialize(self):
+    def initialize(self) -> None:
         initialized = self.post(
             "initialize",
             {"protocolVersion": PROTOCOL, "capabilities": {}, "clientInfo": {"name": "wmm", "version": "1"}},

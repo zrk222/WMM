@@ -1,13 +1,17 @@
 """Existing analytics routes plus native OpenSEO reads with unchanged owner/CSRF admission."""
 
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from .common import Invalid
 from .insights import Insights
 from .openseo_read import require_web_source, save_reading
 
+if TYPE_CHECKING:
+    from .server import Handler
 
-def post(handler, parts: list[str], data: dict) -> object:
+
+def post(handler: "Handler", parts: list[str], data: dict) -> object:
     """Dispatch only exact analytics route shapes after existing session admission."""
     if urlparse(handler.path).query:
         raise Invalid("Use the exact analytics action address without a query")

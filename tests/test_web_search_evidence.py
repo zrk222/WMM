@@ -16,7 +16,7 @@ STAMP = "2026-11-16T12:00:00Z"
 APP = {"name": "Sample", "website": "https://sample.example/", "release": "r1", "locale": "en-US"}
 
 
-def observation(tool="get_search_console_performance", **values):
+def observation(tool: str = "get_search_console_performance", **values: int | float | str | bool | None) -> dict:
     excerpt = "Selected synthetic response fields."
     return {
         "tool": tool,
@@ -32,7 +32,7 @@ def observation(tool="get_search_console_performance", **values):
     }
 
 
-def packet(*observations):
+def packet(*observations: dict) -> dict:
     return {
         "id": "test-research",
         "kind": "WEB_SEO_EVIDENCE",
@@ -49,7 +49,7 @@ def packet(*observations):
 
 
 class OpenSEOTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.directory = TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
@@ -58,10 +58,10 @@ class OpenSEOTests(unittest.TestCase):
         self.store.save_app("other-app", dict(APP, website="https://other.example"))
         self.review = GrowthReviews(self.store, lambda: iso_time(STAMP))
 
-    def readout(self):
+    def readout(self) -> dict:
         return self.review.list("main-app")["history"][0]["readout"]
 
-    def test_saved_recommendation_and_immutable_app_isolation(self):
+    def test_saved_recommendation_and_immutable_app_isolation(self) -> None:
         body = packet(
             observation("research_keywords", volume=140, difficulty=32),
             observation(clicks=4, impressions=110, ctr=4 / 110, position=8.5),
@@ -82,7 +82,7 @@ class OpenSEOTests(unittest.TestCase):
             self.assertFalse(state[claim])
         self.assertFalse(state["analysis"]["store_rank_verified"])
 
-    def test_partial_missing_and_stale_never_become_outcomes(self):
+    def test_partial_missing_and_stale_never_become_outcomes(self) -> None:
         source = observation("get_serp_results", best_position=5)
         source["coverage"] = "PARTIAL"
         self.review.save("main-app", packet(source))
@@ -93,7 +93,7 @@ class OpenSEOTests(unittest.TestCase):
         self.assertIsNone(analysis["recommendation"]["measure"])
         self.assertEqual(analysis["observations"][0]["values"]["best_position"], 5)
 
-    def test_export_restore_retains_hash_and_requires_recheck(self):
+    def test_export_restore_retains_hash_and_requires_recheck(self) -> None:
         saved = self.review.save("main-app", packet(observation(clicks=2, impressions=70)))
         restored = Store(self.root / "other.sqlite", seed=False)
         restored.restore(self.store.export("main-app"))
@@ -101,7 +101,7 @@ class OpenSEOTests(unittest.TestCase):
         self.assertEqual(saved["hash"], row["hash"])
         self.assertEqual(row["readout"]["analysis"]["status"], "RECHECK_SOURCE")
 
-    def test_reject_malformed_or_misleading_sources(self):
+    def test_reject_malformed_or_misleading_sources(self) -> None:
         for replacement in (
             {"sha256": "0" * 64},
             {"coverage": "NO_RESULTS"},
@@ -120,7 +120,7 @@ class OpenSEOTests(unittest.TestCase):
                     self.review.save("main-app", packet(source))
         self.assertEqual(self.review.list("main-app")["history"], [])
 
-    def test_repeat_exports_and_comparable_exposure(self):
+    def test_repeat_exports_and_comparable_exposure(self) -> None:
         small = observation(clicks=2, impressions=70)
         large = dict(observation(clicks=30, impressions=700), subject="best time planner")
         repeated = dict(small, retrieved_at="2026-11-16T11:00:00Z")
@@ -131,7 +131,7 @@ class OpenSEOTests(unittest.TestCase):
         self.assertEqual(recommendation["subject"], "best time planner")
         self.assertAlmostEqual(recommendation["observed_rate"]["value"], 30 / 700)
 
-    def test_generic_ga4_events_are_not_store_clicks(self):
+    def test_generic_ga4_events_are_not_store_clicks(self) -> None:
         tool = "get_google_analytics_organic_landing_pages"
         body = packet(observation(tool, sessions=70, key_events=20))
         self.review.save("main-app", body)
@@ -145,7 +145,7 @@ class OpenSEOTests(unittest.TestCase):
         row = self.review.list("main-app")["history"][1]["readout"]["analysis"]["recommendation"]
         self.assertEqual(row["observed_rate"]["value"], 0.1)
 
-    def test_mixed_same_page_indexing_state_blocks_copy_test_and_surfaces_all_repairs(self):
+    def test_mixed_same_page_indexing_state_blocks_copy_test_and_surfaces_all_repairs(self) -> None:
         index = observation("inspect_urls", canonical_match=None, indexing_state=None)
         index["coverage"] = "PARTIAL"
         self.review.save("main-app", packet(observation(clicks=2, impressions=70), index))
@@ -156,7 +156,7 @@ class OpenSEOTests(unittest.TestCase):
         self.assertEqual(len(issues), 2)
         self.assertTrue(any("indexing" in item["next_action"] for item in issues))
 
-    def test_exact_whitespace_excerpt_hash_and_healthy_page(self):
+    def test_exact_whitespace_excerpt_hash_and_healthy_page(self) -> None:
         index = observation("inspect_urls", canonical_match=True, indexing_state="INDEXED")
         index["excerpt"] = "  exact evidence with spaces \n"
         index["sha256"] = sha256(index["excerpt"].encode()).hexdigest()
@@ -166,7 +166,7 @@ class OpenSEOTests(unittest.TestCase):
         self.assertEqual(analysis["observations"][0]["excerpt"], index["excerpt"])
         self.assertEqual(analysis["repairs"], [])
 
-    def test_unknown_report_window_cannot_masquerade_as_fresh_evidence(self):
+    def test_unknown_report_window_cannot_masquerade_as_fresh_evidence(self) -> None:
         row = observation(clicks=2, impressions=70)
         row["period"] = {"start": "2026-01-01", "end": "2026-01-05", "device": "MOBILE"}
         self.review.save("main-app", packet(row))

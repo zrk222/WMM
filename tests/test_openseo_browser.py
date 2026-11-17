@@ -19,7 +19,12 @@ ARTIFACTS = Path(__file__).resolve().parents[1] / ".factory/openseo-evidence/bro
 
 
 class OpenSEOBrowserTests(browser_fixture.MarketResearchBrowserTests):
-    def test_builtin_connection_and_selected_reading_reaches_growth_report(self):
+    def setUp(self) -> None:
+        super().setUp()
+        # Join browser request threads before the fixture removes its Windows database.
+        self.f.server.daemon_threads = False
+
+    def test_builtin_connection_and_selected_reading_reaches_growth_report(self) -> None:
         FakeVault.values, FakeVault.fail_delete = {}, 0
         app = self.f.store.app("sample-one")
         self.f.store.save_app("sample-one", dict(app["data"], website="https://sample.example"), app["version"])
@@ -74,7 +79,7 @@ class OpenSEOBrowserTests(browser_fixture.MarketResearchBrowserTests):
         self.assertEqual(saved["readout"]["analysis"]["recommendation"]["observed_rate"]["value"], 0.04)
         page.wait_for_load_state("networkidle")
 
-    def run_journey(self, width):
+    def run_journey(self, width: int) -> None:
         app = self.f.store.app("sample-one")
         self.f.store.save_app("sample-one", dict(app["data"], website="https://sample.example"), app["version"])
         context = self.browser.new_context(viewport={"width": width, "height": 1000}, accept_downloads=True)

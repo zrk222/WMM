@@ -19,7 +19,7 @@ class OpenSEOAgentTests(unittest.TestCase):
     tearDown = GrantTests.tearDown
     body = GrantTests.body
 
-    def test_scoped_agent_reads_and_saves_exact_native_evidence(self):
+    def test_scoped_agent_reads_and_saves_exact_native_evidence(self) -> None:
         app = self.store.app("sample-one")
         self.store.save_app("sample-one", dict(app["data"], website="https://sample.example"), app["version"])
         FakeVault.values, FakeVault.fail_delete = {}, 0

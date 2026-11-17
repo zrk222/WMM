@@ -1,9 +1,12 @@
 """Offline protocol and privacy boundaries for native OpenSEO reads."""
 
+from __future__ import annotations
+
 import json
 import unittest
 from email.message import Message
-from unittest.mock import patch
+from types import TracebackType
+from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError
 
 from mission_control import openseo_transport as transport
@@ -11,29 +14,33 @@ from mission_control.insights_transport import ProviderFailure
 from mission_control.providers import NoRedirect
 
 
-def envelope(result, identity=2):
+def envelope(result: dict, identity: int = 2) -> bytes:
     return json.dumps({"jsonrpc": "2.0", "id": identity, "result": result}).encode()
 
 
 class Response:
-    def __init__(self, raw, status=200, content_type="application/json", session=None):
+    def __init__(
+        self, raw: bytes, status: int = 200, content_type: str = "application/json", session: str | None = None
+    ) -> None:
         self.raw, self.status = raw, status
         self.headers = {"Content-Type": content_type}
         if session:
             self.headers["Mcp-Session-Id"] = session
 
-    def __enter__(self):
+    def __enter__(self) -> Response:
         return self
 
-    def __exit__(self, *args):
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None
+    ) -> bool:
         return False
 
-    def read(self, size):
+    def read(self, size: int) -> bytes:
         return self.raw[:size]
 
 
 class TransportTests(unittest.TestCase):
-    def run_call(self, last, first=None):
+    def run_call(self, last: Response, first: Response | None = None) -> tuple[dict, MagicMock]:
         responses = [
             first or Response(envelope({"protocolVersion": transport.PROTOCOL}, 1), session="session-1"),
             Response(b"", 202),
@@ -44,7 +51,7 @@ class TransportTests(unittest.TestCase):
             result = transport.call_tool("synthetic-token", "get_project_context", {"projectId": "p"})
             return result, build
 
-    def test_handshake_session_fixed_destination_and_structured_only(self):
+    def test_handshake_session_fixed_destination_and_structured_only(self) -> None:
         result, build = self.run_call(Response(envelope({"structuredContent": {"project": "p"}})))
         self.assertEqual(result, {"project": "p"})
         self.assertIsInstance(build.call_args.args[0], NoRedirect)
@@ -61,7 +68,7 @@ class TransportTests(unittest.TestCase):
             if index:
                 self.assertEqual(request.get_header("Mcp-session-id"), "session-1")
 
-    def test_deny_mutation_before_network(self):
+    def test_deny_mutation_before_network(self) -> None:
         with patch.object(transport, "build_opener") as build:
             for tool in ["create_project", "run_audit", "publish_article", "tools/list"]:
                 with self.assertRaises(ProviderFailure) as caught:
@@ -69,7 +76,7 @@ class TransportTests(unittest.TestCase):
                 self.assertEqual(caught.exception.code, "TOOL_DENIED")
             build.assert_not_called()
 
-    def test_sse_and_bound(self):
+    def test_sse_and_bound(self) -> None:
         raw = b": ping\r\n\r\ndata: " + envelope({"structuredContent": {"ok": True}}) + b"\r\n\r\n"
         result, _ = self.run_call(Response(raw, content_type="text/event-stream; charset=utf-8"))
         self.assertEqual(result, {"ok": True})
@@ -77,7 +84,7 @@ class TransportTests(unittest.TestCase):
             self.run_call(Response(b" " * (transport.LIMIT + 1), content_type="text/event-stream"))
         self.assertEqual(caught.exception.code, "RESPONSE_TOO_LARGE")
 
-    def test_invalid_responses_fail_closed(self):
+    def test_invalid_responses_fail_closed(self) -> None:
         for raw in [
             b"not json",
             envelope({}, 4),
@@ -93,7 +100,7 @@ class TransportTests(unittest.TestCase):
         with self.assertRaises(ProviderFailure):
             self.run_call(Response(envelope({})), Response(envelope({"protocolVersion": "wrong"}, 1)))
 
-    def test_http_errors_redacted_and_no_redirect_handler(self):
+    def test_http_errors_redacted_and_no_redirect_handler(self) -> None:
         for status, expected in [(401, "PERMISSION_REQUIRED"), (429, "RATE_LIMITED"), (302, "PROVIDER_ERROR")]:
             with patch.object(transport, "build_opener") as build:
                 build.return_value.open.side_effect = HTTPError(

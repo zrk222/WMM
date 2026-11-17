@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime, timezone
+from sqlite3 import Connection
 
 from .benchmark_ads import project_saved_ads
 from .common import Invalid, canonical, digest, identifier
@@ -73,7 +74,7 @@ def current_readout(db, row, context, stamp):
     return result
 
 
-def native_web_readout(db, row, context, stamp, result):
+def native_web_readout(db: Connection, row: dict, context: dict, stamp: str, result: dict) -> dict:
     """Retain historical evidence without recommending a stale native source."""
     from .openseo_read import verify_native_source
     from .web_search_evidence import web_evidence_readout
