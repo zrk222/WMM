@@ -136,6 +136,7 @@ jobs:
           fc-match -f "%{family}\n" "sans-serif:lang=ja" | grep -F "Noto Sans CJK"
           python tools/test_client_dashboard_browser.py
           python tools/test_page_reporting_browser.py
+          python tools/test_growth_review_ui_browser.py
       - name: Verify actionable rejection and uncertain-delivery feedback
         env:
           WMM_BROWSER_TEST_PROFILE: '1'

@@ -38,7 +38,7 @@ data and does not connect accounts.
 
 ## Your first 15 minutes
 
-**Day 1 â€” a clearer next marketing move.** Choose one app-growth question and
+**Day 1 — a clearer next marketing move.** Choose one app-growth question and
 prepare your first evidence packet: a plan, its sources and what is still missing.
 
 You do not need an account, a paid model or a provider connection for these
@@ -57,7 +57,7 @@ steps.
    a JSON copy if you need one. These steps do not publish or spend.
 5. **Add one reference.** Choose **Add a research reference** and save a source
    you want to study. To qualify as viral, a source also needs 100,000 views and
-   10Ã— a documented creator baseline. That is evidence, not a promise.
+   10× a documented creator baseline. That is evidence, not a promise.
 
 ## Around Day 30, with regular use
 

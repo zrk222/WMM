@@ -14,6 +14,25 @@ new Function(
 )(loaded);
 const reports = loaded.exports;
 const timestamp = '2026-10-23T12:00:00Z';
+test('report status colors distinguish active, attention, verified, failed and neutral states', () => {
+  const statuses = [
+    ['RUNNING', 'info'],
+    ['Waiting for reports', 'attention'],
+    ['VERIFIED', 'ready'],
+    ['FAILED', 'alert'],
+    ['PAUSED', 'neutral'],
+    ['Inconclusive', 'attention'],
+  ];
+  const html = reports.sectionsHTML([
+    {
+      title: 'Status examples',
+      items: statuses.map(([status]) => ({ title: status, status, facts: [] })),
+    },
+  ]);
+  for (const [status, tone] of statuses)
+    assert.ok(html.includes(`data-tone="${tone}">${status}</span>`), status);
+});
+
 test('results economics use per-metric availability and preserve denominators, windows and safe evidence', () => {
   const state = fixture();
   state.view = 'results';

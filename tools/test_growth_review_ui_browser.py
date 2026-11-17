@@ -1,23 +1,29 @@
 """Isolated real UI/server/PDF acceptance; synthetic source data, no provider calls."""
 
-from pathlib import Path
+# ruff: noqa: E402  - direct script invocation adds the repository root first.
 import json
 import sys
 import tempfile
 import threading
+from pathlib import Path
+from typing import TypeAlias
+
 import fitz
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from playwright.sync_api import Locator, Page, expect, sync_playwright
+
+from mission_control.growth_review_store import GrowthReviews
 from mission_control.server import Server
 from mission_control.store import Store
-from mission_control.growth_review_store import GrowthReviews
-from tests.test_benchmark_ads import saved_report, SEGMENT
+from tests.test_benchmark_ads import SEGMENT, saved_report
 from tests.test_benchmark_context import records
-from playwright.sync_api import sync_playwright, expect
+
+JSONValue: TypeAlias = dict[str, object]
 
 
-def seed(store):
+def seed(store: Store) -> None:
     for identity in ("sample-one", "sample-two"):
         store.save_app(
             identity,
@@ -32,7 +38,7 @@ def seed(store):
     saved_report(store)
 
 
-def fill_listing(page, platform="iOS"):
+def fill_listing(page: Page, platform: str = "iOS") -> None:
     page.get_by_label("Store platform", exact=True).select_option(platform)
     page.get_by_label("Change or test surface").select_option("MANUAL_METADATA")
     for name, value in dict(
@@ -45,7 +51,7 @@ def fill_listing(page, platform="iOS"):
     page.locator("#growth-promotional_text").fill("Original optional promotional text")
 
 
-def save_form(page):
+def save_form(page: Page):
     with page.expect_response(
         lambda response: "/subscription-growth/entries" in response.url and response.request.method == "POST"
     ) as response:
@@ -56,7 +62,7 @@ def save_form(page):
     return result
 
 
-def fill_reference(page):
+def fill_reference(page: Page) -> None:
     reference, _ = records()
     reference.update(
         period_start="2026-10-01T00:00:00+00:00",
@@ -69,12 +75,12 @@ def fill_reference(page):
             continue
         locator = page.locator("#growth-" + name)
         if name in ("metric", "platform", "coverage"):
-            locator.select_option(value)
+            locator.select_option(str(value))
         else:
             locator.fill(str(value))
 
 
-def compare(page, reference_id):
+def compare(page: Page, reference_id: str):
     page.get_by_role("button", name="Compare saved report", exact=True).click()
     page.locator("#growth-reference_id").select_option(reference_id)
     page.locator("#growth-job_id").select_option("job-one")
@@ -84,35 +90,94 @@ def compare(page, reference_id):
     return save_form(page)
 
 
-def export_pdf(page, path):
-    with page.expect_popup() as waiting:
-        page.locator('#modal [data-action="growth-report"]').focus()
+def check_report(report: Locator, title: str) -> None:
+    expect(report).to_be_visible()
+    expect(report.get_by_role("heading", level=1)).to_have_text(title)
+    expect(report.locator("input,textarea")).to_have_count(0)
+    expect(report).not_to_contain_text("PRIVATE_SENTINEL")
+
+
+def check_inline_report(page: Page, trigger: Locator, title: str) -> Locator:
+    report = page.locator(".wmm-report-dialog[open]")
+    check_report(report, title)
+    expect(report.get_by_role("heading", level=1)).to_be_focused()
+    page.evaluate("window.wmmTestPrint=window.print; window.print=()=>{window.wmmPrinted=true}")
+    try:
+        report.get_by_role("button", name="Print / Save as PDF", exact=True).focus()
         page.keyboard.press("Enter")
-    popup = waiting.value
-    popup.wait_for_load_state("load")
-    css = (ROOT / "mission_control/static/page-reporting.css").read_text(encoding="utf-8")
-    path.with_suffix(".html").write_text(
-        popup.content().replace("</head>", "<style>" + css + "</style></head>"), encoding="utf-8"
-    )
-    assert popup.evaluate("window.opener===null")
-    assert popup.locator("input,textarea").count() == 0
-    popup.pdf(path=str(path), format="A4", print_background=True)
+        assert page.evaluate("window.wmmPrinted===true")
+    finally:
+        page.evaluate("window.print=window.wmmTestPrint; delete window.wmmTestPrint; delete window.wmmPrinted")
+    expect(trigger).not_to_be_focused()
+    return report
+
+
+def close_inline_report(page: Page, report: Locator, trigger: Locator) -> None:
+    report.get_by_role("button", name="Close report", exact=True).focus()
+    page.keyboard.press("Enter")
+    expect(page.locator(".wmm-report-dialog")).to_have_count(0)
+    expect(trigger).to_be_focused()
+
+
+def export_pdf(page: Page, path: Path, title: str, *, inline: bool = False) -> int:
+    trigger = page.locator('#modal [data-action="growth-report"]')
+    trigger.focus()
+    if inline:
+        page.keyboard.press("Enter")
+        surface = page
+        report = check_inline_report(page, trigger, title)
+    else:
+        with page.expect_popup() as waiting:
+            page.keyboard.press("Enter")
+        surface = waiting.value
+        surface.wait_for_load_state("load")
+        assert surface.evaluate("window.opener===null")
+        report = surface.locator("body")
+        check_report(report, title)
+    try:
+        css = (ROOT / "mission_control/static/page-reporting.css").read_text(encoding="utf-8")
+        snapshot = (
+            '<!doctype html><html lang="en"><head><meta charset="utf-8"><style>'
+            + css
+            + '</style></head><body class="wmm-print-report">'
+            + report.inner_html()
+            + "</body></html>"
+            if inline
+            else surface.content().replace("</head>", "<style>" + css + "</style></head>")
+        )
+        path.with_suffix(".html").write_text(snapshot, encoding="utf-8")
+        surface.pdf(path=str(path), format="A4", print_background=True)
+    finally:
+        if inline:
+            close_inline_report(page, report, trigger)
+        else:
+            surface.close()
     with fitz.open(path) as document:
-        text = "\n".join(item.get_text() for item in document)
+        text = "\n".join(str(item.get_text()) for item in document)
         assert "Café" in text and "東京" in text
         assert "DESCRIPTION_END_MARKER" in text
         assert "PRIVATE_SENTINEL" not in text
         assert "limit 30" in text and "Source hash" in text
         assert len(document) >= 2
         pages = len(document)
-    popup.close()
     return pages
 
 
-def exercise(page, origin, store, width, out):
+def exercise(page: Page, origin: str, store: Store, width: int, out: Path) -> JSONValue:
     page.goto(origin)
     page.locator('[data-view="results"]').click()
     expect(page.locator("#growth-review-title")).to_be_visible()
+    kpi = page.get_by_role("region", name="KPI gaps")
+    metric = page.get_by_role("cell", name="ROAS_D30", exact=True)
+    roas = kpi.get_by_role("row").filter(has=metric)
+    missing = roas.locator(".status.missing")
+    expect(metric).to_be_visible()
+    expect(metric).to_have_css("white-space", "nowrap")
+    expect(missing).to_have_text("MISSING")
+    expect(missing).to_have_css("white-space", "nowrap")
+    expect(missing).to_have_css("background-color", "rgb(249, 235, 206)")
+    expect(missing).to_have_css("color", "rgb(101, 70, 9)")
+    kpi.screenshot(path=str(out / f"kpi-gaps-{width}.png"))
     page.locator('#growth-review-panel [data-action="growth-listing"]').focus()
     page.keyboard.press("Enter")
     fill_listing(page)
@@ -133,13 +198,18 @@ def exercise(page, origin, store, width, out):
     assert current["readout"]["analysis"]["status"] == "READY_FOR_REVIEW"
     page.locator(f'[data-action="growth-detail"][data-id="{listing["id"]}"]').click()
     expect(page.locator("#modal-body")).to_contain_text("limit 30")
-    page.evaluate("window.savedOpen=window.open; window.open=()=>null")
-    page.locator('#modal [data-action="growth-report"]').click()
-    expect(page.locator("#toast")).to_contain_text("Allow a report window")
-    expect(page.locator("#modal")).to_be_visible()
-    page.evaluate("window.open=window.savedOpen; delete window.savedOpen")
-    page.evaluate("async () => {const {state}=await import('/app.mjs');state.privateDraft='PRIVATE_SENTINEL'; state.workspace.credentials='PRIVATE_SENTINEL';}")
-    pdf_pages = export_pdf(page, out / f"listing-{width}.pdf")
+    page.evaluate(
+        "async () => {const {state}=await import('/app.mjs');state.privateDraft='PRIVATE_SENTINEL'; state.workspace.credentials='PRIVATE_SENTINEL';}"
+    )
+    title = "Saved growth review: " + listing["id"]
+    # This listing has no sections: it attempts a popup, then falls back when blocked.
+    page.evaluate("window.wmmTestOpen=window.open; window.open=()=>null")
+    try:
+        inline_pages = export_pdf(page, out / f"listing-inline-{width}.pdf", title, inline=True)
+        expect(page.locator("#modal")).to_be_visible()
+    finally:
+        page.evaluate("window.open=window.wmmTestOpen; delete window.wmmTestOpen")
+    pdf_pages = export_pdf(page, out / f"listing-{width}.pdf", title)
     page.locator('#modal [data-action="growth-note"]').click()
     page.locator("#growth-decision").select_option("REVISE")
     page.locator("#growth-rationale").fill("Keep the source and test a shorter title. Local reasoning only.")
@@ -193,6 +263,7 @@ def exercise(page, origin, store, width, out):
         width=width,
         saved_entries=5,
         pdf_pages=pdf_pages,
+        inline_pdf_pages=inline_pages,
         durable_readback=True,
         manifest_rejection=True,
         keyboard=True,
@@ -202,7 +273,7 @@ def exercise(page, origin, store, width, out):
     )
 
 
-def main():
+def main() -> None:
     out = ROOT / ".factory/growth-review-ui"
     out.mkdir(parents=True, exist_ok=True)
     observations = []
@@ -216,8 +287,11 @@ def main():
                 thread = threading.Thread(target=server.serve_forever, daemon=True)
                 thread.start()
                 page = browser.new_page(viewport={"width": width, "height": 900 if width == 1440 else 844})
+                errors: list[str] = []
+                page.on("pageerror", lambda error, errors=errors: errors.append(str(error)))
                 try:
                     observations.append(exercise(page, f"http://127.0.0.1:{server.server_port}", store, width, out))
+                    assert not errors, errors
                 except Exception:
                     (out / f"failure-{width}.html").write_text(page.content(), encoding="utf-8")
                     page.screenshot(path=str(out / f"failure-{width}.png"), full_page=True)

@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # All backend tests and native/package jobs are retained; Windows uses duration-based assignment.
 # One Ubuntu shard also runs the isolated native Secret Service acceptance.
 BASELINES = {
-    ".github/workflows/checks.yml": "81a220a7aac4675e0cff6a7c57f6e3d95810f7da8e8583d103e5040641a8493d",
+    ".github/workflows/checks.yml": "a41803f287ca366cd039ff39058b1716ad1601c2a71d2276cc80012ed57eabd9",
     ".github/workflows/platform-checks.yml": "8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",
     ".github/workflows/desktop-packages.yml": "bec9c46515b7bf94c9571992787a9bf51bb6a3df51e5d4c4a638bc2fc8d51e07",
 }
@@ -109,6 +109,7 @@ class CurrentCandidateCITests(unittest.TestCase):
         self.assertIn("fonts-noto-cjk", browser)
         self.assertIn("python tools/test_client_dashboard_browser.py", browser)
         self.assertIn("python tools/test_page_reporting_browser.py", browser)
+        self.assertIn("python tools/test_growth_review_ui_browser.py", browser)
         maintained = (ROOT / "docs/requirements-report-types.txt").read_text(encoding="utf-8")
         pdf = (ROOT / "docs/requirements-report-pdf.txt").read_text(encoding="utf-8")
         self.assertIn("-r requirements-report-pdf.txt", maintained)
