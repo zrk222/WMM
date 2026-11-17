@@ -226,7 +226,7 @@
   --process-bg: #e5edf9;
   --process-ink: #244663;
 }
-.status:is(.queued, .pending, .waiting, .waiting_review, .awaiting_review, .needs_review, .waiting_approval, .pending_review, .waiting_for_reports, .awaiting_analysis, .scheduled, .blocked, .needs_setup, .needs_reconciliation, .unknown, .unconfirmed, .interrupted, .expired, .exhausted, .stale, .not_verified, .not_configured, .retry_wait, .cancel_requested, .recovering) {
+.status:is(.queued, .pending, .waiting, .waiting_review, .awaiting_review, .needs_review, .waiting_approval, .pending_review, .waiting_for_reports, .awaiting_analysis, .scheduled, .blocked, .needs_setup, .needs_reconciliation, .unknown, .unconfirmed, .interrupted, .expired, .exhausted, .stale, .not_verified, .not_configured, .retry_wait, .cancel_requested, .recovering, .missing, .unavailable, .inconclusive, .reconnect_required) {
   --process-bg: #f9ebce;
   --process-ink: #654609;
 }
@@ -244,6 +244,19 @@
 }
 
 /* Analytics colors indicate evidence state; every pill also names the state. */
+[aria-label="KPI gaps"] .result-table :is(th, td):first-child,
+[aria-label="KPI gaps"] .status.missing {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+@media (max-width: 480px) {
+  [aria-label="KPI gaps"] .result-table {
+    font-size: 0.875rem;
+  }
+  [aria-label="KPI gaps"] .result-table :is(th, td) {
+    padding-inline: 4px;
+  }
+}
 .analytics-status {
   --status-bg: #edf0f2;
   --status-ink: #36434b;

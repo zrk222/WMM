@@ -369,6 +369,34 @@
   font-weight: 700;
   margin: 0.25rem 0 0.75rem;
 }
+.report-status-badge {
+  --report-status-bg: #edf0f2;
+  --report-status-ink: #36434b;
+  display: inline-block;
+  padding: 0.08em 0.48em;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  background: var(--report-status-bg);
+  color: var(--report-status-ink);
+  font-weight: 650;
+  print-color-adjust: exact;
+}
+.report-status-badge[data-tone='info'] {
+  --report-status-bg: #e5edf9;
+  --report-status-ink: #244663;
+}
+.report-status-badge[data-tone='attention'] {
+  --report-status-bg: #f9ebce;
+  --report-status-ink: #654609;
+}
+.report-status-badge[data-tone='ready'] {
+  --report-status-bg: #e2f2e3;
+  --report-status-ink: #164c30;
+}
+.report-status-badge[data-tone='alert'] {
+  --report-status-bg: #fbe5e2;
+  --report-status-ink: #83291f;
+}
 .aso-decision-report .report-item dl {
   margin: 0;
 }

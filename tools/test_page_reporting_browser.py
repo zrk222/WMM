@@ -153,6 +153,10 @@ def export_report(page, view, width, out):
     else:
         snapshot_html(popup, out / f"report-{view}-{width}.html", css)
     if view.startswith("results"):
+        inconclusive = report.get_by_text("INCONCLUSIVE", exact=True).first
+        expect(inconclusive).to_have_class("report-status-badge")
+        expect(inconclusive).to_have_attribute("data-tone", "attention")
+        expect(inconclusive).to_have_css("background-color", "rgb(249, 235, 206)")
         if view == "results":
             report.screenshot(path=str(out / f"presentation-{width}.png"))
         assert "USD" in text and "D30" in text and "100" in text

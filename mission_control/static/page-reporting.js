@@ -495,11 +495,58 @@
   }
 
   function metricTable(report) {
-    return `<table><caption>Page analytics — ${escape(report.title)}</caption><thead><tr><th scope="col">Metric</th><th scope="col">Value</th><th scope="col">Source and coverage</th></tr></thead><tbody>${report.metrics.map((m) => `<tr><th scope="row">${escape(m.label)}</th><td>${m.value === null ? 'Unavailable' : escape(m.value)}${m.value === null ? '' : ` (${escape(m.unit)})`}</td><td>${escape(sourceLabel(m.source))}</td></tr>`).join('')}</tbody></table>`;
+    return `<table><caption>Page analytics — ${escape(report.title)}</caption><thead><tr><th scope="col">Metric</th><th scope="col">Value</th><th scope="col">Source and coverage</th></tr></thead><tbody>${report.metrics.map((m) => `<tr><th scope="row">${escape(m.label)}</th><td>${m.value === null ? statusBadge('Unavailable') : escape(m.value)}${m.value === null ? '' : ` (${escape(m.unit)})`}</td><td>${escape(sourceLabel(m.source))}</td></tr>`).join('')}</tbody></table>`;
   }
 
   function panel(report) {
     return `<section class="panel page-reporting" aria-labelledby="page-reporting-title"><div class="section-heading"><h2 id="page-reporting-title">Page guide & analytics</h2><button type="button" class="button outline" data-report-page>Report / Save PDF</button></div><p>${escape(report.purpose)} <strong>Next:</strong> ${escape(report.next_step)}</p><p class="description">${escape(report.app_name)} · ${escape(scopeLabel(report.scope))} · Loaded: ${escape(report.loaded_at)}</p><div class="page-metric-grid">${report.metrics.map((m) => `<div><span>${escape(m.label)}</span><strong>${m.value === null ? 'Unavailable' : escape(m.value)}</strong><small>${escape(sourceLabel(m.source))}</small></div>`).join('')}</div><p class="description">Local operational counts; missing sources stay unavailable. Report opens a printable preview. Choose Print / Save as PDF there.</p></section>`;
+  }
+
+  const REPORT_STATUS_TONES = {
+    info: [
+      'RUNNING',
+      'PROCESSING',
+      'ACTIVE',
+      'RENDERING',
+      'COLLECTING',
+      'SUPPLIED',
+      'SUPPLIED_—_NOT_PROVIDER_VERIFIED',
+      'EVALUATED',
+    ],
+    attention: [
+      'QUEUED',
+      'PENDING',
+      'SCHEDULED',
+      'WAITING',
+      'WAITING_FOR_REPORTS',
+      'BLOCKED',
+      'UNKNOWN',
+      'MISSING',
+      'UNAVAILABLE',
+      'INCONCLUSIVE',
+      'NEEDS_INPUT',
+      'NEEDS_REVIEW',
+      'RECONNECT_REQUIRED',
+    ],
+    ready: [
+      'VERIFIED',
+      'MEASURED',
+      'COMPLETE',
+      'COMPLETED',
+      'SUCCEEDED',
+      'PUBLISHED',
+      'DELIVERED',
+      'PASS',
+    ],
+    alert: ['FAILED', 'REJECTED', 'DENIED', 'ERROR', 'INVALID', 'CONFLICT'],
+  };
+
+  function statusBadge(status) {
+    const key = String(status).trim().toUpperCase().replaceAll(' ', '_');
+    const tone =
+      Object.entries(REPORT_STATUS_TONES).find(([, values]) => values.includes(key))?.[0] ||
+      'neutral';
+    return `<span class="report-status-badge" data-tone="${tone}">${escape(status)}</span>`;
   }
 
   function sectionsHTML(sections = [], heading = 2) {
@@ -508,7 +555,7 @@
     return sections
       .map(
         (section) =>
-          `<section class="report-section"><${sectionHeading}>${escape(section.title)}</${sectionHeading}>${section.items.map((item) => `<article class="report-item"><${itemHeading}>${escape(item.title)}</${itemHeading}><p class="report-status">${escape(item.status)}</p><dl>${item.facts.map(([label, value]) => `<div><dt>${escape(label)}</dt><dd>${escape(value)}</dd></div>`).join('')}</dl></article>`).join('')}</section>`,
+          `<section class="report-section"><${sectionHeading}>${escape(section.title)}</${sectionHeading}>${section.items.map((item) => `<article class="report-item"><${itemHeading}>${escape(item.title)}</${itemHeading}><p class="report-status">${statusBadge(item.status)}</p><dl>${item.facts.map(([label, value]) => `<div><dt>${escape(label)}</dt><dd>${escape(value)}</dd></div>`).join('')}</dl></article>`).join('')}</section>`,
       )
       .join('');
   }
@@ -546,7 +593,7 @@
     const cohorts = report.cohorts
       .map(
         (c) =>
-          `<section class="report-cohort"><h2>Cohort: ${escape(c.id)}</h2><p>Status: ${escape(c.status)} · Horizon: ${escape(c.horizon)} · Currency: ${escape(c.currency)}</p><dl>${Object.entries(
+          `<section class="report-cohort"><h2>Cohort: ${escape(c.id)}</h2><p>Status: ${statusBadge(c.status)} · Horizon: ${escape(c.horizon)} · Currency: ${escape(c.currency)}</p><dl>${Object.entries(
             c,
           )
             .filter(([key]) => !['id', 'status', 'horizon', 'currency'].includes(key))

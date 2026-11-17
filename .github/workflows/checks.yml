@@ -136,6 +136,7 @@ jobs:
           fc-match -f "%{family}\n" "sans-serif:lang=ja" | grep -F "Noto Sans CJK"
           python tools/test_client_dashboard_browser.py
           python tools/test_page_reporting_browser.py
+          python tools/test_growth_review_ui_browser.py
       - name: Verify actionable rejection and uncertain-delivery feedback
         env:
           WMM_BROWSER_TEST_PROFILE: '1'
@@ -161,7 +162,11 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: goal-first-browser-evidence
-          path: .factory/goal-first-automation/
+          path: |
+            .factory/goal-first-automation/
+            .factory/growth-review-ui/browser.json
+            .factory/growth-review-ui/listing*.pdf
+            .factory/growth-review-ui/failure-*.html
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 3
