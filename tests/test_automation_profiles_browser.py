@@ -311,6 +311,84 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
             browser.close()
         self.assertEqual(database_state(), before)
 
+    def test_apple_watch_preserves_owner_start_time_on_mobile_and_desktop(self) -> None:
+        from playwright.sync_api import expect, sync_playwright
+
+        host = fixture.GrantTests()
+        host.setUp()
+        self.addCleanup(host.tearDown)
+        saved = host.store.app(apple.APP)
+        host.store.save_app(apple.APP, dict(saved["data"], store_app_id=apple.STORE_APP), saved["version"])
+        host.server.service.evidence(
+            apple.APP,
+            dict(
+                kind="connection",
+                title="Apple analytics",
+                source="Synthetic fixture",
+                data=dict(provider="app_store", store_app_id=apple.STORE_APP, env_ref=apple.REF, account_id="0"),
+            ),
+        )
+        with (
+            patch.dict(os.environ, {apple.REF: "synthetic-private-key"}),
+            patch("mission_control.provider_reports.read_analytics") as read,
+            sync_playwright() as runtime,
+        ):
+            browser = runtime.chromium.launch()
+            for width in (390, 1280):
+                with (
+                    self.subTest(width=width),
+                    browser.new_context(viewport={"width": width, "height": 900}, timezone_id="America/Toronto") as ctx,
+                ):
+                    add_owner_cookies(ctx, host)
+                    ctx.add_init_script("localStorage.setItem('growth-app','sample-one')")
+                    ctx.route(
+                        "**/*",
+                        lambda route: (
+                            route.continue_() if route.request.url.startswith(host.origin + "/") else route.abort()
+                        ),
+                    )
+                    page = ctx.new_page()
+                    page.goto(host.origin)
+                    connections = page.locator('[data-view="connections"]')
+                    if not connections.is_visible():
+                        page.locator("details").filter(has=connections).locator("summary").first.click()
+                    connections.click()
+                    page.get_by_role("button", name="Review Apple analytics", exact=True).press("Enter")
+                    form = page.locator("#apple-analytics-form")
+                    value = form.get_by_label("First check time (optional)")
+                    expect(value).to_be_visible()
+                    value.focus()
+                    expect(value).to_be_focused()
+                    deadline = (datetime.now(timezone.utc) + timedelta(hours=4)).replace(
+                        second=30 if width == 1280 else 0, microsecond=125000 if width == 1280 else 0
+                    )
+                    local = page.evaluate(
+                        "(stamp) => {const d = new Date(stamp); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString();}",
+                        deadline.isoformat(),
+                    )
+                    local = local[:-1] if width == 1280 else local[:16]
+                    value.fill(local)
+                    form.get_by_label("What should WMM check?").select_option("@inventory")
+                    with page.expect_response(
+                        lambda response: response.url.endswith("/apple-analytics/schedule")
+                    ) as saved_response:
+                        form.get_by_role(
+                            "button", name="Enable refresh" if width == 390 else "Save refresh settings"
+                        ).press("Enter")
+                    self.assertEqual(saved_response.value.status, 200)
+                    self.assertEqual(saved_response.value.json()["next_due"], deadline.timestamp())
+                    expect(page.get_by_role("dialog")).to_contain_text("Next due:")
+                    expect(page.locator("#apple-analytics-first-read")).to_have_value(local)
+                    self.assertTrue(page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
+                    self.assertTrue(form.evaluate("(form) => form.scrollWidth <= form.clientWidth + 1"))
+                    value.scroll_into_view_if_needed()
+                    self.save_render(page, f"apple-first-check-{width}", "#apple-analytics-root")
+            browser.close()
+            read.assert_not_called()
+        self.assertEqual(AppleMetricsSchedules(host.store).tick(), 0)
+        with connection(host.store.path) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM jobs").fetchone()[0], 0)
+
     def save_render(self, page, name, selector):
         if not ARTIFACTS:
             return

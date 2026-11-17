@@ -32,6 +32,8 @@ def configuration(body):
         raise Invalid("Choose whether Apple analytics refresh is enabled")
     if body["enabled"]:
         common = {"enabled", "interval_hours", "version"}
+        if "first_read_at" in body:
+            common.add("first_read_at")
         if set(body) == common | {"report_id"}:
             analytics_identity(body["report_id"])
         elif set(body) != common | {"mode"} or body["mode"] != INVENTORY_MODE:
@@ -46,6 +48,20 @@ def configuration(body):
     if body.get("version") is not None and type(body["version"]) is not int:
         raise Invalid("Invalid Apple analytics schedule version")
     return body
+
+
+def _first_due(body: dict[str, Any], current: float) -> float:
+    if "first_read_at" not in body:
+        return current
+    stamp = body["first_read_at"]
+    if not isinstance(stamp, str) or not re.fullmatch(
+        r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,3})?Z", stamp
+    ):
+        raise Invalid("Choose an exact UTC time for the first Apple check")
+    due = iso_time(stamp).timestamp()
+    if not current <= due <= current + MAX_INTERVAL_HOURS * 3600:
+        raise Invalid("Choose a first Apple check within the next seven days")
+    return due
 
 
 def schedule_audit(db, app_id, operation, detail):
@@ -154,7 +170,7 @@ class AppleMetricsSchedules:
                     cancel_queued(db, old)
                 schedule_id = old["id"] if old else uid()
                 version = (expected or 0) + 1
-                due = time.time()
+                due = _first_due(body, time.time())
                 selection = INVENTORY_SELECTION if body.get("mode") == INVENTORY_MODE else body["report_id"]
                 db.execute(
                     """INSERT INTO apple_metrics_schedules
@@ -192,6 +208,7 @@ class AppleMetricsSchedules:
                         "report_id": selection if selection != INVENTORY_SELECTION else None,
                         "mode": INVENTORY_MODE if selection == INVENTORY_SELECTION else "downloads",
                         "interval_hours": body["interval_hours"],
+                        "first_due": due,
                     },
                 )
         return self.get(app_id)

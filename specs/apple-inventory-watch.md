@@ -7,6 +7,7 @@ Let an app owner schedule Apple report availability checks before a downloads re
 
 ### Requirements (EARS)
 - When an owner selects report availability and a cadence from 24 through 168 hours, the system shall save exactly one versioned read schedule for the connected app through `watch_enable`.
+- If the owner chooses a first check time within the next seven days, save that exact UTC instant as the next due time and show the selected time locally. Dispatch nothing before it, even after a worker restart. A blank field preserves immediate scheduling.
 - When a report availability check is due, the system shall run only the existing Apple inventory read and retain current-source metadata through `watch_read`.
 - When a current inventory reports no daily files, the system shall store the next due time without recording any download count through `watch_wait`.
 - If the app, connection, schedule, or job lease changes before persistence, the system shall reject the stale inventory through `watch_guard`.
@@ -18,6 +19,10 @@ Scenario: watch_enable
   Given an app with one current Apple connection and no retained inventory
   When `watch_enable` saves the owner selection
   Then the app has a versioned schedule that dispatches only inventory reads
+Scenario: watch_delayed_start
+  Given an owner explicitly selects a future first check time and saves the schedule
+  When the worker restarts before that time and later reaches it
+  Then no early read occurs and only one exact app-scoped inventory job is queued at the due time
 Scenario: watch_read
   Given an enabled app availability schedule whose cadence is due
   When `watch_read` completes the scheduled job
