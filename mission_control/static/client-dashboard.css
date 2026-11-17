@@ -21,7 +21,8 @@ button, select { font: inherit; }
 button, select { min-height: 48px; }
 .topbar { min-height: 76px; padding: 0 max(24px, calc((100vw - 1120px) / 2)); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: var(--paper); }
 .brand { display: inline-flex; min-height: 44px; align-items: center; gap: 11px; color: var(--ink); text-decoration: none; font-weight: 720; letter-spacing: -.025em; }
-.brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: var(--green); color: white; font-family: Georgia, serif; font-size: 20px; }
+.brand-mark { flex: none; width: 36px; height: 36px; }
+.client-print-decision { display: none; }
 .access-label, .eyebrow { color: var(--muted); font-size: .78rem; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
 .shell { width: min(100% - 48px, 1000px); margin: 0 auto; }
 .intro { padding: 58px 0 30px; max-width: 720px; }
@@ -93,9 +94,14 @@ select { width: 100%; padding: 0 13px; border: 1px solid #d7d2c8; border-radius:
   .page-footer { flex-direction: column; gap: 7px; padding-top: 28px; }
 }
 @media print {
+  @page { size: A4; margin: 17mm; }
   body { background: white; }
-  .topbar, .intro, .status-card, .workspace-actions, .selectors, .more-note, .scope-note, .page-footer { display: none !important; }
+  .topbar { position: static; padding: 12px 16px; border: 1px solid #d4e2de; border-left: 5px solid #648529; break-inside: avoid; }
+  .intro, .status-card, .workspace-heading, .selectors, .more-note { display: none !important; }
   .shell { width: 100%; }
-  .workspace { display: block !important; margin: 0; padding: 0; border: 0; box-shadow: none; }
+  .workspace:not([hidden]) { display: block; margin: 0; padding: 0; border: 0; box-shadow: none; }
+  .client-print-decision { display: block; margin: 14px 0; padding: 12px 16px; border: 1px solid #d4e2de; }
+  .client-print-decision h1 { font-size: 22pt; margin: 0 0 8px; }
+  .client-print-decision p { margin: 0; }
   .summary { break-inside: avoid; }
 }

@@ -30,6 +30,10 @@ struct NativeResultsView: View {
                     Text("See what your app's saved observations show. Unknown values stay unknown, and a measured count does not establish that marketing caused a sale.")
                 }
                 if let report = model.report {
+                    Section("WMM · Wize Marketing Machine") {
+                        Text(report.appName).font(.title2.bold()).accessibilityAddTraits(.isHeader)
+                        Label(ReportExport.nextStep(report), systemImage: "arrow.right.circle")
+                    }
                     Section("Export this report") {
                         Button("Save PDF report") { Task { await prepare(type: .pdf) } }.disabled(model.busy)
                         Button("Save JSON report") { Task { await prepare(type: .json) } }.disabled(model.busy)

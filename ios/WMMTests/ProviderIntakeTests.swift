@@ -368,10 +368,35 @@ final class ProviderIntakeTests: XCTestCase {
         XCTAssertGreaterThan(document.pageCount, 0)
         XCTAssertTrue(document.string?.contains("Unknown") == true)
         XCTAssertTrue(document.string?.contains(report.sourceHash) == true)
+        XCTAssertTrue(document.string?.contains("Wize Marketing Machine") == true)
+        XCTAssertTrue(document.string?.contains("What to do next") == true)
+        XCTAssertTrue(document.string?.contains("Statistics and analytics") == true)
+        XCTAssertTrue(document.string?.contains("Refresh the missing observations") == true)
+        XCTAssertTrue(document.string?.contains("Page 1") == true)
         let invalid = AppReport(appID: report.appID, appName: report.appName, sourceHash: "invalid",
                                 observedAt: report.observedAt, rows: report.rows)
         XCTAssertThrowsError(try ReportExport.json(invalid))
         XCTAssertThrowsError(try ReportExport.csv(invalid))
         XCTAssertThrowsError(try ReportExport.pdf(invalid))
+    }
+
+    @MainActor
+    func testMultipageReportKeepsBrandAndFinalEvidence() throws {
+        let rows = (0..<80).map { index in
+            AppReport.Row(metric: "Metric \(index)", observed: "\(index)",
+                          evidence: "Synthetic row evidence \(index), retained for inspection.")
+        }
+        let report = AppReport(appID: "synthetic-many", appName: "SUDHĪ sample",
+                               sourceHash: String(repeating: "b", count: 64),
+                               observedAt: "2026-11-17T12:00:00Z", rows: rows)
+        let document = try XCTUnwrap(PDFDocument(data: ReportExport.pdf(report)))
+        XCTAssertGreaterThan(document.pageCount, 1)
+        for index in 0..<document.pageCount {
+            let text = try XCTUnwrap(document.page(at: index)?.string)
+            XCTAssertTrue(text.contains("Wize Marketing Machine"))
+            XCTAssertTrue(text.contains("Page \(index + 1)"))
+        }
+        XCTAssertTrue(document.string?.contains("Synthetic row evidence 79") == true)
+        XCTAssertTrue(document.string?.contains("Compare these observations with a matching baseline") == true)
     }
 }

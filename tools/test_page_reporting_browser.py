@@ -112,6 +112,9 @@ def export_report(page, view, width, out):
         report = popup.locator("body")
         assert popup.evaluate("window.opener===null")
     report.locator("h1").wait_for()
+    expect(report.locator(".report-masthead")).to_contain_text("Wize Marketing Machine")
+    expect(report.locator(".report-decision")).to_contain_text("What to do next")
+    expect(report.locator(".report-spotlight").first).to_be_visible()
     assert report.evaluate("element=>element.scrollWidth<=element.clientWidth+1")
     assert not report.locator("input,textarea").count()
     assert "PRIVATE_SENTINEL" not in report.inner_text()
@@ -123,6 +126,10 @@ def export_report(page, view, width, out):
     popup.pdf(path=str(pdf_path), format="A4", print_background=True)
     with fitz.open(pdf_path) as pdf:
         text = "\n".join(str(p.get_text()) for p in pdf)
+        first_page = pdf[0].get_text()
+        assert "Wize Marketing Machine" in first_page and "What to do next" in first_page
+        assert text.index("What to do next") < text.index("Scope and sources")
+        assert "Key figures" in first_page
         assert "Evidence boundaries" in text
         assert "PRIVATE_SENTINEL" not in text
         assert "Print / Save as PDF" not in text
@@ -146,6 +153,8 @@ def export_report(page, view, width, out):
     else:
         snapshot_html(popup, out / f"report-{view}-{width}.html", css)
     if view.startswith("results"):
+        if view == "results":
+            report.screenshot(path=str(out / f"presentation-{width}.png"))
         assert "USD" in text and "D30" in text and "100" in text
         for phrase in (
             "Customer acquisition cost",
@@ -189,7 +198,7 @@ def viewport_pass(browser, origin, width, height, out):
     page.locator(".page-reporting").wait_for()
     expect(page.locator("#goal-advanced .hero h2")).to_contain_text("Plan your app marketing")
     for phrase in (
-        "Your next marketing move, with evidence",
+        "Turn your app question into a plan you can review",
         "Missing measurements stay unknown",
         "You still approve what goes live",
     ):

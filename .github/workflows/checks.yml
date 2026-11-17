@@ -84,9 +84,10 @@ jobs:
         run: |
           python -m pip install --require-hashes --only-binary :all: -r requirements.txt
           python -m pip install --only-binary :all: -r docs/requirements-browser.txt
+          python -m pip install --require-hashes --no-deps --only-binary :all: -r docs/requirements-report-pdf.txt
           python -m pip install --only-binary :all: -r docs/requirements-auth.txt
           python -m playwright install --only-shell chromium
-          bash tools/ci_ubuntu_apt.sh ffmpeg fonts-dejavu-core
+          bash tools/ci_ubuntu_apt.sh ffmpeg fonts-dejavu-core fonts-noto-cjk
       - name: Verify the pinned headless Chromium can start
         run: >-
           python -c "from playwright.sync_api import sync_playwright;
@@ -128,9 +129,13 @@ jobs:
           python tools/test_organic_taste_browser.py
           python tools/test_goal_packet_history_browser.py
           python tools/test_weekly_review_actions_browser.py
-          python tools/test_client_dashboard_browser.py
           python tools/test_authority_expiry_browser.py
           python tools/test_agent_task_presets_browser.py
+      - name: Verify printed reports and client access in Chromium
+        run: |
+          fc-match -f "%{family}\n" "sans-serif:lang=ja" | grep -F "Noto Sans CJK"
+          python tools/test_client_dashboard_browser.py
+          python tools/test_page_reporting_browser.py
       - name: Verify actionable rejection and uncertain-delivery feedback
         env:
           WMM_BROWSER_TEST_PROFILE: '1'

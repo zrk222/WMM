@@ -10,6 +10,7 @@ All ten top-level pages receive a brief explainer, relevant analytics and a PDF-
 - The system shall return relevant app-scoped operational metrics and explicit unknown states without inventing growth through `page_analytics`.
 - The system shall store exact page, app, filters, loaded time and evidence caveats in a sanitized report projection through `report_scope`.
 - The system shall return a Unicode printable report with an explicit Save as PDF interaction on every top-level view through `pdf_export`.
+- Printable reports shall share the WMM name and mark, place the next decision and key figures before provenance, and retain all projected analytics, units, sources, and unknowns; native PDFs carry the WMM header across pages through `report_presentation`.
 - The system shall reject unknown views and changed app scope and exclude credentials and arbitrary raw workspace data through `report_privacy`.
 - The system shall return actionable feedback when a report window is blocked or selected data is unavailable through `report_recovery`.
 - The system shall return `overview_story` in plain user language explaining the user's mission, how WMM helps, expected artifacts and human control without promising business results.
@@ -32,6 +33,10 @@ Scenario: pdf_export
   Given a selected app and supported page
   When `pdf_export` is exercised
   Then its source-bound behavior is observed and invalid scope is rejected
+Scenario: report_presentation
+  Given a saved report with observations and gaps
+  When the operator opens or prints the report
+  Then the WMM header and next step precede the details without converting unknown observations to zero
 Scenario: report_privacy
   Given a selected app and supported page
   When `report_privacy` is exercised
