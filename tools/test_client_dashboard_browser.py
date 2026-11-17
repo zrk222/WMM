@@ -189,6 +189,7 @@ def run():
                 page.pdf(path=str(pdf_path), prefer_css_page_size=True)
                 with fitz.open(pdf_path) as pdf:
                     printed = pdf[0].get_text()
+                    assert isinstance(printed, str)
                     assert "Wize Marketing Machine" in printed and "What to do next" in printed
                     assert "Alpha app" in printed and "read receipt" in printed.casefold()
                     assert "PRIVATE_PROFILE_SENTINEL" not in printed and "Sign out" not in printed
