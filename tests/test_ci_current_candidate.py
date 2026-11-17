@@ -102,7 +102,7 @@ class CurrentCandidateCITests(unittest.TestCase):
         for dependency in ("playwright==1.57.0", "PyJWT==2.15.1", "cryptography==49.0.0"):
             self.assertIn(dependency + " --hash=sha256:", requirements)
 
-    def test_browser_profile_provisions_the_shared_pinned_pdf_reader_and_japanese_font(self):
+    def test_browser_profile_provisions_the_shared_pinned_pdf_reader_and_japanese_font(self) -> None:
         text = (ROOT / ".github/workflows/checks.yml").read_text(encoding="utf-8")
         browser = text.split("  browser:\n", 1)[1].split("  windows:\n", 1)[0]
         self.assertIn("--require-hashes --no-deps --only-binary :all: -r docs/requirements-report-pdf.txt", browser)
