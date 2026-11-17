@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # All backend tests and native/package jobs are retained; Windows uses duration-based assignment.
 # One Ubuntu shard also runs the isolated native Secret Service acceptance.
 BASELINES = {
-    ".github/workflows/checks.yml": "e27d8772f7af32b479799860bc16c97498b88c4e6628fdd40a2de9c48b09ccac",
+    ".github/workflows/checks.yml": "81a220a7aac4675e0cff6a7c57f6e3d95810f7da8e8583d103e5040641a8493d",
     ".github/workflows/platform-checks.yml": "8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",
     ".github/workflows/desktop-packages.yml": "bec9c46515b7bf94c9571992787a9bf51bb6a3df51e5d4c4a638bc2fc8d51e07",
 }
@@ -99,8 +99,21 @@ class CurrentCandidateCITests(unittest.TestCase):
         )
         self.assertNotIn("playwright install", maintained)
         requirements = (ROOT / "docs/requirements-report-types.txt").read_text(encoding="utf-8")
-        for dependency in ("playwright==1.57.0", "PyMuPDF==1.27.2.2", "PyJWT==2.15.1", "cryptography==49.0.0"):
+        for dependency in ("playwright==1.57.0", "PyJWT==2.15.1", "cryptography==49.0.0"):
             self.assertIn(dependency + " --hash=sha256:", requirements)
+
+    def test_browser_profile_provisions_the_shared_pinned_pdf_reader_and_japanese_font(self):
+        text = (ROOT / ".github/workflows/checks.yml").read_text(encoding="utf-8")
+        browser = text.split("  browser:\n", 1)[1].split("  windows:\n", 1)[0]
+        self.assertIn("--require-hashes --no-deps --only-binary :all: -r docs/requirements-report-pdf.txt", browser)
+        self.assertIn("fonts-noto-cjk", browser)
+        self.assertIn("python tools/test_client_dashboard_browser.py", browser)
+        self.assertIn("python tools/test_page_reporting_browser.py", browser)
+        maintained = (ROOT / "docs/requirements-report-types.txt").read_text(encoding="utf-8")
+        pdf = (ROOT / "docs/requirements-report-pdf.txt").read_text(encoding="utf-8")
+        self.assertIn("-r requirements-report-pdf.txt", maintained)
+        self.assertRegex(pdf, r"(?m)^PyMuPDF==1\.27\.2\.2 --hash=sha256:[0-9a-f]{64}(?: |$)")
+
 
     def test_native_library_types_run_with_pinned_local_tooling(self):
         text = (ROOT / ".github/workflows/checks.yml").read_text(encoding="utf-8")
