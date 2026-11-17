@@ -1,15 +1,16 @@
 """Unified founder evidence review; all effects and independent acceptance stay separate."""
 
 from datetime import datetime, timezone
-from .common import Invalid, digest
-from .db import connection
-from .ledger import Ledger
-from .experiments import Experiments
-from .subscription_variants import variant_findings
-from .customer_workflow_store import CustomerWorkflows
-from .growth_review_store import GrowthReviews
-from .growth_review_contract import context_of
+
 from .benchmark_ads import source_report
+from .common import Invalid, digest
+from .customer_workflow_store import CustomerWorkflows
+from .db import connection
+from .experiments import Experiments
+from .growth_review_contract import context_of
+from .growth_review_store import GrowthReviews
+from .ledger import Ledger
+from .subscription_variants import variant_findings
 from .worker import jobs
 
 
@@ -152,20 +153,37 @@ def recovery_issues(growth, experiments):
     """Surface retained evidence that needs repair independently of absent inputs."""
     issues = []
     for row in growth["history"]:
-        state = row["readout"]["analysis"]["status"]
+        analysis = row["readout"]["analysis"]
+        state = analysis["status"]
+        if row["kind"] == "WEB_SEO_EVIDENCE":
+            issues.extend(
+                dict(
+                    area="saved_review",
+                    id=row["id"],
+                    code=item["status"],
+                    next_action=item["subject"] + ": " + item["next_action"],
+                )
+                for item in analysis.get("repairs", [])
+            )
+            if analysis.get("repairs"):
+                continue
         if row["readout"]["availability"] != "CURRENT_LOCAL_EVIDENCE" or state in (
             "NEEDS_REPAIR",
             "REFERENCE_EXPIRED",
             "SOURCE_METRICS_UNAVAILABLE",
             "INCOMPATIBLE",
             "SOURCE_REVIEW_NEEDED",
+            "RECHECK_SOURCE",
+            "COLLECT_EVIDENCE",
         ):
             issues.append(
                 dict(
                     area="saved_review",
                     id=row["id"],
                     code=state,
-                    next_action="Inspect this exact source and save a corrected new version; retained history is unchanged.",
+                    next_action=analysis.get("next_action", "Refresh this app's web evidence.")
+                    if row["kind"] == "WEB_SEO_EVIDENCE"
+                    else "Inspect this exact source and save a corrected new version; retained history is unchanged.",
                 )
             )
     for row in experiments:

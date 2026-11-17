@@ -1,17 +1,25 @@
 """Immutable local review inputs; notes and source hashes grant no execution authority."""
 
-from .common import Invalid, digest, identifier, iso_time, required, safe_data
-from .pmf_contract import exact, hashed
 from .aso_validation import validate_listing
-from .benchmark_context import benchmark_record, compare_benchmark, METRICS
-from .market_research import validate_snapshot, analyze_snapshot
+from .benchmark_context import METRICS, benchmark_record, compare_benchmark
+from .common import Invalid, digest, identifier, iso_time, required, safe_data
+from .market_research import analyze_snapshot, validate_snapshot
+from .pmf_contract import exact, hashed
+from .web_search_evidence import validate_web_evidence, web_evidence_readout
 
 MAX_ENTRIES = 1000
 MAX_TEXT = 2000
-KINDS = ("ASO_LISTING", "BENCHMARK_REFERENCE", "BENCHMARK_COMPARISON", "MARKET_RESEARCH", "EDITORIAL_NOTE")
+KINDS = (
+    "ASO_LISTING",
+    "BENCHMARK_REFERENCE",
+    "BENCHMARK_COMPARISON",
+    "MARKET_RESEARCH",
+    "WEB_SEO_EVIDENCE",
+    "EDITORIAL_NOTE",
+)
 
 
-def context_of(app):
+def context_of(app) -> dict:
     """Bind public app scope and its exact manifest content without exposing secrets."""
     data = app["data"]
     return dict(
@@ -29,7 +37,7 @@ def entry_hash(kind, data, context):
     return digest(dict(kind=kind, data=data, context=context))
 
 
-def entry_data(kind, value, context, observed_at):
+def entry_data(kind, value, context, observed_at) -> dict:
     """Validate each closed input kind before any persistent change."""
     safe_data(value)
     if kind not in KINDS:
@@ -38,11 +46,16 @@ def entry_data(kind, value, context, observed_at):
         return note_data(value)
     if kind == "BENCHMARK_COMPARISON":
         return comparison_data(value)
+    if kind == "WEB_SEO_EVIDENCE":
+        validate_web_evidence(value, context, observed_at)
+        if not context["release"] or value["release"] != context["release"]:
+            raise Invalid("Web evidence release must match the configured app release")
+        return value
     if kind == "MARKET_RESEARCH":
         exact(value, {"release", "snapshot"})
         if not context["release"] or value["release"] != context["release"]:
             raise Invalid("Research release must match the configured app release")
-        snapshot = validate_snapshot(value["snapshot"], context, observed_at)
+        validate_snapshot(value["snapshot"], context, observed_at)
         return dict(release=value["release"], snapshot=value["snapshot"])
     exact(value, {"release", "listing" if kind == "ASO_LISTING" else "reference"})
     if not context["release"] or value["release"] != context["release"]:
@@ -96,7 +109,7 @@ def comparison_readout(data, observed_at):
     return dict(compared, classification_provenance="OPERATOR_DECLARED", classification_provider_verified=False)
 
 
-def entry_readout(row, app_context, observed_at):
+def entry_readout(row, app_context, observed_at) -> dict:
     """Recalculate current freshness while retaining original source and provenance."""
     if entry_hash(row["kind"], row["data"], row["context"]) != row["hash"]:
         raise Invalid("Growth-review content hash changed")
@@ -113,6 +126,10 @@ def entry_readout(row, app_context, observed_at):
         )
     elif kind == "BENCHMARK_COMPARISON":
         analysis = comparison_readout(data, observed_at)
+    elif kind == "WEB_SEO_EVIDENCE":
+        current = row["context"] == app_context and not row["imported"]
+        analysis = web_evidence_readout(data, row["context"], observed_at, current)
+        analysis["native_connection_read"] = bool(data.get("native_source")) and not row["imported"]
     elif kind == "MARKET_RESEARCH":
         snapshot = validate_snapshot(data["snapshot"], {"locale": row["context"].get("locale")}, observed_at)
         analysis = analyze_snapshot(snapshot, observed_at)

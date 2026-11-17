@@ -89,7 +89,7 @@
       )
       .join('');
     const issues = value.issues.map((item) => `<li>${escape(item.next_action)}</li>`).join('');
-    return `<section class="panel" id="growth-review-panel" aria-labelledby="growth-review-title"><p class="eyebrow">SUBSCRIPTION GROWTH / SAVED EVIDENCE</p><h2 id="growth-review-title">Find the next change worth testing</h2><p>Check your listing, subscription journey and experiment evidence in one place. Save a sourced benchmark to put an account report in context. Keep each decision tied to what you actually know.</p><p class="description">${escape(state.workspace.app.data.name)} · ${escape(value.observed_at)} · app setup ${escape(value.context.manifest_version)}. Counts below describe saved local evidence.</p><div class="page-metric-grid">${counts}</div>${evidenceStates(value)}<div class="toolbar"><button type="button" class="button outline" data-action="funnel-review">Review app-sales bottlenecks</button>${button('Save a listing', 'listing')}${button('Import keyword research', 'research')}${button('Add benchmark source', 'reference')}${button('Compare saved report', 'comparison')}${button('Report / Save PDF', 'report')}</div>${issues ? `<details><summary>${value.issues.length} next steps and repairs</summary><ul>${issues}</ul></details>` : '<p>No missing inputs were identified by this local review. Provider acceptance remains separate.</p>'}${historyList(value.history.history)}${journeyList(value.journeys)}${experimentList(value.experiments)}<p class="description">Editorial notes record your reasoning. Human approval, store acceptance and measured growth require their own evidence.</p></section>`;
+    return `<section class="panel" id="growth-review-panel" aria-labelledby="growth-review-title"><p class="eyebrow">SUBSCRIPTION GROWTH / SAVED EVIDENCE</p><h2 id="growth-review-title">Find the next change worth testing</h2><p>Check your listing, subscription journey and experiment evidence in one place. Save a sourced benchmark to put an account report in context. Keep each decision tied to what you actually know.</p><p class="description">${escape(state.workspace.app.data.name)} · ${escape(value.observed_at)} · app setup ${escape(value.context.manifest_version)}. Counts below describe saved local evidence.</p><div class="page-metric-grid">${counts}</div>${evidenceStates(value)}<div class="toolbar"><button type="button" class="button outline" data-action="funnel-review">Review app-sales bottlenecks</button>${button('Save a listing', 'listing')}${button('Import keyword research', 'research')}${button('Import OpenSEO evidence', 'web-seo')}${button('Add benchmark source', 'reference')}${button('Compare saved report', 'comparison')}${button('Report / Save PDF', 'report')}</div>${issues ? `<details><summary>${value.issues.length} next steps and repairs</summary><ul>${issues}</ul></details>` : '<p>No missing inputs were identified by this local review. Provider acceptance remains separate.</p>'}${historyList(value.history.history)}${journeyList(value.journeys)}${experimentList(value.experiments)}<p class="description">Editorial notes record your reasoning. Human approval, store acceptance and measured growth require their own evidence.</p></section>`;
   }
 
   function evidenceStates(value) {
@@ -220,6 +220,7 @@
     review(deps.state);
     const builders = {
       research: () => researchFields(deps.state),
+      'web-seo': webFields,
       listing: () =>
         listingFields(deps.state) +
         input(
@@ -237,6 +238,7 @@
     };
     const titles = {
       research: 'Find the words your app should test',
+      'web-seo': 'Find the next web acquisition test',
       listing: 'Save a localized listing',
       reference: 'Record a benchmark source',
       comparison: 'Compare a saved account report',
@@ -245,13 +247,25 @@
     if (!builders[mode]) throw new Error('Unknown growth-review form.');
     deps.modal(
       titles[mode],
-      `<form id="growth-review-form" data-mode="${mode}" data-app="${escape(deps.state.app)}" data-version="${deps.state.workspace.app.version}" data-id="${escape(deps.uuid())}" data-target="${escape(id)}"><div class="modal-content">${builders[mode]()}<p>New entries keep the original history. Save only permitted public evidence, with no credentials or personal identifiers.</p><div id="growth-form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">${mode === 'research' ? 'Review research file' : 'Save evidence'}</button></div></form>`,
+      `<form id="growth-review-form" data-mode="${mode}" data-app="${escape(deps.state.app)}" data-version="${deps.state.workspace.app.version}" data-id="${escape(deps.uuid())}" data-target="${escape(id)}"><div class="modal-content">${builders[mode]()}<p>New entries keep the original history. Save only permitted public evidence, with no credentials or personal identifiers.</p><div id="growth-form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">${isFileImport(mode) ? 'Review research file' : 'Save evidence'}</button></div></form>`,
       'GROWTH REVIEW',
     );
   }
 
   function researchFields(state) {
     return `<p>Bring the keyword and competitor evidence your agent researched for ${escape(state.workspace.app.data.name)}. WMM shows which phrases appear in your listing, where competitors overlap and what to test next.</p><p id="market-file-help">Choose the agent's MARKET_RESEARCH data JSON, up to 1 MiB. It must use this app's release and locale, dated source excerpts and hashes. Search volume, rank and difficulty stay unknown unless a cited source supplies them; imported claims are not provider verified.</p><div class="field"><label for="market-research-file">Research evidence file</label><input id="market-research-file" name="research_file" type="file" accept=".json,application/json" required aria-describedby="market-file-help"></div><div id="market-research-preview" role="status" aria-live="polite"></div><details><summary>Instructions for your personal agent</summary><p>Read wmm_catalog → domain_contracts → market_research. Prepare growth.save with this app ID, current manifest version, kind MARKET_RESEARCH and the exact data object. Save that data object as a JSON file for review here. Never include credentials or personal data.</p></details>`;
+  }
+
+  const isFileImport = (mode) => mode === 'research' || mode === 'web-seo';
+
+  function webFields() {
+    return '<p>Bring selected OpenSEO results for this app’s website. WMM keeps Google search and web conversions separate from store rankings and native installs.</p><p id="market-file-help">Choose the WEB_SEO_EVIDENCE data JSON exported by your agent. Ask it to use wmm_catalog → domain_contracts → web_search_evidence. Do not include credentials or personal data.</p><div class="field"><label for="market-research-file">OpenSEO evidence file</label><input id="market-research-file" name="research_file" type="file" accept=".json,application/json" required aria-describedby="market-file-help"></div><div id="market-research-preview" role="status" aria-live="polite"></div>';
+  }
+
+  function webPreview(data) {
+    if (data.provider !== 'openseo' || !Array.isArray(data.observations))
+      throw new Error('Choose an OpenSEO evidence packet with an observations list.');
+    return `<h3>Review web search evidence</h3><p>${escape(data.website)} · ${escape(data.territory)} · ${escape(data.locale)} · release ${escape(data.release)}</p><p>${data.observations.length} web observations. Saving makes no provider calls, publishes nothing, and spends nothing.</p>`;
   }
 
   function researchBody(form, raw, state) {
@@ -266,7 +280,8 @@
     const data = JSON.parse(raw);
     if (!data || typeof data !== 'object' || Array.isArray(data))
       throw new Error('Choose the MARKET_RESEARCH data object, with release and snapshot.');
-    const body = `{"id":${JSON.stringify(form.dataset.id)},"manifest_version":${Number(form.dataset.version)},"kind":"MARKET_RESEARCH","data":${raw}}`;
+    const kind = form.dataset.mode === 'web-seo' ? 'WEB_SEO_EVIDENCE' : 'MARKET_RESEARCH';
+    const body = `{"id":${JSON.stringify(form.dataset.id)},"manifest_version":${Number(form.dataset.version)},"kind":"${kind}","data":${raw}}`;
     if (new TextEncoder().encode(body).length > MARKET_FILE_BYTES)
       throw new Error('Research request exceeds 1 MiB. Use a smaller source snapshot.');
     return { body, data }; // Original JSON preserves duplicate fields for the server's strict decoder.
@@ -406,7 +421,7 @@
     submitButton.disabled = true;
     error.textContent = '';
     try {
-      if (form.dataset.mode === 'research') {
+      if (isFileImport(form.dataset.mode)) {
         const file = new deps.FormData(form).get('research_file');
         if (!file || typeof file.text !== 'function' || file.size === 0)
           throw new Error('Choose a research JSON file first.');
@@ -416,7 +431,8 @@
         if (!form.isConnected) return;
         const packet = researchBody(form, raw, deps.state);
         if (form._researchRaw !== raw) {
-          form.querySelector('#market-research-preview').innerHTML = researchPreview(packet.data);
+          const preview = form.dataset.mode === 'web-seo' ? webPreview : researchPreview;
+          form.querySelector('#market-research-preview').innerHTML = preview(packet.data);
           form._researchRaw = raw;
           submitButton.textContent = 'Save researched packet';
           return;
@@ -430,7 +446,7 @@
         await deps.refresh();
         if (deps.state.app === form.dataset.app && form.isConnected) deps.close();
         deps.toast(
-          'Research saved. Open its keyword coverage and next experiments in saved history.',
+          'Research saved. Open it in saved history to review its sources and next action.',
         );
         return;
       }
@@ -482,6 +498,15 @@
     if (row.kind === 'BENCHMARK_REFERENCE') notes.push(...referenceNotes(row.data.reference));
     if (row.kind === 'BENCHMARK_COMPARISON') notes.push(...comparisonNotes(row));
     if (row.kind === 'MARKET_RESEARCH') notes.push(...researchNotes(row));
+    if (row.kind === 'WEB_SEO_EVIDENCE')
+      notes.push(
+        'Web SEO: ' +
+          row.data.website +
+          (row.data.native_source
+            ? '. Saved native source record; inspect its current binding and read date.'
+            : '. Imported operator assertion; provider verification has not run.'),
+        'Next action: ' + (analysis.next_action || 'Recheck source evidence.'),
+      );
     if (row.kind === 'EDITORIAL_NOTE')
       notes.push(
         `Editorial ${human(row.data.decision)}: ${row.data.rationale}. Target ${row.data.target_id}, hash ${row.data.target_hash}. No approval authority.`,
@@ -590,6 +615,81 @@
     ];
   }
 
+  function webSections(row) {
+    const observations = row.readout.analysis.observations || [];
+    return [
+      {
+        title: 'Web SEO observations',
+        items: observations.map((item) => ({
+          title: item.subject,
+          status: human(item.status),
+          facts: [
+            ['Source', item.family],
+            ['Page', item.page_url || 'External research'],
+            ['Coverage', human(item.coverage)],
+            ['Observed', item.retrieved_at],
+            ...(item.period
+              ? [
+                  ['Reporting window', item.period.start + ' to ' + item.period.end],
+                  ['Device', human(item.period.device)],
+                ]
+              : []),
+            ['Reference', item.reference_url],
+            ['Excerpt', item.excerpt],
+            ['SHA-256', item.sha256],
+            ...Object.entries(item.values).map(([metric, value]) => [
+              human(metric) + ' (' + item.units[metric] + ')',
+              value === null ? 'Unknown' : String(value),
+            ]),
+            ['Next action', item.next_action],
+            ['Measure', item.measure || 'Collect evidence first'],
+            ...(item.observed_rate
+              ? [
+                  [
+                    item.observed_rate.label,
+                    (item.observed_rate.value * 100).toFixed(2) +
+                      '% (' +
+                      item.observed_rate.numerator +
+                      ' / ' +
+                      item.observed_rate.denominator +
+                      ')',
+                  ],
+                ]
+              : []),
+          ],
+        })),
+      },
+    ];
+  }
+
+  function webReport(base, row) {
+    const a = row.readout.analysis;
+    const data = row.data;
+    return {
+      ...base,
+      title: 'OpenSEO web acquisition report',
+      purpose: 'Choose a website, search, or creative test grounded in saved evidence.',
+      next_step: a.next_action || 'Recheck the saved source.',
+      filters: {
+        website: data.website,
+        territory: data.territory,
+        locale: data.locale,
+        release: data.release,
+        source_hash: row.hash,
+      },
+      metrics: [],
+      cohorts: [],
+      sections: webSections(row),
+      notes: [
+        a.native_connection_read
+          ? 'Retrieved by WMM through the native OpenSEO connection. Google data is relayed by OpenSEO; native installs and subscriptions require separate evidence.'
+          : data.native_source
+            ? 'Saved native OpenSEO reading needs a source recheck. Historical observations are retained.'
+            : 'Imported web observations; provider verification has not run. Google positions and web events are separate from App Store rankings and native outcomes.',
+      ],
+    };
+  }
+
   function comparisonNotes(row) {
     const data = row.data,
       analysis = row.readout.analysis,
@@ -609,6 +709,7 @@
     const value = review(state),
       rows = id ? [selected(state, id)] : history(state);
     const base = pageReports.model({ ...state, view: 'results' });
+    if (id && rows[0].kind === 'WEB_SEO_EVIDENCE') return webReport(base, rows[0]);
     const research =
       id &&
       rows[0].kind === 'MARKET_RESEARCH' &&
@@ -669,6 +770,7 @@
       },
       metrics: metrics(value),
       cohorts: [],
+      sections: rows.filter((row) => row.kind === 'WEB_SEO_EVIDENCE').flatMap(webSections),
       notes: [
         ...rows.flatMap(entryNotes),
         ...value.issues.map((item) => item.next_action),
@@ -682,6 +784,15 @@
 
   function detail(id, deps) {
     const row = selected(deps.state, id);
+    if (row.kind === 'WEB_SEO_EVIDENCE') {
+      const web = webReport({}, row);
+      deps.modal(
+        web.title,
+        `<div class="modal-content"><p>${escape(web.next_step)}</p><p>${escape(web.notes[0])}</p>${deps.pageReports.sectionsHTML(web.sections, 3)}</div><div class="modal-actions">${button('Report / Save PDF', 'report', id)}${button('Download report JSON', 'json', id)}</div>`,
+        'WEB SEARCH RESEARCH',
+      );
+      return;
+    }
     if (row.kind === 'MARKET_RESEARCH' && row.readout.analysis.intent_opportunities?.length) {
       const s = row.data.snapshot;
       const [decisions, sources] = researchSections(row);

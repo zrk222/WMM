@@ -10,6 +10,7 @@
     "types": []
   },
   "files": [
+    "mission_control/static/openseo-scope.mjs",
     "mission_control/static/analytics-inventory.mjs",
     "mission_control/static/campaign-plan.mjs",
     "mission_control/static/mmp-import-model.mjs"

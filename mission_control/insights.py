@@ -44,6 +44,17 @@ def decoded(row):
     return result
 
 
+def check_web_scope(db, app, data):
+    """Recheck the app's website, release and locale before native research."""
+    if data["provider"] == "openseo":
+        from .openseo_read import assert_app_scope
+
+        row = db.execute("SELECT data FROM apps WHERE id=?", (app,)).fetchone()
+        if not row:
+            raise Invalid("App workspace not found")
+        assert_app_scope(data, json.loads(row[0]))
+
+
 class Insights:
     def __init__(self, store):
         self.store = store
@@ -111,6 +122,8 @@ class Insights:
         if not isinstance(body, dict):
             raise Invalid("Use the guided analytics setup")
         data = config({key: value for key, value in body.items() if key != "version"})
+        with connection(self.store.path) as db:
+            check_web_scope(db, app, data)
         with LOCK:
             candidate, old = self.stage_candidate(app, data, body)
             try:
@@ -172,6 +185,7 @@ class Insights:
         sid = candidate["id"]
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
+            check_web_scope(db, app, data)
             latest_row = db.execute(
                 "SELECT * FROM insight_sources WHERE app_id=? AND provider=?", (app, data["provider"])
             ).fetchone()
@@ -334,6 +348,7 @@ class Insights:
         current = time.time()
         db.execute("BEGIN IMMEDIATE")
         row = self.row(db, app, sid)
+        check_web_scope(db, app, row["data"])
         if row["status"] in ("DISCONNECTED", "CLEANUP_REQUIRED"):
             raise Invalid("Reconnect before reading this source")
         if row["lease"] > current:
@@ -402,6 +417,7 @@ class Insights:
         """Discard stale results and store current evidence in the supplied transaction."""
         db.execute("BEGIN IMMEDIATE")
         current = self.row(db, app, row["id"])
+        check_web_scope(db, app, row["data"])
         if (
             current["version"] != row["version"]
             or current["hash"] != row["hash"]

@@ -1,4 +1,5 @@
 import { status } from './app.mjs';
+import { openSEOScope } from './openseo-scope.mjs';
 import { $, api, button, esc, notice, refresh, state, toast } from './app.mjs';
 import { download, modal } from './app-ui.mjs';
 /* Guided project analytics; keys never enter browser persistence. */
@@ -76,11 +77,34 @@ function insightsPanel() {
     .map(([id, p]) => {
       const source = w.sources.find((s) => s.provider === id),
         report = source ? w.reports.find((r) => r.source_id === source.id) : null;
-      return `<section class="connection-card"><h3>${esc(p.name)}</h3>${status(source?.status || 'NOT_CONNECTED')}<p>${esc(id === 'posthog' ? 'Map real app events and inspect outcome coverage.' : id === 'clarity' ? 'Aggregate friction and engagement. No recordings.' : 'Subscription overview with provider units and periods.')}</p>${source?.last_error ? notice(source.last_error, 'warning') : ''}${source ? `<p class="description">Project ${esc(source.data.project_id)} · ${source.data.automatic ? 'Six-hour automatic refresh' : 'Manual refresh'}<br>${report ? 'Last saved observation: ' + esc(report.created) : 'No successful observation yet.'}</p>` : ''}${source?.event_coverage ? `<p>${status(source.event_coverage.state)} ${esc(source.event_coverage.reason)}</p>` : ''}${button(source ? 'Reconnect / change setup' : 'Connect ' + p.name, 'insights-setup', `data-provider="${esc(id)}"`)}${source ? button('Inspect / refresh', 'insights-inspect', `data-id="${esc(source.id)}"`) : ''}${source?.provider === 'posthog' && !['DISCONNECTED', 'CLEANUP_REQUIRED'].includes(source.status) ? button('Match app events', 'insights-events', `data-id="${esc(source.id)}"`) : ''}</section>`;
+      return `<section class="connection-card"><h3>${esc(p.name)}</h3>${status(source?.status || 'NOT_CONNECTED')}<p>${esc(id === 'openseo' ? 'Built-in app-website Search Console retrieval. Review web opportunities and missing data.' : id === 'posthog' ? 'Map real app events and inspect outcome coverage.' : id === 'clarity' ? 'Aggregate friction and engagement. No recordings.' : 'Subscription overview with provider units and periods.')}</p>${source?.last_error ? notice(source.last_error, 'warning') : ''}${source ? `<p class="description">Project ${esc(source.data.project_id)} · ${source.data.automatic ? 'Six-hour automatic refresh' : 'Manual refresh'}<br>${report ? 'Last saved observation: ' + esc(report.created) : 'No successful observation yet.'}</p>` : ''}${source?.event_coverage ? `<p>${status(source.event_coverage.state)} ${esc(source.event_coverage.reason)}</p>` : ''}${button(source ? 'Reconnect / change setup' : 'Connect ' + p.name, 'insights-setup', `data-provider="${esc(id)}"`)}${source ? button('Inspect / refresh', 'insights-inspect', `data-id="${esc(source.id)}"`) : ''}${source?.provider === 'posthog' && !['DISCONNECTED', 'CLEANUP_REQUIRED'].includes(source.status) ? button('Match app events', 'insights-events', `data-id="${esc(source.id)}"`) : ''}</section>`;
     })
     .join('');
   return `<section aria-label="Product and revenue connections"><div class="section-heading"><h2>Product, experience & subscription insights</h2></div><p class="description">Connect once. Saving tests access automatically. Optional refresh runs every six hours while this workstation runs.</p><div class="connection-grid">${cards}</div></section>`;
 }
+function insightsOpenSEOFields(source) {
+  const app = state.workspace.app.data;
+  const markets = {
+    US: 'United States',
+    CA: 'Canada',
+    GB: 'United Kingdom',
+    AU: 'Australia',
+    NZ: 'New Zealand',
+    IE: 'Ireland',
+    ZA: 'South Africa',
+  };
+  return `<label class="field">App website<input name="website" value="${esc(app.website || '')}" readonly required></label><p class="description">Set your owned website in app setup first. The project must connect Search Console for this site.</p><label class="field">Search market<select name="territory">${Object.entries(
+    markets,
+  )
+    .map(
+      ([code, label]) =>
+        `<option value="${code}" ${source?.data.territory === code ? 'selected' : ''}>${label}</option>`,
+    )
+    .join(
+      '',
+    )}</select></label><label class="field">Search detail<select name="report_mode"><option value="pages">Page totals only</option><option value="queries" ${source?.data.report_mode === 'queries' ? 'selected' : ''}>Aggregate queries and pages</option></select><span class="description">Choose queries only when you are permitted to retain search phrases. Pages-only keeps query text out of WMM.</span></label><input type="hidden" name="release" value="${esc(app.release)}"><input type="hidden" name="locale" value="${esc(app.locale)}">`;
+}
+
 function insightsSetup(provider) {
   const w = insightsState(),
     p = w.providers[provider],
@@ -95,12 +119,14 @@ function insightsSetup(provider) {
       'Map the exact event names your app emits. Generic names below are examples, not installation proof. Absent events are not fabricated.',
     clarity:
       'Ten requests per project per day; latest three days only. The export token determines scope; the API does not verify the entered project ID.',
+    openseo:
+      'Final Search Console web page metrics for the selected market. No SEO credits are purchased. Partial results are not complete site totals. Saving tests the connection immediately.',
     revenuecat:
       'Overview includes every app in its project. Use a dedicated project. Provider metrics are never added to payment cash totals.',
   };
   modal(
     'Connect ' + p.name,
-    `<form id="insights-setup-form" data-app="${esc(state.app)}" data-provider="${esc(provider)}" data-version="${source?.version || ''}"><div class="modal-content"><p>${esc(p.guide)}</p><p><a class="text-button" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">Open official setup instructions ↗</a></p>${notice('Your key stays in Windows Credential Manager. Saving performs a permitted read immediately; it does not install an SDK or change your app.')}<div class="form-grid"><label class="field">Project ID<input name="project_id" value="${esc(source?.data.project_id || '')}" required autocomplete="off"></label>${region}<label class="field">Read API key / export token<input name="api_key" type="password" required autocomplete="new-password" maxlength="1800"></label></div>${provider === 'posthog' ? insightsEventFields(source) : ''}<label class="choice"><input name="automatic" type="checkbox" ${source?.data.automatic === false ? '' : 'checked'}> Automatically refresh every six hours while Mission Control runs.</label><label class="choice"><input name="dedicated_project" type="checkbox" required> This project contains only this app's permitted data.</label><label class="choice"><input name="confirm_read" type="checkbox" required> I authorize read-only access and the selected refresh schedule.</label>${notice(caveats[provider])}<div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">Connect & test automatically</button></div></form>`,
+    `<form id="insights-setup-form" data-app="${esc(state.app)}" data-provider="${esc(provider)}" data-version="${source?.version || ''}"><div class="modal-content"><p>${esc(p.guide)}</p><p><a class="text-button" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">Open official setup instructions ↗</a></p>${notice('Your key stays in this operating system’s protected credential store. Saving performs a permitted read immediately; it does not install an SDK or change your app.')}<div class="form-grid"><label class="field">Project ID<input name="project_id" value="${esc(source?.data.project_id || '')}" required autocomplete="off"></label>${region}<label class="field">Read API key / export token<input name="api_key" type="password" required autocomplete="new-password" maxlength="1800"></label></div>${provider === 'openseo' ? insightsOpenSEOFields(source) : ''}${provider === 'posthog' ? insightsEventFields(source) : ''}<label class="choice"><input name="automatic" type="checkbox" ${(source ? source.data.automatic === true : provider !== 'openseo') ? 'checked' : ''}> Automatically refresh every six hours while Mission Control runs.</label><label class="choice"><input name="dedicated_project" type="checkbox" required> This project contains only this app's permitted data.</label><label class="choice"><input name="confirm_read" type="checkbox" required> I authorize read-only access and the selected refresh schedule.</label>${notice(caveats[provider])}<div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">Connect & test automatically</button></div></form>`,
     'PERMITTED PROJECT CONNECTION',
   );
 }
@@ -120,6 +146,7 @@ async function saveInsights(form) {
   };
   if (form.dataset.version) body.version = Number(form.dataset.version);
   if (body.provider === 'posthog') body.event_map = insightsFormEvents(values);
+  if (body.provider === 'openseo') Object.assign(body, openSEOScope(values));
   form.querySelector('[name="api_key"]').value = '';
   try {
     const result = await api(`/api/apps/${encodeURIComponent(app)}/insights/setup`, body);
@@ -206,6 +233,9 @@ function insightsInspect(id) {
       ? button('Refresh now', 'insights-read', `data-id="${esc(id)}"`)
       : '') +
     button('Change setup', 'insights-setup', `data-provider="${esc(s.provider)}"`) +
+    (s.provider === 'openseo' && history.some((row) => row.data.web_evidence)
+      ? button('Use reading for next marketing test', 'insights-web-save', `data-id="${esc(id)}"`)
+      : '') +
     (history.length
       ? button('Download selected reading (JSON)', 'insights-download', `data-id="${esc(id)}"`)
       : '') +
@@ -244,6 +274,32 @@ async function insightsAction(node) {
     const report = insightsSelectedReading(id);
     if (!report) throw new Error('Reopen this source and select a saved reading.');
     return download(app + '-analytics-reading-' + report.id + '.json', report);
+  }
+  if (action === 'insights-web-save') {
+    const report = insightsSelectedReading(id);
+    if (!report?.data.web_evidence) throw new Error('Choose a reading with app-page evidence.');
+    node.disabled = true;
+    node.dataset.requestId ||= crypto.randomUUID();
+    try {
+      await api(
+        `/api/apps/${encodeURIComponent(app)}/insights/${encodeURIComponent(id)}/save-web-evidence`,
+        {
+          id: node.dataset.requestId,
+          manifest_version: state.workspace.app.version,
+          report_id: report.id,
+        },
+      );
+      if (state.app === app) {
+        await refresh();
+        $('#modal').close();
+      }
+      toast('Saved. Open Results → growth review for the next action and report.');
+    } catch (error) {
+      $('#form-error').textContent = error.message;
+    } finally {
+      node.disabled = false;
+    }
+    return;
   }
   if (action === 'insights-read' || action === 'insights-disconnect') {
     node.disabled = true;

@@ -284,6 +284,29 @@ def owner_operating_protocol():
                 "action": "Report to the owner in plain language, save authorized learning, recommend one next action, and stop at the agreed scope or budget.",
             },
         ],
+        "web_acquisition_research": {
+            "contract": "wmm_catalog.domain_contracts.web_search_evidence",
+            "read_before_research": [
+                "Current app website, release, territory and locale",
+                "OpenSEO project identity and existing research context",
+                "Owned Search Console and GA4 evidence before estimates",
+            ],
+            "workflow": [
+                "Prefer WMM's built-in OpenSEO connection. Use web.research.read then web.research.save for an exact retained reading under the current app grant.",
+                "For broader research, use the agent's separately authorized OpenSEO MCP connection; scope research to the selected app website.",
+                "Inspect source dates, reporting window, device, coverage, and cost preview before billable research.",
+                "Save selected normalized evidence through growth.save kind WEB_SEO_EVIDENCE; retain exact excerpt hashes.",
+                "Use the next_action and observed_rate in the readout to draft one web test with control, primary metric and stopping rule.",
+                "Seek separate authority for any external edit, schedule, indexing submission or cost; a research record grants none.",
+                "Measure store-bound web sessions separately from native downloads and paid subscriptions.",
+            ],
+            "source_rules": [
+                "OpenSEO and direct exports of one Google source are not independent votes; never sum them.",
+                "Google search position is not App Store rank; sampled AI mentions are not install intent.",
+                "Generic GA4 key events are not store-link clicks or paid subscriptions.",
+                "Imported provider statements remain operator assertions until separately verified.",
+            ],
+        },
         "creative_rules": {
             "viral_only": {
                 "minimum_views": 100000,

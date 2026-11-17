@@ -1,13 +1,14 @@
 """Documented fixed-destination read-only analytics API adapters."""
 
 import json
-from urllib.request import Request, build_opener
 from urllib.error import HTTPError, URLError
+from urllib.request import Request, build_opener
+
 from .common import Invalid, now
+from .event_mapping import DEFAULTS, mapping, query
+from .insights_contract import shape_clarity, shape_posthog, shape_revenuecat
+from .payment_signature import bounded_tree, unique_pairs
 from .providers import NoRedirect
-from .insights_contract import shape_posthog, shape_clarity, shape_revenuecat
-from .payment_signature import unique_pairs, bounded_tree
-from .event_mapping import mapping, query, DEFAULTS
 
 
 class ProviderFailure(Invalid):
@@ -19,7 +20,7 @@ class ProviderFailure(Invalid):
 def request(url, token, body=None):
     """Fixed callers only; never follow redirects or persist a raw error body."""
     data = json.dumps(body, allow_nan=False).encode() if body is not None else None
-    req = Request(
+    req = Request(  # noqa: S310 -- callers construct fixed documented HTTPS provider endpoints.
         url,
         data=data,
         headers={"Authorization": "Bearer " + token, "Accept": "application/json", "Content-Type": "application/json"},
@@ -50,6 +51,10 @@ def request(url, token, body=None):
 def read(config, token):
     """Fetch only documented project aggregate endpoints; user input cannot become a host."""
     provider, project = config["provider"], config["project_id"]
+    if provider == "openseo":
+        from .openseo_read import read as read_web_search
+
+        return read_web_search(config, token)
     metadata = {}
     if provider == "posthog":
         events = mapping(config.get("event_map", DEFAULTS))

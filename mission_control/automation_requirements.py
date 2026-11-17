@@ -1,18 +1,18 @@
 """Owner-only workflow and credential inventory; saved facts confer no authority."""
 
+import json
 import sqlite3
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
-import json
 from pathlib import Path
 
+from .agent_contract import model_id
+from .agent_registry import REGISTRY, TASKS
 from .common import Invalid, digest, iso_time
 from .db import connection
 from .operation_catalog import OPERATIONS, exact_keys, path_segment
-from .agent_registry import REGISTRY, TASKS
-from .agent_contract import model_id
 from .review_access import member
-from .social_contract import reference, account_id, provider_id, reported_scopes
+from .social_contract import account_id, provider_id, reference, reported_scopes
 from .social_registry import catalog as social_catalog
 
 MAX_ACCOUNTS = 20
@@ -174,6 +174,8 @@ MAX_WORKFLOWS = len(WORKFLOWS)
 # These operations remain separately approved through exact scoped grants or a
 # current owner session; they are not added to existing standing policies.
 UNBUNDLED_OPERATIONS = {
+    "web.research.read": "local_evidence",
+    "web.research.save": "local_evidence",
     "packaging.editor-prepare": "video_authoring_editing",
     "observational-campaign.register": "local_evidence",
     "observational-campaign.link": "local_evidence",
@@ -206,7 +208,7 @@ UNBUNDLED_OPERATIONS = {
 }
 
 
-def workflow_catalog():
+def workflow_catalog() -> dict:
     """Reject operation drift instead of silently widening an automation policy."""
     mapped = {name for row in WORKFLOWS.values() for name in row["operations"]}
     unbundled = set(UNBUNDLED_OPERATIONS)
@@ -388,7 +390,7 @@ def renewal_state(value):
     return value if isinstance(value, str) and value in allowed else "UNKNOWN"
 
 
-def workflow_states(selected, inference, accounts, native_host=False):
+def workflow_states(selected, inference, accounts, native_host=False) -> list[dict]:
     """Keep incomplete selected workflows visible rather than dropping their effects."""
     result = []
     for identity in selected:
@@ -433,7 +435,7 @@ class Readiness:
         self.store = store
         self.clock = clock or (lambda: datetime.now(timezone.utc))
 
-    def report(self, app_id, user, body):
+    def report(self, app_id, user, body) -> dict:
         """Bind exact current app, role, workflow and selected credential revisions."""
         path_segment(app_id)
         chosen = selection(body)
@@ -444,7 +446,7 @@ class Readiness:
         return dict(inventory=inventory, inventory_sha256=digest(inventory), observed_at=observed.isoformat())
 
 
-def inventory_in_db(db, app_id, user, chosen, observed):
+def inventory_in_db(db, app_id, user, chosen, observed) -> dict:
     """Reuse the exact inventory snapshot inside owner and dispatch transactions."""
     if type(db) is not sqlite3.Connection:
         raise TypeError("Native SQLite connection required")

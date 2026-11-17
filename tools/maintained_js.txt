@@ -59,6 +59,7 @@ mission_control/static/mmp-import-model.js
 mission_control/static/mmp-import-model.mjs
 mission_control/static/observational-campaign.mjs
 mission_control/static/onesignal-setup.js
+mission_control/static/openseo-scope.mjs
 mission_control/static/operation-feedback.js
 mission_control/static/organic-policy.js
 mission_control/static/organic-research.js
@@ -106,6 +107,7 @@ tests/goal_readiness_ui.test.cjs
 tests/managed_media.test.cjs
 tests/measurement_results_ui.test.cjs
 tests/mmp_import_model.test.mjs
+tests/openseo_evidence_ui.test.cjs
 tests/operation_feedback.test.cjs
 tests/organic_research_ui.test.cjs
 tests/page_reporting.test.cjs
