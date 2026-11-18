@@ -225,6 +225,56 @@ test('combined review keeps measured zero, independent source windows and depend
   assert.equal(output.innerHTML, '');
 });
 
+test('prior review receipts survive in read-only history, print and JSON', async () => {
+  const f = fixture();
+  const { form, result } = searchFixture(f);
+  const prior = {
+    review_hash: 'earlier-review',
+    saved_actions: [
+      {
+        id: 'saved-draft',
+        action_id: 'web-baseline',
+        action: { title: 'Prior <web> analysis' },
+        created: '2026-11-17T23:24:00Z',
+      },
+    ],
+    assignments: {
+      'web-baseline': {
+        agent_id: 'analyst',
+        status: 'COMPLETED',
+        receipt_sha256: 'prior-execution-hash',
+        deliverable: { summary: 'Recorded the baseline.', details: { clicks: 4 } },
+      },
+    },
+  };
+  result.search_review.earlier_plans = [prior];
+  let pdf, json;
+  f.d.api = async (path) => (path.endsWith('/view') ? f.data : result);
+  f.d.pageReports.openReport = (report) => {
+    pdf = report;
+  };
+  f.d.download = (_name, data) => {
+    json = data;
+  };
+  await apple.open(f.d);
+  await apple.submit(form, f.d, 'search');
+  const history = f.node.fields['#apple-performance-results'].innerHTML.match(
+    /<details data-search-history>(.*?)<\/details>/s,
+  )[1];
+  assert.match(history, /Prior &lt;web&gt; analysis/);
+  assert.match(history, /prior-execution-hash/);
+  assert.match(history, /Completed/);
+  assert.doesNotMatch(history, /<button|<select|data-action/);
+  await apple.action(click('search-report'), f.d);
+  const earlier = pdf.sections.find((s) => s.title === 'Earlier plan receipts for these dates');
+  assert.deepEqual(
+    earlier.items[0].facts.find(([key]) => key === 'Execution receipt SHA-256'),
+    ['Execution receipt SHA-256', 'prior-execution-hash'],
+  );
+  await apple.action(click('search-download'), f.d);
+  assert.deepEqual(json.search_review.earlier_plans, [prior]);
+});
+
 test('selected search actions save and assign against the exact reviewed scope', async () => {
   const f = fixture();
   const { form, result } = searchFixture(f);

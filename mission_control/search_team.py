@@ -46,8 +46,12 @@ def _public(row: sqlite3.Row) -> dict[str, Any]:
 
 def team_view(db: sqlite3.Connection, app_id: str, review_hash: str) -> dict[str, Any]:
     agents = [dict(grant_id=r["id"], agent_id=r["agent_id"]) for r in _eligible(db, app_id)]
+    return dict(team_agents=agents, assignments=assignments_for_plan(db, app_id, review_hash))
+
+
+def assignments_for_plan(db: sqlite3.Connection, app_id: str, review_hash: str) -> dict[str, Any]:
     rows = db.execute("SELECT * FROM search_team_assignments WHERE app_id=? AND review_hash=?", (app_id, review_hash))
-    return dict(team_agents=agents, assignments={r["action_id"]: _public(r) for r in rows})
+    return {r["action_id"]: _public(r) for r in rows}
 
 
 def assign(db: sqlite3.Connection, bound: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
@@ -133,7 +137,7 @@ def _run(store: Store, envelope: dict[str, Any]) -> dict[str, Any]:
             if not prior or prior["status"] != "COMPLETED":
                 raise Invalid("Waiting for completed prerequisite " + dep)
             dependencies[dep] = prior["receipt_sha256"]
-        status, deliverable = produce(snapshot, task)
+        status, deliverable = produce(snapshot, task, {dep: review["assignments"][dep] for dep in dependencies})
         result = dict(
             app_id=app_id,
             review_hash=key[0],

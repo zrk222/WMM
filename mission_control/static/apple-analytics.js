@@ -354,12 +354,31 @@
     const verify = assigned.filter((job) => job.status === 'NEEDS_EXTERNAL_VERIFICATION').length;
     return `<p>${assigned.length} of ${review.actions.length} steps assigned. ${completed} completed.${verify ? ' Steps needing external verification: ' + verify + '.' : ''}</p>`;
   }
+  function earlierReceipts(review) {
+    return (review.earlier_plans || []).flatMap((plan) =>
+      plan.saved_actions.map((receipt) => ({
+        title: receipt.action.title,
+        status: 'Earlier plan',
+        facts: [
+          ['Saved on', receipt.created],
+          ['WMM draft receipt', receipt.id],
+          ['Earlier review SHA-256', plan.review_hash],
+          ...assignmentFacts(assignment(plan, receipt.action_id)),
+        ],
+      })),
+    );
+  }
+  function earlierMarkup(review) {
+    const items = earlierReceipts(review);
+    if (!items.length) return '';
+    return `<details data-search-history><summary>Earlier plan receipts for these dates (${items.length})</summary>${items.map((item) => `<h5>${esc(item.title)}</h5>${factsList(item.facts)}`).join('')}</details>`;
+  }
   function searchResults(result) {
     const review = result.search_review;
     const team = review.team_agents?.length
       ? '<p>Assign actions to eligible agents. A step waits for its prerequisites and for its assigned agent to run it through WMM.</p>'
       : `<p>Agent assignments require an eligible WMM agent grant.</p>${button('Open agent access', 'search-agents')}`;
-    return `<section aria-labelledby="apple-search-review-title"><h3 id="apple-search-review-title">Search to App Store</h3><p><strong>${esc(review.evidence_status)}</strong></p><p>${esc(review.insight)}</p>${factsList(reviewFacts(review))}<h4>OpenSEO evidence</h4><p>${esc(review.web_source)}</p>${review.web_facts.length ? `<ul>${review.web_facts.map((fact) => `<li>${esc(fact)}</li>`).join('')}</ul>` : ''}<h4>Apple evidence</h4><p>Apple event dates ${esc(result.start)} to ${esc(result.end)}.</p>${performanceTable(result)}<h4>Proposed work</h4><p>Saving an action keeps a draft for this app.</p>${team}${assignmentProgress(review)}${review.actions.map((action) => searchActionMarkup(action, review)).join('')}<div class="toolbar">${button('Search to App Store report / Save PDF', 'search-report')}${button('Download action plan', 'search-download')}${button('Refresh plan status', 'search-refresh')}</div></section>`;
+    return `<section aria-labelledby="apple-search-review-title"><h3 id="apple-search-review-title">Search to App Store</h3><p><strong>${esc(review.evidence_status)}</strong></p><p>${esc(review.insight)}</p>${factsList(reviewFacts(review))}<h4>OpenSEO evidence</h4><p>${esc(review.web_source)}</p>${review.web_facts.length ? `<ul>${review.web_facts.map((fact) => `<li>${esc(fact)}</li>`).join('')}</ul>` : ''}<h4>Apple evidence</h4><p>Apple event dates ${esc(result.start)} to ${esc(result.end)}.</p>${performanceTable(result)}<h4>Proposed work</h4><p>Saving an action keeps a draft for this app.</p>${team}${assignmentProgress(review)}${review.actions.map((action) => searchActionMarkup(action, review)).join('')}${earlierMarkup(review)}<div class="toolbar">${button('Search to App Store report / Save PDF', 'search-report')}${button('Download action plan', 'search-download')}${button('Refresh plan status', 'search-refresh')}</div></section>`;
   }
   function planScope(result) {
     return {
@@ -416,6 +435,7 @@
         actions,
         saved_actions,
         assignments,
+        earlier_plans: review.earlier_plans || [],
       },
       rows,
     };
@@ -576,6 +596,7 @@
   function searchReport(result, state, pages) {
     const base = performanceReport(result, state, pages);
     const review = result.search_review;
+    const earlier = earlierReceipts(review);
     const facts = (action) => {
       const receipt = savedAction(review, action.id);
       return [
@@ -624,6 +645,9 @@
             facts: facts(action),
           })),
         },
+        ...(earlier.length
+          ? [{ title: 'Earlier plan receipts for these dates', items: earlier }]
+          : []),
       ],
       notes: [
         ...base.notes,

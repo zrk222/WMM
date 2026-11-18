@@ -55,3 +55,22 @@ class SearchStoreActionTests(unittest.TestCase):
         self.assertEqual(self.route.post(fetch, self.body)["search_review"]["saved_actions"], [])
         with connection(self.route.store.path) as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM search_store_action_receipts").fetchone()[0], 0)
+
+    def test_owner_can_recover_receipt_after_source_change_only_in_the_same_window(self) -> None:
+        fetch = fixtures.BASE + "search-review"
+        save = fixtures.BASE + "search-review-save"
+        old = self.route.post(fetch, self.body)["search_review"]
+        body = dict(self.body, review_hash=old["review_hash"], action_id=old["actions"][0]["id"])
+        saved = self.route.post(save, body)["receipt"]
+        with connection(self.route.store.path, write=True) as db:
+            db.execute("UPDATE records SET version=version+1 WHERE id=?", (self.route.record["id"],))
+        after = self.route.post(fetch, self.body)["search_review"]
+        self.assertNotEqual(old["review_hash"], after["review_hash"])
+        self.assertEqual(after["saved_actions"], [])
+        self.assertEqual(
+            after["earlier_plans"], [dict(review_hash=old["review_hash"], saved_actions=[saved], assignments={})]
+        )
+        self.route.reject(self.route.client, save, body, 400)
+        self.assertEqual(
+            self.route.post(fetch, dict(self.body, start="2026-01-02"))["search_review"]["earlier_plans"], []
+        )

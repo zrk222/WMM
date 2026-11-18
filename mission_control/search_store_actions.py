@@ -28,6 +28,33 @@ def _receipts(db: Connection, app_id: str, review_hash: str) -> list[dict[str, A
     return receipts
 
 
+def _earlier_plans(db: Connection, scope: dict[str, Any], current: str) -> list[dict[str, Any]]:
+    from .search_team import assignments_for_plan
+
+    context = PROTECTED.get()
+    if context is None or "grant_id" in context:
+        return []
+    envelope = json.loads(str(context["envelope"]))
+    if envelope.get("operation") != "apple.analytics.owner.search-review" or envelope.get("app_id") != scope["app_id"]:
+        return []
+    check(db, context)
+    rows = db.execute(
+        "SELECT review_hash FROM search_store_action_receipts WHERE app_id=? AND review_hash<>? "
+        "AND json_extract(data,'$.start')=? AND json_extract(data,'$.end')=? "
+        "AND json_extract(data,'$.store_app_id') IS ? GROUP BY review_hash "
+        "ORDER BY MAX(json_extract(data,'$.created')) DESC, review_hash",
+        (scope["app_id"], current, scope["start"], scope["end"], scope["store_app_id"]),
+    )
+    return [
+        dict(
+            review_hash=key,
+            saved_actions=_receipts(db, scope["app_id"], key),
+            assignments=assignments_for_plan(db, scope["app_id"], key),
+        )
+        for (key,) in rows
+    ]
+
+
 def bind_review(
     db: Connection, result: dict[str, Any], expected: Any, body: dict[str, Any], *, save: bool = False
 ) -> dict[str, Any]:
@@ -54,7 +81,11 @@ def bind_review(
         return dict(
             result,
             search_review=dict(
-                review, review_hash=review_hash, saved_actions=receipts, **team_view(db, app_id, review_hash)
+                review,
+                review_hash=review_hash,
+                saved_actions=receipts,
+                earlier_plans=_earlier_plans(db, scope, review_hash),
+                **team_view(db, app_id, review_hash),
             ),
         )
     context = PROTECTED.get()
