@@ -127,6 +127,19 @@ def _link_check(page: str, store_app_id: str) -> AgentAction:
     )
 
 
+def _test_brief(page: str) -> AgentAction:
+    return AgentAction(
+        id="test-brief",
+        title="Prepare the acquisition test brief",
+        task=f"Use both completed baseline receipts to design one measurable acquisition test for {page}.",
+        metric="An exact page, eligible audience, baseline, control, outcome metric and stop rules.",
+        guardrail="Keep app-wide Apple counts separate from Google search counts and require owner review before launch.",
+        follow_up="Use this brief to review the change and verify its measurement setup.",
+        depends_on=["apple-baseline", "web-baseline"],
+        agent="Acquisition strategy agent",
+    )
+
+
 def _tagged_test(page: str) -> AgentAction:
     return AgentAction(
         id="measure-tag",
@@ -135,7 +148,7 @@ def _tagged_test(page: str) -> AgentAction:
         metric="Mature Apple first-time downloads attributed to the exact campaign and territory.",
         guardrail="Keep web starts as a separate guardrail. Treat missing or suppressed Apple rows as unknown.",
         follow_up="Review delivery receipts and mature campaign rows before making a keep, revise or collect decision.",
-        depends_on=["apple-baseline", "web-baseline", "store-link-check"],
+        depends_on=["test-brief", "store-link-check"],
         agent="Acquisition measurement agent",
     )
 
@@ -234,8 +247,13 @@ def search_store_review(db: Connection, result: dict, connected: bool) -> dict:
         link_check = _link_check(page, store_id)
         actions.append(link_check)
         if complete:
-            actions.append(_tagged_test(page))
             primary = link_check
+    if complete and reading is not None and reading[1]["status"] == "REVIEW_ACTION":
+        brief = _test_brief(reading[1]["page_url"])
+        actions.append(brief)
+        primary = brief
+        if store_id and _can_check_link(reading[1]):
+            actions.append(_tagged_test(reading[1]["page_url"]))
     return dict(
         insight=f"Apple’s app-wide reports have mature discovery counts for {discovery_days}/{days} days and mature first-time download counts for {download_days}/{days} days. "
         + _web_insight(reading)

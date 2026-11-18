@@ -206,9 +206,7 @@ class AppleMetricsRouteTests(unittest.TestCase):
                 db.execute("BEGIN")
                 planned = search_store_review(db, dict(combined, rows=mature_rows), True)
             self.assertEqual(planned["actions"][-1]["id"], "measure-tag")
-            self.assertEqual(
-                planned["actions"][-1]["depends_on"], ["apple-baseline", "web-baseline", "store-link-check"]
-            )
+            self.assertEqual(planned["actions"][-1]["depends_on"], ["test-brief", "store-link-check"])
             owner.disconnect(APP, source_id, dict(version=1, confirm_disconnect=True))
             disconnected = self.post(path, body)["search_review"]
             self.assertIsNone(disconnected["web_evidence_sha256"])
