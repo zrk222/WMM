@@ -80,6 +80,35 @@ class PublicationReportTests(unittest.TestCase):
         with self.assertRaises(Invalid):
             self.read(item)
 
+    def test_empty_executed_chain_is_not_an_unexecuted_report(self) -> None:
+        item, job = self.leased()
+        with patch("mission_control.publication_sessions.Vault", return_value=execution.Vault()):
+            self.run_step(job, SimpleNamespace(create=lambda *a: self.state("READY_TO_PUBLISH")))
+        self.assertTrue(self.read(item)["report"]["events"])
+        with connection(self.store.path) as db:
+            db.execute("DROP TRIGGER publication_event_no_delete")
+            db.execute("DELETE FROM publication_events WHERE intent_id=?", (item["id"],))
+        with self.assertRaises(Invalid):
+            self.read(item)
+
+    def test_truncated_chain_cannot_hide_behind_an_unchanged_valid_head(self) -> None:
+        item, job = self.leased()
+        with patch("mission_control.publication_sessions.Vault", return_value=execution.Vault()):
+            self.run_step(job, SimpleNamespace(create=lambda *a: self.state("READY_TO_PUBLISH")))
+        report = self.read(item)["report"]
+        self.assertGreaterEqual(len(report["events"]), 2)
+        head = report["events"][-1]["hash"]
+        with connection(self.store.path) as db:
+            db.execute("DROP TRIGGER publication_event_no_delete")
+            db.execute("DELETE FROM publication_events WHERE intent_id=? AND sequence=1", (item["id"],))
+            retained = db.execute(
+                "SELECT hash FROM publication_events WHERE intent_id=? ORDER BY sequence DESC LIMIT 1",
+                (item["id"],),
+            ).fetchone()
+            self.assertEqual(retained["hash"], head)
+        with self.assertRaises(Invalid):
+            self.read(item)
+
     def test_source_tamper_and_foreign_scope_rejected(self):
         item = self.prepare()
         with self.assertRaises((Invalid, PermissionError)):

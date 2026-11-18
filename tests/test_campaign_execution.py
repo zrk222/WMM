@@ -155,6 +155,16 @@ class CampaignTests(CampaignFixture):
                 "sample", "grant:example", self.scope["scope_id"], {**self.post, "message": "altered"}
             )
 
+    def test_unapproved_fields_reject_before_dispatch_without_consuming_scope(self) -> None:
+        for field, value in (("published", False), ("targeting", {"country": "CA"}), ("extra", "text")):
+            with self.subTest(field=field), self.assertRaises(Invalid):
+                self.service.run_post("sample", "grant:example", self.scope["scope_id"], {**self.post, field: value})
+            self.assertEqual(self.transport.posts, 0)
+            self.assertEqual(self.service.list_intents("sample", self.scope["scope_id"]), [])
+        result = self.service.run_post("sample", "grant:example", self.scope["scope_id"], self.post)
+        self.assertEqual(result["status"], "VERIFIED")
+        self.assertEqual(self.transport.posts, 1)
+
     def test_lost_response_is_unknown_across_restart_and_not_replayed(self):
         self.transport.fail = True
         with self.assertRaises(Unconfirmed):
