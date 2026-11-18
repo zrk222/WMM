@@ -155,7 +155,7 @@ class CampaignTests(CampaignFixture):
                 "sample", "grant:example", self.scope["scope_id"], {**self.post, "message": "altered"}
             )
 
-    def test_unapproved_fields_reject_before_dispatch_without_consuming_scope(self):
+    def test_unapproved_fields_reject_before_dispatch_without_consuming_scope(self) -> None:
         for field, value in (("published", False), ("targeting", {"country": "CA"}), ("extra", "text")):
             with self.subTest(field=field), self.assertRaises(Invalid):
                 self.service.run_post("sample", "grant:example", self.scope["scope_id"], {**self.post, field: value})
