@@ -375,6 +375,8 @@ test('agreement and owner report show per-campaign cap and exact approved finger
         approval: {
           page_id: '123',
           ad_account_id: '456',
+          max_posts: 1,
+          max_campaigns: 1,
           max_campaign_minor: 50,
           max_total_minor: 100,
           currency: 'CAD',
@@ -401,6 +403,11 @@ test('agreement and owner report show per-campaign cap and exact approved finger
   assert.match(html, /Other commitments on the same Meta ad account and in the same currency/);
   assert.doesNotMatch(html, /remaining balance|100 minor CAD available/);
   assert.match(html, /Exact approved content, rights and targeting hashes/);
+  for (const text of [html, notes]) {
+    assert.match(text, /Publish approved text or link posts to the selected Facebook Page/);
+    assert.match(text, /Launch a bounded Meta campaign promoting an already verified Page post/);
+    assert.match(text, /Automatic publication of new variants is disabled/);
+  }
   for (const hash of [content, rights, targeting]) {
     assert.ok(html.includes(hash));
     assert.ok(notes.includes(hash));
@@ -413,6 +420,12 @@ test('agreement and owner report show per-campaign cap and exact approved finger
   );
   assert.equal(JSON.stringify(report).includes('PRIVATE_RIGHTS_PROSE'), false);
   assert.equal(JSON.stringify(report).includes('PRIVATE_COPY'), false);
+
+  data.summary.campaign.approval.ad_account_id = null;
+  data.summary.campaign.approval.max_campaigns = 0;
+  assert.doesNotMatch(a.markup(data), /Launch a bounded Meta campaign/);
+  data.summary.campaign.approval.max_posts = 0;
+  assert.match(a.markup(data), /This scope includes no publication or paid launch/);
 });
 function interactive() {
   const nodes = new Map(),

@@ -191,6 +191,11 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         expect(plan).to_be_hidden()
         assert not posts
         page.locator("#navigation > [data-view=activity]").click()
+        watch = page.get_by_role("region", name="Watch campaign delivery", exact=True)
+        expect(watch.get_by_role("button", name="Review combined automation agreement", exact=True)).to_be_visible()
+        assert watch.evaluate(
+            "node => Boolean(node.compareDocumentPosition(document.querySelector('#workflow-monitor')) & Node.DOCUMENT_POSITION_FOLLOWING)"
+        )
         expect(page.locator("[data-live-worker]")).to_contain_text("Worker starting")
         supervision = f.server.runner.supervision
         refresh = page.get_by_role("button", name="Refresh progress", exact=True)
@@ -260,6 +265,11 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         assert not posts, posts
         page.screenshot(path=str(out / f"agent-mode-{width}.png"))
         (out / f"agent-mode-{width}.html").write_text(page.content(), encoding="utf-8")
+        page.get_by_role("button", name="Check Facebook and Meta accounts", exact=True).press("Enter")
+        expect(page.locator("#social-heading")).to_be_focused()
+        assert not posts, posts
+        page.locator("#navigation > [data-view=overview]").click()
+        page.get_by_role("button", name="Check connections for this goal", exact=True).click()
         page.get_by_role("button", name="Use my personal agent", exact=True).press("Enter")
         expect(page.get_by_role("button", name="Issue an agent grant", exact=True)).to_be_visible()
         expect(page.locator("#goal-readiness-form")).to_have_count(0)
@@ -538,8 +548,10 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
             width=width,
             campaign_plan_and_both_exports_without_writes=True,
             live_worker_and_private_host_guidance=True,
+            campaign_controls_before_worker_panels=True,
             stale_and_missing_worker_health_recovers=True,
             personal_agent_without_profile=True,
+            campaign_connection_route_without_agent=True,
             explicit_grant_and_revocation=True,
             managed_readiness_guards=True,
             owner_readiness=True,

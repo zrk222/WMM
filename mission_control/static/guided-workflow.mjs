@@ -1169,10 +1169,28 @@ const WMMGoalReadiness = (() => {
       );
       return;
     }
+    const campaign = saved.goal === 'campaign';
     modal(
-      'Choose your agent setup',
-      '<div id="goal-readiness-mode" class="modal-content"><p>Keep using your agent’s own model, or check setup for WMM-managed work. This step starts no work and grants no permission. Review exact permissions in the separate approval controls.</p><div class="toolbar">' +
-        button('Use my personal agent', 'goal-repair', 'data-tool="external-agent"', 'primary') +
+      campaign ? 'Check campaign connections' : 'Choose your agent setup',
+      '<div id="goal-readiness-mode" class="modal-content"><p>' +
+        (campaign
+          ? 'To schedule approved posts or promotions, start with the Facebook Page and optional Meta ad account for this app. You can also check setup for an assistant.'
+          : 'Keep using your agent’s own model, or check setup for WMM-managed work.') +
+        ' This step starts no work and grants no permission.</p><div class="toolbar">' +
+        (campaign
+          ? button(
+              'Check Facebook and Meta accounts',
+              'goal-repair',
+              'data-tool="campaign-accounts"',
+              'primary',
+            )
+          : '') +
+        button(
+          'Use my personal agent',
+          'goal-repair',
+          'data-tool="external-agent"',
+          campaign ? 'outline' : 'primary',
+        ) +
         button(
           'Check WMM-managed setup',
           'goal-repair',
@@ -1284,11 +1302,16 @@ const WMMGoalReadiness = (() => {
     }
   }
   function repair(tool) {
-    if (['external-agent', 'standing-readiness'].includes(tool)) {
+    if (['campaign-accounts', 'external-agent', 'standing-readiness'].includes(tool)) {
       const t = active;
       if (!t || !valid(t) || !owner())
         throw new Error('Reopen setup for the current app and goal.');
       active = null;
+      if (tool === 'campaign-accounts') {
+        if (t.scope.goal !== 'campaign')
+          throw new Error('Choose the campaign goal to check these accounts.');
+        return guidedNavigate('connections', '#social-heading');
+      }
       if (tool === 'external-agent')
         return WMMAgentControl.action(
           { dataset: { action: 'control-grants' } },
@@ -1644,6 +1667,18 @@ const WMMAgreement = (() => {
       (a.max_calls ?? 'Unavailable')
     );
   }
+  function campaignActionNotes(approval) {
+    const actions = [];
+    if (approval?.max_posts > 0)
+      actions.push('Publish approved text or link posts to the selected Facebook Page.');
+    if (approval?.ad_account_id && approval.max_campaigns > 0)
+      actions.push('Launch a bounded Meta campaign promoting an already verified Page post.');
+    return [
+      ...actions,
+      ...(actions.length ? [] : ['This scope includes no publication or paid launch.']),
+      'Automatic publication uses exact approved batches only. Automatic publication of new variants is disabled.',
+    ];
+  }
   function scheduledMarkup(item, approval) {
     const currency = approval?.currency || 'Unknown';
     const paid = item.operation === 'campaign.ad-launch',
@@ -1752,6 +1787,7 @@ const WMMAgreement = (() => {
       'Campaign ' + c.id + ' ' + c.effective_status,
       campaignDestinations(a),
       campaignLimits(c),
+      ...campaignActionNotes(a),
       'Per-campaign media cap ' +
         (a.max_campaign_minor ?? 'Unavailable') +
         ' minor ' +
@@ -1837,7 +1873,11 @@ const WMMAgreement = (() => {
           esc(campaignDestinations(c.approval)) +
           '</p><p>' +
           esc(campaignLimits(c)) +
-          '</p><p>Per-campaign media cap ' +
+          '</p><h4>Work covered by this scope</h4><ul>' +
+          campaignActionNotes(c.approval)
+            .map((note) => '<li>' + esc(note) + '</li>')
+            .join('') +
+          '</ul><p>Per-campaign media cap ' +
           esc(c.approval.max_campaign_minor ?? 'Unavailable') +
           ' minor ' +
           esc(c.approval.currency) +
