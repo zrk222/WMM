@@ -29,7 +29,7 @@ class Owner:
 
 
 class WorkerDependenciesTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         folder = TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.store = Store(Path(folder.name) / "wmm.sqlite")
