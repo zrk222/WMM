@@ -180,7 +180,7 @@ test('a missing local key offers repair and keeps saved reports and pause availa
   assert.match(f.html, /Reconnect App Store Connect/);
   assert.match(f.html, /WAITING FOR REPORTS|0 report instances/);
   assert.match(f.html, /Pause refresh/);
-  assert.match(f.html, /Report \/ Save PDF/);
+  assert.match(f.html, /Inventory report \/ Save PDF/);
   assert.doesNotMatch(
     f.html,
     /Read Apple inventory|Collect store impressions|Enable refresh|Save refresh settings/,

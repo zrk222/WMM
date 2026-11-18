@@ -9,10 +9,11 @@ from typing import Any, NamedTuple
 from urllib.parse import urlsplit
 
 from .aeo_transport import public_url
-from .apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, DOWNLOADS, REPORTS, identity
+from .apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, DOWNLOADS, METRIC_REPORTS, REPORTS, identity
 from .apple_campaign_links import campaign_parts
 from .apple_metrics_schedule import INVENTORY_MODE, SCHEDULE_TIME_FIELDS, AppleMetricsSchedules, public_row
 from .apple_metrics_store import read_in_snapshot
+from .apple_performance_report import COMPLETENESS_DAYS, saved_performance
 from .common import Invalid, digest, identifier, uid
 from .connection_setup import Connections
 from .db import connection
@@ -25,6 +26,8 @@ FIELDS = {
     "view": set(),
     "inventory": {"manifest_version", "connection_id", "connection_version"},
     "impressions": {"manifest_version", "report_id"},
+    "performance": {"manifest_version", "start", "end"},
+    "performance-collect": {"manifest_version", "inventory_id", "start", "end"},
     "campaign-collect": {"manifest_version", "report_id", "link", "instance_id"},
     "campaign-collect-window": {"manifest_version", "report_id", "inventory_id", "link", "start", "end"},
     "campaign-results": {"manifest_version", "report_id", "link", "territory", "start", "end"},
@@ -136,7 +139,7 @@ def inventory(db, app_id, version, store_id, record):
                 item: dict[str, Any] = dict(
                     id=report_id, name=report["name"], instance_count=len(instances), coverage=report["coverage"]
                 )
-                if report["name"] == CAMPAIGN_DOWNLOADS:
+                if report["name"] == CAMPAIGN_DOWNLOADS or (report["name"] in METRIC_REPORTS and instances):
                     item["daily"] = [
                         dict(id=identity(i["id"]), processing_date=date.fromisoformat(i["processing_date"]).isoformat())
                         for i in instances
@@ -336,33 +339,91 @@ def queue_campaign_window(
         raise Invalid("No daily Detailed files match these Apple processing dates; refresh saved inventory")
     if len(files) > MAX_CAMPAIGN_DAYS:
         raise Invalid("More than 31 files match; choose a shorter Apple processing window")
-    jobs = []
-    inventory_fingerprint = digest(expected.inventory_id)[:24]
-    for file in files:
-        data = dict(
-            manifest_version=expected[0],
-            connection_id=expected[2],
-            connection_version=expected[3],
-            connection_hash=expected[4],
-            options=dict(
-                operation="analytics_metrics",
-                report_id=body["report_id"],
-                report_family=CAMPAIGN_DOWNLOADS,
-                instance_id=file["id"],
-            ),
-        )
-        prefix = "apple-campaign-file:" + digest(data) + ":"
-        request_key = prefix + inventory_fingerprint
-        job = db.execute(
-            "SELECT id,status FROM jobs WHERE app_id=? "
-            "AND (request_key=? OR (request_key GLOB ? AND status IN ('QUEUED','RUNNING','SUCCEEDED'))) "
-            "ORDER BY CASE status WHEN 'SUCCEEDED' THEN 0 WHEN 'RUNNING' THEN 1 WHEN 'QUEUED' THEN 2 ELSE 3 END,id LIMIT 1",
-            (app_id, request_key, prefix + "*"),
-        ).fetchone()
-        if job is None:
-            job = enqueue_db(db, service.store, app_id, "sync", data, request_key)
-        jobs.append(dict(job_id=job["id"], status=job["status"], processing_date=file["processing_date"]))
+    jobs = [
+        _queue_apple_file(service, db, app_id, expected, file, expected.report, "apple-campaign-file") for file in files
+    ]
     return dict(app_id=app_id, jobs=jobs, external_writes=False)
+
+
+def _queue_apple_file(service, db, app_id, expected, file, report, namespace):
+    options = dict(operation="analytics_metrics", report_id=report["id"], instance_id=file["id"])
+    if report["name"] != DOWNLOADS:
+        options["report_family"] = report["name"]
+    data = dict(
+        manifest_version=expected.manifest_version,
+        connection_id=expected.connection_id,
+        connection_version=expected.connection_version,
+        connection_hash=expected.connection_hash,
+        options=options,
+    )
+    prefix = namespace + ":" + digest(data) + ":"
+    request_key = prefix + digest(expected.inventory_id)[:24]
+    job = db.execute(
+        "SELECT id,status FROM jobs WHERE app_id=? "
+        "AND (request_key=? OR (request_key GLOB ? AND status IN ('QUEUED','RUNNING','SUCCEEDED'))) "
+        "ORDER BY CASE status WHEN 'SUCCEEDED' THEN 0 WHEN 'RUNNING' THEN 1 WHEN 'QUEUED' THEN 2 ELSE 3 END,id LIMIT 1",
+        (app_id, request_key, prefix + "*"),
+    ).fetchone()
+    if job is None:
+        job = enqueue_db(db, service.store, app_id, "sync", data, request_key)
+    return dict(job_id=job["id"], status=job["status"], processing_date=file["processing_date"])
+
+
+def _apple_performance(service, app_id, action, body):
+    """Read retained app-wide counts or queue bounded daily files for the same event range."""
+    start, end = campaign_dates(body, "Choose up to 31 Apple event dates")
+    collecting = action == "performance-collect"
+    with connection(service.store.path) as db:
+        db.execute("BEGIN IMMEDIATE" if collecting else "BEGIN")
+        expected = check_source(
+            db, app_id, body["manifest_version"], readiness_store=service.store if collecting else None
+        )
+        version, store_id, record = source(db, app_id)
+        current, reports = inventory(db, app_id, version, store_id, record)
+        if not collecting:
+            key = dict(
+                app_id=app_id,
+                store_app_id=store_id,
+                connection_id=expected.connection_id,
+                connection_version=expected.connection_version,
+                granularity="DAILY",
+            )
+            return dict(
+                app_id=app_id,
+                store_app_id=store_id,
+                start=body["start"],
+                end=body["end"],
+                rows=saved_performance(db, key, reports, start, end),
+                external_writes=False,
+            )
+        if not current or current["coverage"] != "COMPLETE" or current["job_id"] != body["inventory_id"]:
+            raise Invalid("Refresh the current Apple inventory before collecting these dates")
+        expected = expected._replace(inventory_id=current["job_id"])
+        files = _performance_files(reports, start, end)
+        if not files or len(files) > 2 * (MAX_CAMPAIGN_DAYS + max(COMPLETENESS_DAYS.values())):
+            raise Invalid("No bounded set of daily Apple files is available for these dates")
+        if len({(report["id"], file["processing_date"]) for report, file in files}) != len(files):
+            raise Invalid("Apple returned multiple daily files for the same report and processing date")
+        jobs = [
+            _queue_apple_file(service, db, app_id, expected, file, report, "apple-performance-file")
+            for report, file in files
+        ]
+        return dict(app_id=app_id, jobs=jobs, external_writes=False)
+
+
+def _performance_files(reports, start, end):
+    files = []
+    for report in reports:
+        lag = COMPLETENESS_DAYS.get(report["name"])
+        if lag is None or report["coverage"] != "COMPLETE":
+            continue
+        files.extend(
+            (report, file)
+            for file in report.get("daily", [])
+            if (date.fromisoformat(file["processing_date"]) - end).days <= lag
+            and date.fromisoformat(file["processing_date"]) >= start
+        )
+    return files
 
 
 def apple_campaign_results(db: Any, key: dict, token: str, body: dict[str, Any]) -> dict[str, Any]:
@@ -431,6 +492,8 @@ def dispatch(service, app_id, action, body):
         raise Invalid("Use the exact Apple analytics fields")
     if action in {"campaign-collect", "campaign-collect-window", "campaign-results"}:
         return apple_campaign_read(service, app_id, action, body)
+    if action in {"performance", "performance-collect"}:
+        return _apple_performance(service, app_id, action, body)
     if action == "view":
         return view(service.store, app_id)
     if action == "inventory":

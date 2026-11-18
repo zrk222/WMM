@@ -3,6 +3,8 @@
 Identity and provider responses are synthetic; this never accesses a real account.
 """
 
+import gzip
+import hashlib
 import json
 import sys
 from datetime import datetime, timedelta
@@ -59,6 +61,56 @@ def campaign_downloads(root: Any) -> None:
     expect(results).to_contain_text("Keep the existing review window")
     expect(root.locator("#apple-analytics-status")).to_contain_text("Saved Apple campaign results reviewed.")
     root.get_by_text("Measure App Store campaign downloads", exact=True).click()
+
+
+def performance_report(page: Any, root: Any, fixture: AppleMetricsRouteTests, inventory: dict[str, Any]) -> None:
+    """Verify displayed measurements and report provenance through actual owner controls."""
+    form = root.locator("#apple-performance-form")
+    form.get_by_label("First event date").fill("2026-01-01")
+    form.get_by_label("Last event date").fill("2026-01-05")
+    form.get_by_role("button", name="Review saved metrics").click()
+    expect(root.locator("#apple-performance-results")).to_contain_text("No Apple metrics are saved")
+    expect(root.get_by_role("button", name="Performance report / Save PDF")).to_have_count(0)
+    report = dict(
+        inventory["reports"][1],
+        instances=[dict(id="discovery-daily", processing_date="2026-01-04", granularity="DAILY")],
+    )
+    available = dict(inventory, reports=[inventory["reports"][0], report])
+    root.get_by_role("button", name="Read Apple inventory", exact=True).click()
+    expect(root.locator("#apple-analytics-status")).to_contain_text("queued")
+    with patch("mission_control.worker.read_report", return_value=available):
+        assert run_once(fixture.store)
+    root.get_by_role("button", name="Refresh saved status", exact=True).click()
+    form.get_by_label("First event date").fill("2026-01-01")
+    form.get_by_label("Last event date").fill("2026-01-05")
+    form.get_by_role("button", name="Collect available Apple files").click()
+    expect(root.locator("#apple-performance-status")).to_contain_text("1 Apple file reads")
+    raw = gzip.compress(
+        b"Date\tApp Apple Identifier\tEvent\tCounts\tUnique Counts\n"
+        b"2026-01-01\t123\tImpression\t80\t50\n"
+        b"2026-01-01\t123\tPage view\t0\t0\n",
+        mtime=0,
+    )
+    segments = [
+        dict(id="segment-1", data=raw, size=len(raw), checksum=hashlib.md5(raw, usedforsecurity=False).hexdigest())
+    ]
+    with (
+        patch("mission_control.provider_reports.credential", return_value="fixture"),
+        patch("mission_control.provider_reports.read_analytics", return_value=available),
+        patch("mission_control.provider_reports.read_instance_segments", return_value=segments),
+    ):
+        assert run_once(fixture.store)
+    form.get_by_role("button", name="Review saved metrics").click()
+    day = root.get_by_role("row").filter(has_text="2026-01-01")
+    expect(day.get_by_role("cell", name="80", exact=True)).to_be_visible()
+    expect(day.get_by_role("cell", name="0", exact=True)).to_be_visible()
+    report_button = root.get_by_role("button", name="Performance report / Save PDF", exact=True)
+    report_button.press("Enter")
+    preview = page.get_by_role("dialog", name="App Store performance", exact=True)
+    expect(preview).to_contain_text("Discovery source SHA-256")
+    expect(preview).to_contain_text("Unavailable")
+    page.keyboard.press("Escape")
+    expect(report_button).to_be_focused()
 
 
 def journey(browser: Any, width: int, height: int) -> dict[str, Any]:
@@ -211,7 +263,7 @@ def journey(browser: Any, width: int, height: int) -> dict[str, Any]:
         # Report uses actual inventory counts and its caveats, not synthetic app metrics.
         reports = []
         page.on("popup", lambda popup: reports.append(popup))
-        root.get_by_role("button", name="Report / Save PDF", exact=True).click()
+        root.get_by_role("button", name="Inventory report / Save PDF", exact=True).click()
         page.wait_for_timeout(200)
         assert reports, "Report action did not open its printable report"
         report = reports[-1]
@@ -219,6 +271,7 @@ def journey(browser: Any, width: int, height: int) -> dict[str, Any]:
         expect(report.locator("body")).to_contain_text("Apple analytics inventory")
         expect(report.locator("body")).to_contain_text("unavailable measurements remain unknown")
         report.close()
+        performance_report(page, root, fixture, result)
         page.locator("#close-modal").click()
         # An app switch must not retain another app's owner/source controls.
         page.locator("#app-select").select_option("sample-two")
@@ -239,6 +292,7 @@ def journey(browser: Any, width: int, height: int) -> dict[str, Any]:
             availability_watch="OWNER_OPT_IN_THEN_SCHEDULED_INVENTORY",
             impressions="OWNER_QUEUE_AND_UNKNOWN_IF_NO_DAILY_REPORT",
             apple_campaign_downloads="OWNER_READ_AND_UNKNOWN_WITHOUT_MATCHING_ROWS",
+            app_store_performance="SAVED_COUNTS_SOURCES_AND_MISSING_DAYS_VERIFIED",
             pdf_report="PRINTABLE_REPORT_VERIFIED",
             app_isolation="VERIFIED",
             overflow=False,

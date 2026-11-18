@@ -161,7 +161,7 @@ def report_options(provider, options):
             set(options) == {"operation", "report_id", "instance_id"}
             or (
                 set(options) == {"operation", "report_id", "instance_id", "report_family"}
-                and options["report_family"] == CAMPAIGN_DOWNLOADS
+                and options["report_family"] in (CAMPAIGN_DOWNLOADS, DISCOVERY)
             )
         )
     ):
@@ -340,7 +340,7 @@ def prepare_analytics_metrics(reader, binding, app_id, store_id, options, connec
     else:
         selected = next((item for item in report["instances"] if item["id"] == options["instance_id"]), None)
         if selected is None or selected["granularity"] != "DAILY":
-            raise Invalid("Choose a complete daily downloads report instance")
+            raise Invalid("Choose a complete daily Apple analytics report instance")
     selected_id = selected["id"]
     segments = read_instance_segments(reader, store_id, options["report_id"], selected_id)
     key = dict(

@@ -171,6 +171,98 @@
       .join('');
     return `<h3>Apple-reported first-time downloads · ${esc(result.territory)}</h3><div class="table-wrap"><table class="result-table"><thead><tr><th scope="col">Download date</th><th scope="col">Downloads</th><th scope="col">Apple processed</th><th scope="col">Evidence</th><th scope="col">Source</th></tr></thead><tbody>${rows}</tbody></table></div><p>${esc(result.next_action)}</p>`;
   }
+  function performanceForm(data) {
+    const end = new Date();
+    end.setDate(end.getDate() - 1);
+    const start = new Date(end);
+    start.setDate(start.getDate() - 4);
+    const collect =
+      canRead(data) &&
+      data.inventory?.coverage === 'COMPLETE' &&
+      data.reports.some(
+        (r) =>
+          ['App Downloads Standard', 'App Store Discovery and Engagement Standard'].includes(
+            r.name,
+          ) &&
+          r.coverage === 'COMPLETE' &&
+          r.daily?.length,
+      );
+    return `<section aria-labelledby="apple-performance-title"><h3 id="apple-performance-title">App Store performance</h3><p>Review Apple’s daily impressions, page views and downloads. Apple can revise recent days. Missing counts stay unavailable.</p><form id="apple-performance-form"><div class="field"><label for="apple-performance-start">First event date</label><input id="apple-performance-start" name="start" type="date" value="${localDateTime(start).slice(0, 10)}" required></div><div class="field"><label for="apple-performance-end">Last event date (included)</label><input id="apple-performance-end" name="end" type="date" value="${localDateTime(end).slice(0, 10)}" required></div><button type="submit" class="button" value="review">Review saved metrics</button>${collect ? '<button type="submit" class="button outline" value="collect">Collect available Apple files</button>' : ''}</form><p id="apple-performance-status" role="status"></p><p id="apple-performance-error" class="field-error" role="alert"></p><div id="apple-performance-results"></div></section>`;
+  }
+  const performanceMetrics = [
+    ['Impressions', 'discovery', 'impressions'],
+    ['Page views', 'discovery', 'page_views'],
+    ['First-time downloads', 'downloads', 'first_time_downloads'],
+    ['Redownloads', 'downloads', 'redownloads'],
+  ];
+  function performanceValue(row, family, field) {
+    const value = row[family].counts[field];
+    return value == null
+      ? 'Unavailable'
+      : String(value) + (row[family].status === 'PROVISIONAL' ? ' (provisional)' : '');
+  }
+  function performanceResults(result) {
+    const hasMetrics = result.rows.some((row) =>
+      performanceMetrics.some(([, family, field]) => row[family].counts[field] != null),
+    );
+    if (!hasMetrics)
+      return '<p>No Apple metrics are saved for these days. Read the Apple inventory and collect available files.</p>';
+    const labels = performanceMetrics.map(([label]) => `<th scope="col">${label}</th>`).join('');
+    const rows = result.rows
+      .map(
+        (row) =>
+          `<tr><th scope="row">${esc(row.date)}</th>${performanceMetrics.map(([, family, field]) => `<td>${esc(performanceValue(row, family, field))}</td>`).join('')}</tr>`,
+      )
+      .join('');
+    return `<div class="table-wrap"><table class="result-table"><caption>Daily app-wide counts from Apple’s standard reports</caption><thead><tr><th scope="col">Apple event date</th>${labels}</tr></thead><tbody>${rows}</tbody></table></div>${button('Performance report / Save PDF', 'performance-report')}`;
+  }
+  function performanceReport(result, state, pages) {
+    return {
+      ...pages.appReportModel(state),
+      title: 'App Store performance',
+      purpose: 'App-wide daily event counts from saved Apple standard reports.',
+      next_step: 'Check for newer Apple files where figures are provisional or unavailable.',
+      filters: {
+        apple_app_id: result.store_app_id,
+        first_event_date: result.start,
+        last_event_date: result.end,
+      },
+      sections: [
+        {
+          title: 'Daily App Store results',
+          items: result.rows.map((row) => ({
+            title: row.date,
+            status: Object.values({ discovery: row.discovery, downloads: row.downloads }).some(
+              (source) => source.source_sha256,
+            )
+              ? 'Apple report saved'
+              : 'Unavailable',
+            facts: [
+              ...performanceMetrics.map(([label, family, field]) => [
+                label,
+                performanceValue(row, family, field),
+              ]),
+              ...[
+                ['Discovery', row.discovery],
+                ['Downloads', row.downloads],
+              ].flatMap(([label, source]) =>
+                source.source_sha256
+                  ? [
+                      [label + ' processed', source.processing_date],
+                      [label + ' source SHA-256', source.source_sha256],
+                    ]
+                  : [],
+              ),
+            ],
+          })),
+        },
+      ],
+      notes: [
+        'Counts come from the latest collected daily Apple file for each event date and report family. Figures count events. Unique audience counts stay at Apple’s report-row level.',
+        'Missing or suppressed values are unavailable. Apple can issue corrections after the normal reporting delay.',
+      ],
+    };
+  }
   function details(data) {
     const s = data.schedule,
       reports = data.reports || [],
@@ -224,7 +316,7 @@
             data.connection ? 'Reconnect App Store Connect' : 'Set up App Store connection',
             'setup',
           );
-    return `<p>Apple source: ${esc(source)}</p><p>Inventory: ${esc(data.inventory ? friendly(data.inventory.status) : 'Not read')} · observed ${esc(time(data.inventory?.observed_at))}.</p>${inventoryGuidance(data)}${rows ? `<ul>${rows}</ul>` : '<p>No current report inventory is available.</p>'}<p>Report instance counts describe available files, not downloads, revenue, retention or other metrics. Missing metrics remain unknown.</p>${state}${controls}${impressions}${button('Refresh saved status', 'refresh')}${canRead(data) ? form : ''}${campaignForm(data)}${s?.enabled ? button('Pause refresh', 'pause') : ''}${button('Report / Save PDF', 'report')}<p>Scheduled reads run only while the WMM worker is running. Pausing stops future scheduled reads; it does not remove saved evidence.</p>`;
+    return `${performanceForm(data)}<p>Apple source: ${esc(source)}</p><p>Inventory: ${esc(data.inventory ? friendly(data.inventory.status) : 'Not read')} · observed ${esc(time(data.inventory?.observed_at))}.</p>${inventoryGuidance(data)}${rows ? `<ul>${rows}</ul>` : '<p>No current report inventory is available.</p>'}<p>Report instance counts describe available files, not downloads, revenue, retention or other metrics. Missing metrics remain unknown.</p>${state}${controls}${impressions}${button('Refresh saved status', 'refresh')}${canRead(data) ? form : ''}${campaignForm(data)}${s?.enabled ? button('Pause refresh', 'pause') : ''}${button('Inventory report / Save PDF', 'report')}<p>Scheduled reads run only while the WMM worker is running. Pausing stops future scheduled reads; it does not remove saved evidence.</p>`;
   }
   function validate(t, data) {
     if (
@@ -340,6 +432,12 @@
     if (kind === 'apple-analytics-refresh') return open(d);
     if (kind === 'apple-analytics-report')
       return d.pageReports.openReport(report(t.data, d.state, d.pageReports), d.browser);
+    if (kind === 'apple-analytics-performance-report' && t.performance)
+      return d.pageReports.openReport(
+        performanceReport(t.performance, d.state, d.pageReports),
+        d.browser,
+        node,
+      );
     if (!t.data) return;
     let body, path;
     if (kind === 'apple-analytics-inventory') {
@@ -443,8 +541,63 @@
       busy(t, false);
     }
   }
+  async function submitPerformance(form, d, mode) {
+    const t = active;
+    if (!t || !current(t) || t.pending || !form.isConnected || !t.data) return;
+    const values = new d.FormData(form);
+    const body = {
+      manifest_version: t.scope.version,
+      start: values.get('start'),
+      end: values.get('end'),
+    };
+    const collecting = mode === 'collect';
+    if (collecting) {
+      if (!canRead(t.data) || !t.data.inventory?.job_id) return;
+      body.inventory_id = t.data.inventory.job_id;
+    }
+    const status = t.node.querySelector('#apple-performance-status');
+    const message = t.node.querySelector('#apple-performance-error');
+    status.textContent = '';
+    message.textContent = '';
+    busy(t, true);
+    try {
+      const result = await d.api(
+        '/api/apps/' +
+          encodeURIComponent(t.scope.app) +
+          '/apple-analytics/' +
+          (collecting ? 'performance-collect' : 'performance'),
+        body,
+      );
+      if (!current(t)) return;
+      if (result.app_id !== t.scope.app) throw Error('App changed. Reopen Apple analytics.');
+      if (collecting) {
+        const failed = result.jobs.filter((job) =>
+          ['FAILED', 'BLOCKED', 'CANCELLED'].includes(job.status),
+        ).length;
+        status.textContent =
+          result.jobs.length +
+          ' Apple file reads queued or already recorded. Check Activity, then review saved metrics.' +
+          (failed ? ' Refresh Apple inventory before retrying unsuccessful reads.' : '');
+      } else {
+        if (
+          result.store_app_id !== t.scope.store ||
+          result.start !== body.start ||
+          result.end !== body.end
+        )
+          throw Error('Apple report dates or app changed. Review the selected dates again.');
+        t.performance = result;
+        t.node.querySelector('#apple-performance-results').innerHTML = performanceResults(result);
+        status.textContent = 'Saved App Store metrics reviewed.';
+      }
+    } catch (error) {
+      if (current(t)) message.textContent = error.message;
+    } finally {
+      busy(t, false);
+    }
+  }
   async function submit(form, d, mode) {
     if (form.id === 'apple-campaign-form') return submitCampaign(form, d, mode);
+    if (form.id === 'apple-performance-form') return submitPerformance(form, d, mode);
     const t = active;
     if (
       !t ||
