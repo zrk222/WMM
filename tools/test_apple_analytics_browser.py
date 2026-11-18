@@ -101,6 +101,8 @@ def performance_report(page: Any, root: Any, fixture: AppleMetricsRouteTests, in
     ):
         assert run_once(fixture.store)
     form.get_by_role("button", name="Review saved metrics").click()
+    expect(root.get_by_role("columnheader", name="App icon list impressions")).to_be_visible()
+    expect(root.get_by_role("columnheader", name="App Store page-view events")).to_be_visible()
     day = root.get_by_role("row").filter(has_text="2026-01-01")
     expect(day.get_by_role("cell", name="80", exact=True)).to_be_visible()
     expect(day.get_by_role("cell", name="0", exact=True)).to_be_visible()
@@ -108,6 +110,7 @@ def performance_report(page: Any, root: Any, fixture: AppleMetricsRouteTests, in
     report_button.press("Enter")
     preview = page.get_by_role("dialog", name="App Store performance", exact=True)
     expect(preview).to_contain_text("Discovery source SHA-256")
+    expect(preview).to_contain_text("Page-view events can include app and in-app event pages.")
     expect(preview).to_contain_text("Unavailable")
     page.keyboard.press("Escape")
     expect(report_button).to_be_focused()

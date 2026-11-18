@@ -190,8 +190,8 @@
     return `<section aria-labelledby="apple-performance-title"><h3 id="apple-performance-title">App Store performance</h3><p>Review Apple’s daily impressions, page views and downloads. Apple can revise recent days. Missing counts stay unavailable.</p><form id="apple-performance-form"><div class="field"><label for="apple-performance-start">First event date</label><input id="apple-performance-start" name="start" type="date" value="${localDateTime(start).slice(0, 10)}" required></div><div class="field"><label for="apple-performance-end">Last event date (included)</label><input id="apple-performance-end" name="end" type="date" value="${localDateTime(end).slice(0, 10)}" required></div><button type="submit" class="button" value="review">Review saved metrics</button>${collect ? '<button type="submit" class="button outline" value="collect">Collect available Apple files</button>' : ''}</form><p id="apple-performance-status" role="status"></p><p id="apple-performance-error" class="field-error" role="alert"></p><div id="apple-performance-results"></div></section>`;
   }
   const performanceMetrics = [
-    ['Impressions', 'discovery', 'impressions'],
-    ['Page views', 'discovery', 'page_views'],
+    ['App icon list impressions', 'discovery', 'impressions'],
+    ['App Store page-view events', 'discovery', 'page_views'],
     ['First-time downloads', 'downloads', 'first_time_downloads'],
     ['Redownloads', 'downloads', 'redownloads'],
   ];
@@ -259,6 +259,7 @@
       ],
       notes: [
         'Counts come from the latest collected daily Apple file for each event date and report family. Figures count events. Unique audience counts stay at Apple’s report-row level.',
+        'List impressions cover app icons shown in a list. Page-view events can include app and in-app event pages. App Store Connect dashboard figures use separate metric definitions.',
         'Missing or suppressed values are unavailable. Apple can issue corrections after the normal reporting delay.',
       ],
     };
