@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # All backend tests and native/package jobs are retained; Windows uses duration-based assignment.
 # One Ubuntu shard also runs the isolated native Secret Service acceptance.
 BASELINES = {
-    ".github/workflows/checks.yml": "ff2f463caff8c42c09a6a0a06f87d92eeb86f2cf47271fdfa7a530981b950ab7",
+    ".github/workflows/checks.yml": "ada79cebb5a32d47467d249e52fda6cc8dc0c7236f93035cf7e3d858c9fa6fca",
     ".github/workflows/platform-checks.yml": "8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",
     ".github/workflows/desktop-packages.yml": "bec9c46515b7bf94c9571992787a9bf51bb6a3df51e5d4c4a638bc2fc8d51e07",
 }
@@ -61,6 +61,7 @@ class CurrentCandidateCITests(unittest.TestCase):
         self.assertIn("python tools/test_goal_journey_browser.py", browser)
         self.assertIn("python tools/test_install_report_browser.py", browser)
         self.assertIn("python tools/test_campaign_monitor_browser.py", browser)
+        self.assertIn("python tools/test_apple_analytics_browser.py", browser)
         self.assertIn("python tools/test_campaign_owner_report_browser.py", browser)
         self.assertIn(".factory/paid-pause-readback/owner-report-browser.json", browser)
         self.assertIn("python tools/test_organic_taste_browser.py", browser)

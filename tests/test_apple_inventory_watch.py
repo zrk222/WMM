@@ -210,7 +210,8 @@ class AppleInventoryWatchTests(unittest.TestCase):
         Store(self.store.path)
         self.assertEqual(self.schedules.get(APP), saved)
         with connection(self.store.path) as db:
-            self.assertEqual(migrations.applied(db)[-1]["name"], "apple_watch_deadline")
+            applied = {row["version"]: row["name"] for row in migrations.applied(db)}
+            self.assertEqual(applied.get(4), "apple_watch_deadline")
 
     def test_listed_daily_detailed_file_is_actionable_but_not_a_count(self) -> None:
         self.schedules.save(APP, WATCH)
