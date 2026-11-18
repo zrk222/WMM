@@ -431,22 +431,26 @@ class Insights:
             "UPDATE insight_sources SET lease=0,status=?,last_error=?,updated=? WHERE app_id=? AND id=?",
             (status, error, now(), app, row["id"]),
         )
+        reply = {"status": status, "error": error, "report": result}
         if result is not None:
-            self.report(db, app, row, result)
+            reply["report_id"] = self.report(db, app, row, result)
         audit(db, app, "insights.read", {"id": row["id"], "status": status})
-        return {"status": status, "error": error, "report": result}
+        return reply
 
     def report(self, db, app, row, result):
         """Persist sanitized provider evidence and keep a bounded per-source history."""
         result = dict(result, source_version=row["version"], configuration_hash=row["hash"])
+        report_id = uid()
         db.execute(
             "INSERT INTO insight_reports VALUES(?,?,?,?,?,?,?)",
-            (app, uid(), row["id"], row["provider"], canonical(result), digest(result), now()),
+            (app, report_id, row["id"], row["provider"], canonical(result), digest(result), now()),
         )
         db.execute(
             "DELETE FROM insight_reports WHERE app_id=? AND source_id=? AND id NOT IN (SELECT id FROM insight_reports WHERE app_id=? AND source_id=? ORDER BY rowid DESC LIMIT 100)",
             (app, row["id"], app, row["id"]),
         )
+
+        return report_id
 
     def update_events(self, app, sid, body):
         """Reuse one app's existing protected key; explicit read consent tests the new version."""
