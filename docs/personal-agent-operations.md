@@ -9,14 +9,14 @@ named personal-agent profiles remains NOT_RUN.
 
 ## Host-specific handoff
 
-| Personal host | Tailored working method | Connection boundary |
-| --- | --- | --- |
-| Grok Bot | Keep the method as a private skill; return source links and receipts in the conversation. | Its documented, separately approved local Mac/Windows command capability is a conditional route to WMM CLI. Verify actual availability with a safe read. Cloud MCP support alone does not reach host loopback. |
-| Meta Muse | Use a goal or side chat, a reusable skill and an artifact with activity-backed evidence. | Custom API/CLI connectors run inside its Linux cloud VM. A native custom MCP setup and local Windows bridge are unknown. Personal Muse is distinct from Muse Code/API. |
-| Instinct | Give a short text/call brief, then require written readback of decisions and outcomes. | Public custom MCP/API/CLI onboarding and an approved local execution path are unknown, not declared unsupported. Do not substitute instinctai.org or OpenInstinct. |
-| Hark Pro | Keep app context in a Project and repeatable steps in a Specialty; use Handoff for supported browser work. | General MCP support is documented; custom-server transport/authentication/onboarding and local WMM access are unverified. |
-| Codex / ChatGPT Dots | Coordinate from the owner conversation; pass explicit scope to a local Codex task on the connected WMM computer. | Verify the actual connected computer and tools. Cloud tasks have a separate environment and datastore. |
-| Claude Duet | Use an outcome brief and concise milestone/decision updates with verified artifacts. | Its cloud computer is not the owner's WMM host. Claude Code/Chrome capabilities and private MCP connectivity are not assumed. |
+| Personal host        | Tailored working method                                                                                          | Connection boundary                                                                                                                                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Grok Bot             | Keep the method as a private skill; return source links and receipts in the conversation.                        | Its documented, separately approved local Mac/Windows command capability is a conditional route to WMM CLI. Verify actual availability with a safe read. Cloud MCP support alone does not reach host loopback. |
+| Meta Muse            | Use a goal or side chat, a reusable skill and an artifact with activity-backed evidence.                         | Custom API/CLI connectors run inside its Linux cloud VM. A native custom MCP setup and local Windows bridge are unknown. Personal Muse is distinct from Muse Code/API.                                         |
+| Instinct             | Give a short text/call brief, then require written readback of decisions and outcomes.                           | Public custom MCP/API/CLI onboarding and an approved local execution path are unknown, not declared unsupported. Do not substitute instinctai.org or OpenInstinct.                                             |
+| Hark Pro             | Keep app context in a Project and repeatable steps in a Specialty; use Handoff for supported browser work.       | General MCP support is documented; custom-server transport/authentication/onboarding and local WMM access are unverified.                                                                                      |
+| Codex / ChatGPT Dots | Coordinate from the owner conversation; pass explicit scope to a local Codex task on the connected WMM computer. | Verify the actual connected computer and tools. Cloud tasks have a separate environment and datastore.                                                                                                         |
+| Claude Duet          | Use an outcome brief and concise milestone/decision updates with verified artifacts.                             | Its cloud computer is not the owner's WMM host. Claude Code/Chrome capabilities and private MCP connectivity are not assumed.                                                                                  |
 
 Cloud `127.0.0.1` refers to the cloud computer. Preserve WMM's loopback binding.
 Do not publish a tunnel, copy credentials into prompts or change host permissions
@@ -32,7 +32,19 @@ resource limits and a private owner-report structure. Use this same protocol fro
 `operations.read` in CLI, MCP or the admitted in-process client. It is guidance;
 the actual grant, current source versions and runtime checks govern execution.
 
-Lead the owner's report with the result and one next useful action.
+Lead the owner's report with the observed result and the next actionable steps.
+For each step, state the task, named agent, completion criterion and prerequisite
+receipts. A host name describes a configuration. An active app-scoped grant
+identifies the agent that may execute. Keep unassigned or blocked steps visible
+with the exact repair. Independent work can proceed concurrently.
+
+For existing worker jobs, use **Review task handoffs** to select the recipient and
+optional prerequisite jobs in the same app. WMM checks the original job inputs and
+requires a successful recorded result for each prerequisite before the recipient
+can resume the handoff. A result digest identifies the worker output. Inspect
+that output for provider confirmation or KPI evidence before claiming delivery or
+lift. Handoff dependencies apply to the recipient's continuation. The original
+worker jobs keep their existing schedule and authority checks.
 
 Read `report.read` (CLI/in-process) or `wmm_report_read` (MCP), with empty input
 and an app-scoped grant permitting that read. It returns the same consolidated
@@ -93,12 +105,12 @@ means a concrete connection or import step, not permission to change host securi
 
 After each meaningful milestone, give the owner this short private readout:
 
-| Item | Required content |
-| --- | --- |
-| Result | What completed, failed, remains pending or is unknown; exact job/receipt and readback time |
-| Evidence | Primary KPI, baseline and observed value, numerator/denominator, window, source freshness and coverage |
-| Resources | Observed costs/currency, calls and tokens; unknown values stay null with a reason |
-| Decision | One recommended next action, its rationale and any exact human approval needed |
+| Item      | Required content                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------------------ |
+| Result    | What completed, failed, remains pending or is unknown; exact job/receipt and readback time             |
+| Evidence  | Primary KPI, baseline and observed value, numerator/denominator, window, source freshness and coverage |
+| Resources | Observed costs/currency, calls and tokens; unknown values stay null with a reason                      |
+| Decision  | Proposed steps with rationale, assignment, dependencies and any exact human approval needed            |
 
 Use `report.read` for the consolidated observations and link supporting saved
 receipts. Do not infer sales from public views, downloads or a completed render.
@@ -185,6 +197,7 @@ a child finishing its assignment does not prove the whole goal is complete.
 
 These sources establish documented capabilities, not this user's installed host
 configuration, subscription eligibility, tool registration or live connectivity.
+
 # Current workflow upgrades
 
 Use the catalog-derived [shared agent protocol](personal-agent-upgrades.md),

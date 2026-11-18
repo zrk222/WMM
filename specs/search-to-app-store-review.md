@@ -2,7 +2,7 @@
 
 ## Owner outcome
 
-In **Review results → Search to App Store**, show the strongest supported insight and recommend one action WMM can prepare or execute. Give the owner the evidence, decision criteria, guardrails and follow-up date before approval. Keep existing analytics, pipeline and campaign controls available for drill-down.
+In **Review results → Search to App Store**, show the strongest supported insight and the set of agent actions it supports. Group independent work that can proceed together and identify the prerequisites for each dependent action. Give the owner the evidence, decision criteria, guardrails and follow-up date before approval. Keep existing analytics, pipeline and campaign controls available for drill-down.
 
 The goal is sustained qualified acquisition. An owner selects a primary metric for each test. Relevant upstream and downstream signals remain visible as guardrails, so a gain in impressions alone cannot count as success when it harms the outcome the owner cares about.
 
@@ -11,7 +11,7 @@ The goal is sustained qualified acquisition. An owner selects a primary metric f
 | Order | What the owner sees                                                                                                                                                                                                                 |
 | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1     | **What we learned.** The conclusion, its evidence strength, and the unresolved question that matters to the decision.                                                                                                               |
-| 2     | **What WMM proposes next.** One exact page, audience, change, primary metric, baseline, guardrails and review criteria. Show the earliest valid check or the prerequisite that must be resolved first.                              |
+| 2     | **What WMM proposes next.** Each proposed action names an agent role, target, change, metric, guardrails, dependencies and review criteria. Show the earliest valid check or the prerequisite that must be resolved first.          |
 | 3     | **Follow the evidence.** Google search, the website handoff and the App Store each show their own counts, scope, observation dates, freshness and source receipt. Display product outcomes when the app supplies a verified cohort. |
 | 4     | **Follow-up.** Show what WMM prepared, what needs approval, what ran, how it was verified, and when the next check is due.                                                                                                          |
 | 5     | **Export.** The PDF and JSON record the same insight, figures, uncertainties, action, guardrails and receipts visible on screen.                                                                                                    |
@@ -23,7 +23,7 @@ flowchart LR
     A["OpenSEO · Google search"] --> B["Owned website · store-link handoff"]
     B --> C["App Store Connect · tagged downloads"]
     C --> D["Verified app outcomes, when connected"]
-    A -.-> E["WMM · one evidence-backed decision"]
+    A -.-> E["WMM · prioritized agent actions"]
     B -.-> E
     C -.-> E
     D -.-> E
@@ -49,9 +49,9 @@ The Apple standard row event named `Impression` covers an app icon in a list and
 
 Source states distinguish missing access, waiting for files, incomplete coverage, provisional evidence and measured value. A confirmed zero requires an observed zero in a valid source. A missing or potentially suppressed row remains unavailable. Where a provider does not identify the reason, show **Unavailable** and the next valid check rather than guessing.
 
-## Choose one next action
+## Choose and sequence agent actions
 
-Order decisions by the most consequential verified constraint. First resolve a broken destination or unusable measurement. Then address a measured bottleneck with an owner-approved experiment. Use estimated opportunities for research only when direct evidence is insufficient. Versions of the same source cannot count as independent corroboration.
+Order actions by the most consequential verified constraint. Independent source verification, search research and draft preparation can proceed in parallel. Changes that affect the same measurement cohort require separate observation windows or a valid experimental design. First resolve a broken destination or unusable measurement. Then address a measured bottleneck with an owner-approved experiment. Use estimated opportunities for research only when direct evidence is insufficient. Versions of the same source cannot count as independent corroboration.
 
 | What the receipts show                                                                            | What WMM proposes to do                                                                         | How WMM checks it                                                                                                                                   |
 | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -67,16 +67,16 @@ Every recommendation freezes its exact app, release, property, market, storefron
 ## Proactive execution and ownership
 
 1. **Observe.** Use existing authorized scheduled reads when the owner enables them. Evaluate the saved sources when evidence changes or a follow-up comes due. Keep provider auth and credentials in their current owner vaults.
-2. **Prepare.** Save a deduplicated insight and one experiment draft in existing Growth Review and experiment storage. Include exact asset or URL changes. The same evidence and rule version renew the existing decision. New evidence can supersede it and invalidate stale drafts.
+2. **Prepare.** Save a deduplicated insight and its supported action drafts in existing Growth Review and experiment storage. Include exact asset or URL changes. The same evidence and rule version renew the existing decision. New evidence can supersede it and invalidate stale drafts.
 3. **Route.** WMM can prepare evidence, draft reversible changes, and schedule authorized checks. Apply external changes only through supported existing execution paths under the current owner agreement and any required exact approval. Website deployment may remain an owner task. Store writes follow their existing maker/checker controls. A research recommendation authorizes zero spend.
-4. **Watch.** Use the existing worker and reports. Record provider readback where relevant, use durable source and action identities across restarts, and pause or stop through the owning workflow. Keep one unpublished recommendation per app and goal so routine polls do not multiply work.
+4. **Watch.** Use the existing worker and reports. Record provider readback where relevant, use durable source and action identities across restarts, and pause or stop through the owning workflow. Track each action by its app, goal, evidence version and intended effect. A repeated read must preserve existing decisions and receipts.
 5. **Review.** At the predeclared cutoff recommend keep, revise, stop or wait. Make regressions, broken measurement, approval drift and missing mature outcomes visible. Trigger a new test after a decision, using current evidence and approval.
 
 Keep the protected Apple report action behind the existing fresh-owner gate. The general workspace response receives only permitted status. Reuse WMMPageReports for print/export and the existing web and Apple source contracts. Add a typed owned-page delivery receipt before showing SEO campaign attribution. Report actions carry no new publication authority.
 
 ## Delivery slices
 
-1. Compose private results from the existing saved sources and publish the evidence-first panel and matching PDF. Include a single recommended measurement repair or evidence-backed test. Show known date and territory gaps before using cross-source comparisons.
+1. Compose private results from the existing saved sources and publish the evidence-first panel and matching PDF. Include all supported measurement repairs and experiment proposals, their roles and dependencies. Show known date and territory gaps before using cross-source comparisons.
 2. Add an owner-approved website link receipt, a tag and exact campaign result comparison. Integrate the existing experiment draft, approvals, bounded refresh and exception reporting.
 3. Add automatic recommendations after authorized reads, common-window and territory support where the sources allow it, and a verified app cohort view. Reuse the current scheduler, reconciliation and evidence stores.
 

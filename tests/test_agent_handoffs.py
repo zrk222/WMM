@@ -25,12 +25,13 @@ class HandoffTests(unittest.TestCase):
             "POST", "/api/apps/sample-one/agent-grants/issue", dict(self.body(operations), agent_id=agent)
         )
 
-    def create(self, job, recipient="replacement", operations=None):
+    def create(self, job, recipient="replacement", operations=None, **options):
         return self.owner.request(
             "POST",
             "/api/apps/sample-one/agent-grants/handoff-create",
             dict(
                 job_id=job["id"],
+                **options,
                 recipient=recipient,
                 operations=operations or ["jobs.read"],
                 expires=(datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat(),
@@ -63,6 +64,40 @@ class HandoffTests(unittest.TestCase):
         with connection(self.store.path) as db:
             self.assertEqual(db.execute("SELECT count(*) FROM jobs").fetchone()[0], 1)
             self.assertNotIn(secret, db.execute("SELECT payload FROM agent_handoffs").fetchone()[0])
+
+    def test_prerequisite_worker_receipts_gate_named_continuations_across_domains(self) -> None:
+        job = enqueue(self.store, "sample-one", "pipeline", dict(stage=1), "next")
+        before = [enqueue(self.store, "sample-one", action, {}, action) for action in ("sync", "render")]
+        dependencies = [item["id"] for item in before]
+        foreign = enqueue(self.store, "sample-two", "pipeline", {}, "foreign")
+        for invalid in ([job["id"]], [foreign["id"]], dependencies * 2):
+            with self.assertRaises(ClientError):
+                self.create(job, depends_on_jobs=invalid)
+        saved = self.create(job, depends_on_jobs=dependencies)
+        self.assertEqual(saved["effective_status"], "WAITING_FOR_DEPENDENCIES")
+        target = self.grant("replacement", ["handoff.resume", "jobs.read"])
+        client = OperatorClient(self.origin, grant_token=target["token"])
+        with self.assertRaises(ClientError):
+            self.resume(client, saved)
+        with connection(self.store.path) as db:
+            db.execute(
+                "UPDATE jobs SET status='SUCCEEDED',result=? WHERE id=?", ('{"artifact":"private"}', dependencies[0])
+            )
+            db.execute("UPDATE jobs SET status='SUCCEEDED' WHERE id=?", (dependencies[1],))
+        listed = self.owner.request("POST", "/api/apps/sample-one/agent-grants/handoff-list", {})["handoffs"][0]
+        self.assertEqual(listed["effective_status"], "DEPENDENCY_NEEDS_REVIEW")
+        with self.assertRaises(ClientError):
+            self.resume(client, saved)
+        with connection(self.store.path) as db:
+            db.execute("UPDATE jobs SET result=? WHERE id=?", ('{"render":"private"}', dependencies[1]))
+        resumed = self.resume(client, saved)
+        self.assertEqual(resumed["effective_status"], "CLAIMED")
+        self.assertTrue(all(len(item["result_hash"]) == 64 for item in resumed["dependencies"]))
+        self.assertNotIn("private", json.dumps(resumed["dependencies"]))
+        with connection(self.store.path) as db:
+            db.execute("UPDATE jobs SET data='{}',request_key='changed' WHERE id=?", (dependencies[0],))
+        with self.assertRaises(ClientError):
+            self.resume(client, saved)
 
     def test_owner_catalog_route_is_authorized_and_cannot_impersonate_recipient(self):
         job = enqueue(self.store, "sample-one", "pipeline", dict(stage=1), "private-key")

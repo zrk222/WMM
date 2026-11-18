@@ -198,6 +198,10 @@ def team_operating_contract():
             "policy_sha256",
             "catalog_sha256",
             "owner_objective",
+            "step_id",
+            "assigned_agent_id",
+            "depends_on",
+            "expected_result",
             "assigned_operations",
             "resource_ids_and_revisions",
             "authority_and_budget_limits",
@@ -207,11 +211,11 @@ def team_operating_contract():
             "unknowns",
             "next_action",
         ],
-        durable_handoff="Existing worker jobs may be handed to a named agent through handoff.create and handoff.resume. These record secret-free task context and original identifiers, not authority or execution. Native-only job ledgers are not covered.",
+        durable_handoff="Existing worker jobs may be handed to a named agent through handoff.create and handoff.resume. These record secret-free task context and original identifiers, not authority or execution. Use depends_on_jobs to gate continuation on successful prerequisite worker results. Native-only job ledgers are not covered.",
         concurrency="Parallelize independent permitted reads within current limits; serialize mutations and readbacks and reload after revision conflicts. Do not duplicate queues or external effects.",
         review="An agent reviewer is advisory and cannot replace a required distinct authenticated human checker. Shared host accounts do not create distinct human identities.",
         reconciliation="Keep per-worker receipts and scopes. UNKNOWN stays unknown until reconciled; the coordinator must not mark the whole goal complete while required work is missing.",
-        owner_delivery="Consolidate verified results, actual resource use, limits and one next useful decision into the authorized owner conversation.",
+        owner_delivery="Consolidate verified results, actual resource use, limits and the next actionable steps into the authorized owner conversation. Include the assignee, dependencies and completion evidence for each step.",
     )
 
 
@@ -317,6 +321,7 @@ def operating_guide(app, policy, local_catalog):
                 "owner_objective",
                 "plain_language_result",
                 "next_action",
+                "plan_steps",
                 "approval_needed",
                 "measurement_coverage_and_limits",
                 "actual_resources_or_unavailable_reason",

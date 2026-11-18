@@ -5,6 +5,7 @@ import json
 import re
 
 from .agent_grants import current
+from .agent_task_dependencies import bind_dependencies, dependency_receipts, dependency_status, job_fingerprint
 from .common import Invalid, canonical, digest, iso_time, uid
 from .db import connection
 from .marketing_agent_manifest import operating_manifest
@@ -31,10 +32,6 @@ def _job(db, app_id, identity):
     if not row:
         raise Invalid("Choose an existing app-owned worker job; native-only jobs are not supported")
     return row
-
-
-def _fingerprint(row):
-    return digest({key: row[key] for key in ("id", "app_id", "action", "data", "request_key", "created")})
 
 
 RESOURCE_TABLES = {
@@ -112,7 +109,7 @@ def _context(db, app_id, job):
         app_hash=digest(app["data"]),
         policy_hash=digest(operating_manifest(app)),
         catalog_hash=catalog()["catalog_sha256"],
-        job_hash=_fingerprint(job),
+        job_hash=job_fingerprint(job),
         request_key_hash=digest(job["request_key"]),
         resources=_resources(db, app_id, job),
     )
@@ -177,6 +174,7 @@ def _view(db, row, job, observed):
     payload = _read(row)
     current_context = _context(db, row["app_id"], job)
     changes = sorted(key for key in payload["context"] if payload["context"][key] != current_context[key])
+    receipts = dependency_receipts(db, row["app_id"], payload.get("dependencies", []))
     effective = row["status"]
     if effective != "REVOKED":
         if iso_time(row["expires"]) <= observed:
@@ -196,8 +194,14 @@ def _view(db, row, job, observed):
                 current(db, grant, dict(app_id=row["app_id"], operation="handoff.resume"), observed, check_quota=False)
             except (Invalid, PermissionError, KeyError):
                 effective = "RECIPIENT_INVALID"
+    if effective in ("READY", "CLAIMED"):
+        effective = dependency_status(receipts) or effective
     next_action = (
-        "Prepare a fresh handoff after reviewing current authority and context."
+        "Wait for the listed prerequisite jobs to finish."
+        if effective == "WAITING_FOR_DEPENDENCIES"
+        else "Inspect the prerequisite job and reconcile its result before continuing."
+        if effective == "DEPENDENCY_NEEDS_REVIEW"
+        else "Prepare a fresh handoff after reviewing current authority and context."
         if effective in ("EXPIRED", "CONTEXT_CHANGED", "SOURCE_INVALID", "RECIPIENT_INVALID")
         else "Inspect the original job and reconcile uncertain work before any separately authorized action."
     )
@@ -214,6 +218,7 @@ def _view(db, row, job, observed):
         job_id=payload["job_id"],
         job_action=payload["job_action"],
         job_status=job["status"],
+        dependencies=receipts,
         request_key_hash=payload["context"]["request_key_hash"],
         context=payload["context"],
         operations=payload["operations"],
@@ -243,6 +248,8 @@ def _resume_row(db, app_id, body, context, observed):
     job = _job(db, app_id, payload["job_id"])
     if _context(db, app_id, job) != payload["context"]:
         raise Invalid("Handoff context changed; prepare a fresh handoff")
+    if dependency_status(dependency_receipts(db, app_id, payload.get("dependencies", []))):
+        raise Invalid("Prerequisite jobs require successful recorded results before resuming")
     return row, payload, grant, job
 
 
@@ -306,6 +313,7 @@ def _report_item(db, app_id, row, observed):
         source_kind=view["source_kind"],
         created=iso_time(row["created"]).isoformat(),
         expires=iso_time(row["expires"]).isoformat(),
+        dependencies=view["dependencies"],
         context_status=view["context_status"],
         context_changes=view["context_changes"],
     )
@@ -330,7 +338,15 @@ def report_summary(db, app_id, observed):
         except (Invalid, PermissionError, ValueError, KeyError, TypeError):
             items.append(dict(status="UNAVAILABLE"))
     attention = any(
-        item["status"] in ("UNAVAILABLE", "EXPIRED", "SOURCE_INVALID", "RECIPIENT_INVALID", "CONTEXT_CHANGED")
+        item["status"]
+        in (
+            "UNAVAILABLE",
+            "EXPIRED",
+            "SOURCE_INVALID",
+            "RECIPIENT_INVALID",
+            "CONTEXT_CHANGED",
+            "DEPENDENCY_NEEDS_REVIEW",
+        )
         for item in items
     )
     action = (
@@ -351,6 +367,8 @@ def report_summary(db, app_id, observed):
             "RECIPIENT_INVALID",
             "CONTEXT_CHANGED",
             "UNAVAILABLE",
+            "WAITING_FOR_DEPENDENCIES",
+            "DEPENDENCY_NEEDS_REVIEW",
         )
     }
     return dict(
@@ -371,7 +389,7 @@ class Handoffs:
         self.clock = clock or _utc
 
     def create(self, app_id, user, body):
-        exact_keys(body, ("job_id", "recipient", "operations", "expires"))
+        exact_keys(body, ("job_id", "recipient", "operations", "expires"), ("depends_on_jobs",))
         path_segment(app_id)
         path_segment(body["job_id"])
         path_segment(body["recipient"])
@@ -396,6 +414,8 @@ class Handoffs:
                 source=source,
                 operations=names,
             )
+            if "depends_on_jobs" in body:
+                payload["dependencies"] = bind_dependencies(db, app_id, job["id"], body["depends_on_jobs"])
             identity = uid()
             stamp = observed.isoformat()
             encoded = canonical(payload)
