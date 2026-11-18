@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 # Standalone tool: resolve this checkout before importing its application/fixtures.
-from mission_control.apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY  # noqa: E402
+from mission_control.apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, DOWNLOADS  # noqa: E402
 from mission_control.apple_metrics_schedule import AppleMetricsSchedules  # noqa: E402
 from mission_control.common import digest, now  # noqa: E402
 from mission_control.device_signin import DeviceSignIns  # noqa: E402
@@ -336,6 +336,186 @@ def search_to_store_report(page: Any, fixture: AppleMetricsRouteTests, width: in
     expect(inspector.get_by_role("heading", name="Saved observations", exact=True)).to_be_visible()
 
 
+def fetch_provider_fixture() -> tuple[dict[str, Any], dict[tuple[str, str], bytes]]:
+    """Only the two upstream response families are synthetic."""
+    processing_date = "2026-01-04"
+    inventory = dict(
+        operation="analytics_reports",
+        status="METRIC_DOWNLOAD_REQUIRED",
+        coverage="COMPLETE",
+        reports=[
+            dict(
+                id=report_id,
+                name=family,
+                coverage="COMPLETE",
+                instances=[dict(id=instance, granularity="DAILY", processing_date=processing_date)],
+            )
+            for report_id, family, instance in (
+                ("fetch-discovery", DISCOVERY, "fetch-discovery-daily"),
+                ("fetch-downloads", DOWNLOADS, "fetch-downloads-daily"),
+            )
+        ],
+    )
+    rows = {
+        ("fetch-discovery", "fetch-discovery-daily"): (
+            b"Date\tApp Apple Identifier\tEvent\tCounts\tUnique Counts\n"
+            b"2026-01-01\t123\tImpression\t80\t50\n"
+            b"2026-01-01\t123\tPage view\t0\t0\n"
+        ),
+        ("fetch-downloads", "fetch-downloads-daily"): (
+            b"Date\tApp Apple Identifier\tDownload Type\tCounts\n2026-01-01\t123\tFirst-time download\t6\n"
+        ),
+    }
+    return inventory, rows
+
+
+def open_fetch_form(page: Any, origin: str) -> Any:
+    """Reach the protected fetch control through the product's owner entry."""
+    page.goto(origin)
+    page.locator("#main h1").wait_for()
+    page.locator("#app-select").select_option("sample-one")
+    page.get_by_role("button", name="Review results", exact=True).press("Enter")
+    page.get_by_role("button", name="Open Search to App Store", exact=True).press("Enter")
+    dialog = page.locator("#modal")
+    dialog.get_by_role("button", name="Sign in", exact=True).press("Enter")
+    page.locator("#identity-token").fill("synthetic_owner_identity_token")
+    dialog.get_by_role("button", name="Verify my identity", exact=True).press("Enter")
+    form = dialog.locator("#apple-performance-form")
+    form.get_by_label("First event date").fill("2026-01-01")
+    form.get_by_label("Last event date").fill("2026-01-05")
+    return form
+
+
+def fetch_apple_reports(page: Any, form: Any, fixture: AppleMetricsRouteTests) -> dict[str, Any]:
+    """Drive the real owner route, worker, auto-readback and repeat request."""
+    route = "/api/apps/sample-one/apple-analytics/performance-refresh"
+    status_route = route + "-status"
+    selection = dict(manifest_version=fixture.app["version"], start="2026-01-01", end="2026-01-05")
+    inventory, rows = fetch_provider_fixture()
+
+    def read_inventory(reader, store_app_id):
+        assert store_app_id == "123"
+        reader.hashes.append(digest(inventory))
+        return inventory
+
+    def read_segments(_reader, store_app_id, report_id, instance_id):
+        assert store_app_id == "123"
+        raw = gzip.compress(rows[(report_id, instance_id)], mtime=0)
+        return [
+            dict(id=instance_id, data=raw, size=len(raw), checksum=hashlib.md5(raw, usedforsecurity=False).hexdigest())
+        ]
+
+    trigger = form.get_by_role("button", name="Fetch Apple analytics", exact=True)
+    with (
+        patch("mission_control.provider_reports.credential", return_value="fixture"),
+        patch("mission_control.provider_reports.read_analytics", side_effect=read_inventory),
+        patch("mission_control.provider_reports.read_instance_segments", side_effect=read_segments) as segments,
+        patch("mission_control.openseo_transport.call_tool") as web,
+    ):
+        with page.expect_response(lambda item: item.url.endswith(route)) as response:
+            trigger.press("Enter")
+        assert response.value.ok, response.value.json()
+        original = response.value.json()
+        body = response.value.request.post_data_json
+        assert all(body[key] == value for key, value in selection.items())
+        assert original["status"] == "INVENTORY"
+        assert original["store_app_id"] == "123"
+        anonymous = OperatorClient(fixture.client.origin)
+        anonymous.bootstrap()
+        fixture.reject(anonymous, route, body, 403)
+        fixture.reject(fixture.client, route.replace("sample-one", "sample-two"), body, 403)
+        fixture.reject(fixture.client, status_route.replace("sample-one", "sample-two"), selection, 403)
+
+        replay = fixture.post(route, body)
+        assert replay["refresh_id"] == original["refresh_id"]
+        assert replay["inventory_job_id"] == original["inventory_job_id"]
+        assert run_once(fixture.store)
+        collecting = fixture.post(status_route, selection)
+        assert collecting["status"] == "COLLECTING"
+        assert {item["report_family"] for item in collecting["files"]} == {DISCOVERY, DOWNLOADS}
+        assert len(collecting["files"]) == 2
+
+        page.locator("#close-modal").press("Enter")
+        page.get_by_role("button", name="Open Search to App Store", exact=True).press("Enter")
+        form.get_by_label("First event date").fill(selection["start"])
+        form.get_by_label("Last event date").fill(selection["end"])
+        with page.expect_response("**/apple-analytics/performance-refresh-status") as recovered:
+            form.get_by_role("button", name="Check fetch status", exact=True).press("Enter")
+        assert recovered.value.ok, recovered.value.json()
+        assert recovered.value.json()["refresh_id"] == collecting["refresh_id"]
+
+        with page.expect_response("**/apple-analytics/search-review", timeout=20000) as reviewed:
+            assert run_once(fixture.store)
+            assert run_once(fixture.store)
+        assert reviewed.value.ok, reviewed.value.json()
+        first_day = reviewed.value.json()["rows"][0]
+        assert first_day["date"] == "2026-01-01"
+        assert first_day["discovery"]["source_sha256"] and first_day["downloads"]["source_sha256"]
+        result = page.locator("#apple-performance-results")
+        expect(result.get_by_role("heading", name="Search to App Store", exact=True)).to_be_visible()
+        day = result.get_by_role("row").filter(has_text="2026-01-01")
+        for count in ("80", "0", "6"):
+            expect(day.get_by_role("cell", name=count, exact=True)).to_be_visible()
+        expect(result.get_by_role("row").filter(has_text="2026-01-05")).to_contain_text("Unavailable")
+        ready = fixture.post(status_route, selection)
+        assert ready["status"] == "READY" and len(ready["files"]) == 2
+        receipt = page.locator("#apple-performance-receipt")
+        receipt.locator("summary").press("Enter")
+        expect(receipt.locator("details")).to_have_attribute("open", "")
+        expect(receipt).to_contain_text(ready["refresh_id"])
+        for item in ready["files"]:
+            expect(receipt).to_contain_text(item["job_id"])
+        assert page.locator("#apple-analytics-root").evaluate("(node) => node.scrollWidth <= node.clientWidth + 1")
+        assert fixture.post(route, body)["refresh_id"] == ready["refresh_id"]
+        assert segments.call_count == 2
+        assert not run_once(fixture.store)
+
+        with page.expect_response(lambda item: item.url.endswith(route)) as retried:
+            trigger.press("Enter")
+        assert retried.value.ok, retried.value.json()
+        second = retried.value.json()
+        assert second["inventory_job_id"] != original["inventory_job_id"]
+        with page.expect_response("**/apple-analytics/search-review", timeout=20000):
+            assert run_once(fixture.store)
+        repeated = fixture.post(status_route, selection)
+        assert repeated["status"] == "READY"
+        assert {item["job_id"] for item in repeated["files"]} == {item["job_id"] for item in ready["files"]}
+        assert segments.call_count == 2
+        assert not run_once(fixture.store)
+        web.assert_not_called()
+    return dict(
+        owner_fetch="INVENTORY_AND_TWO_SAVED_FILES",
+        reopened_existing_receipt=True,
+        cross_app_denied=True,
+        duplicate_collection=False,
+        unrelated_web_fetch=False,
+    )
+
+
+def fetch_journey(browser: Any, width: int, height: int) -> dict[str, Any]:
+    """Start from a freshly isolated owner workspace without Apple report data."""
+    fixture = AppleMetricsRouteTests("test_owner_can_queue_observe_and_pause_without_provider_calls")
+    fixture.setUp()
+    origin = fixture.client.origin
+    context = browser.new_context(viewport={"width": width, "height": height})
+    context.route(
+        "**/*", lambda route: route.continue_() if route.request.url.startswith(origin + "/") else route.abort()
+    )
+    page = context.new_page()
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    try:
+        saved_search_reading(fixture)
+        with patch("mission_control.insights.Vault", FakeVault):
+            result = fetch_apple_reports(page, open_fetch_form(page, origin), fixture)
+        assert page.locator("#apple-analytics-root").evaluate("(node) => node.scrollWidth <= node.clientWidth + 1")
+        assert not errors, errors
+        return result
+    finally:
+        context.close()
+        fixture.doCleanups()
+
+
 def journey(browser: Any, width: int, height: int) -> dict[str, Any]:
     fixture = AppleMetricsRouteTests("test_owner_can_queue_observe_and_pause_without_provider_calls")
     fixture.setUp()
@@ -542,7 +722,10 @@ def main() -> None:
     with sync_playwright() as runtime:
         browser = runtime.chromium.launch()
         try:
-            observations = [journey(browser, width, height) for width, height in ((1440, 900), (390, 844))]
+            observations = [
+                dict(journey(browser, width, height), report_fetch=fetch_journey(browser, width, height))
+                for width, height in ((1440, 900), (390, 844))
+            ]
             result = dict(
                 status="PASS",
                 browser=browser.version,

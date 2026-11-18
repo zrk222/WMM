@@ -157,7 +157,9 @@ class OpenSEOReadTests(unittest.TestCase):
                 db.execute("UPDATE insight_sources SET next_due=0 WHERE app_id=? AND id=?", ("sample-app", sid))
             result = self.work.tick()
             self.assertEqual(result["status"], "CONNECTED")
-            self.assertEqual(result["report"]["provider"], "openseo")
+            report = result["report"]
+            assert isinstance(report, dict)
+            self.assertEqual(report["provider"], "openseo")
             remote.assert_called_once()
             self.assertEqual(self.work.tick()["status"], "IDLE")
             self.assertEqual(remote.call_count, 1)
