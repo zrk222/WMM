@@ -166,6 +166,7 @@ def validate_unsigned_preview(tag: str) -> None:
         "v0.1.0-preview.11.1.6",
         "v0.1.0-preview.11.2",
         "v0.1.0-preview.11.2.1",
+        "v0.1.0-preview.11.2.2",
     }:
         raise ValueError("Unsigned Windows publication is limited to the explicitly listed Preview 11 tags")
 
