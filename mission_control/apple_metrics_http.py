@@ -526,12 +526,18 @@ def dispatch(service, app_id, action, body):
         raise Invalid("Use the exact Apple analytics fields")
     if action in FIELDS and set(body) != FIELDS[action]:
         raise Invalid("Use the exact Apple analytics fields")
-    if action in {"campaign-collect", "campaign-collect-window", "campaign-results"}:
-        return apple_campaign_read(service, app_id, action, body)
-    if action in {"performance", "performance-collect"}:
-        return _apple_performance(service, app_id, action, body)
-    if action in {"search-review", "search-review-save", "search-review-assign"}:
-        return _search_review(service, app_id, action, body)
+    readers = {
+        "campaign-collect": apple_campaign_read,
+        "campaign-collect-window": apple_campaign_read,
+        "campaign-results": apple_campaign_read,
+        "performance": _apple_performance,
+        "performance-collect": _apple_performance,
+        "search-review": _search_review,
+        "search-review-save": _search_review,
+        "search-review-assign": _search_review,
+    }
+    if action in readers:
+        return readers[action](service, app_id, action, body)
     if action == "view":
         return view(service.store, app_id)
     if action == "inventory":

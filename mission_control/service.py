@@ -41,6 +41,15 @@ from .worker import enqueue, jobs
 from .workflow_automation import recommend
 
 
+def _validate_dependent_job(body):
+    if (
+        set(body) != {"action", "data", "request_key", "depends_on_jobs"}
+        or body["action"] not in ("pipeline", "sync")
+        or not isinstance(body["depends_on_jobs"], list)
+    ):
+        raise Invalid("Choose prerequisite jobs for a local pipeline or supported read")
+
+
 def validate_evidence(kind, data, app_id):
     """Validate field presence before kind-specific arithmetic and typed values."""
     if kind not in FIELDS or not isinstance(data, dict):
@@ -422,12 +431,6 @@ class Service:
             raise Invalid("Use the guided media workflow to validate source proof and authority first")
         if not isinstance(body.get("data", {}), dict):
             raise Invalid("Job data must be an object")
-        if "depends_on_jobs" in body and (
-            set(body) != {"action", "data", "request_key", "depends_on_jobs"}
-            or body["action"] not in ("pipeline", "sync")
-            or not isinstance(body["depends_on_jobs"], list)
-        ):
-            raise Invalid("Choose prerequisite jobs for a local pipeline or supported read")
         if body.get("action") == "pipeline":
             stage = body.get("data", {}).get("stage", 0)
             if type(stage) is not int or not 0 <= stage <= 12:
@@ -440,6 +443,7 @@ class Service:
             body = {**body, "data": self.sync_data(app_id, body["data"])}
         args = (self.store, app_id, body.get("action"), body.get("data", {}), body.get("request_key"))
         if "depends_on_jobs" in body:
+            _validate_dependent_job(body)
             return enqueue(*args, commit_check=commit_check, depends_on_jobs=body["depends_on_jobs"])
         return enqueue(*args) if commit_check is None else enqueue(*args, commit_check=commit_check)
 
