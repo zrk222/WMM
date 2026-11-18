@@ -9,22 +9,52 @@ from typing import Any, NamedTuple
 from urllib.parse import urlsplit
 
 from .aeo_transport import public_url
-from .apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, DOWNLOADS, REPORTS, identity
+from .apple_analytics import (
+    CAMPAIGN_DOWNLOADS,
+    DISCOVERY,
+    DOWNLOADS,
+    METRIC_REPORTS,
+    PURCHASES,
+    REPORTS,
+    SUBSCRIPTION_STATE,
+    identity,
+)
 from .apple_campaign_links import campaign_parts
 from .apple_metrics_schedule import INVENTORY_MODE, SCHEDULE_TIME_FIELDS, AppleMetricsSchedules, public_row
 from .apple_metrics_store import read_in_snapshot
+from .apple_performance_refresh import refresh as performance_refresh
+from .apple_performance_report import COMPLETENESS_DAYS, saved_performance
 from .common import Invalid, digest, identifier, uid
 from .connection_setup import Connections
 from .db import connection
 from .discovery_http import json_body
 from .managed_media_http import singleton
+from .openseo_read import fetch_for_owner
 from .operation_authority import bound_owner, protected
+from .search_store_review import search_store_review
 from .worker import enqueue_db
 
 FIELDS = {
     "view": set(),
     "inventory": {"manifest_version", "connection_id", "connection_version"},
     "impressions": {"manifest_version", "report_id"},
+    "performance": {"manifest_version", "start", "end"},
+    "performance-collect": {"manifest_version", "inventory_id", "start", "end"},
+    "performance-refresh": {"manifest_version", "start", "end", "connection_id", "connection_version", "request_id"},
+    "performance-refresh-status": {"manifest_version", "start", "end"},
+    "campaign-refresh": {
+        "manifest_version",
+        "start",
+        "end",
+        "connection_id",
+        "connection_version",
+        "request_id",
+        "campaign_report_id",
+    },
+    "search-review": {"manifest_version", "start", "end"},
+    "search-web-fetch": {"manifest_version", "source_id", "request_id"},
+    "search-review-save": {"manifest_version", "start", "end", "action_id", "review_hash"},
+    "search-review-assign": {"manifest_version", "start", "end", "action_id", "review_hash", "grant_id"},
     "campaign-collect": {"manifest_version", "report_id", "link", "instance_id"},
     "campaign-collect-window": {"manifest_version", "report_id", "inventory_id", "link", "start", "end"},
     "campaign-results": {"manifest_version", "report_id", "link", "territory", "start", "end"},
@@ -77,14 +107,14 @@ def source(db, app_id):
     return app["version"], store_id, matches[0] if matches else None
 
 
-def inventory(db, app_id, version, store_id, record):
+def inventory(db, app_id, version, store_id, record, *, job_id=None):
     """Project the newest successful inventory proven bound to this source and app version."""
     if record is None:
         return None, []
     rows = db.execute(
         "SELECT id,data,result FROM jobs WHERE app_id=? AND action='sync' "
-        "AND status='SUCCEEDED' ORDER BY updated DESC,id DESC LIMIT 1000",
-        (app_id,),
+        "AND status='SUCCEEDED' AND (? IS NULL OR id=?) ORDER BY updated DESC,id DESC LIMIT 1000",
+        (app_id, job_id, job_id),
     )
     for row in rows:
         try:
@@ -136,7 +166,7 @@ def inventory(db, app_id, version, store_id, record):
                 item: dict[str, Any] = dict(
                     id=report_id, name=report["name"], instance_count=len(instances), coverage=report["coverage"]
                 )
-                if report["name"] == CAMPAIGN_DOWNLOADS:
+                if report["name"] == CAMPAIGN_DOWNLOADS or (report["name"] in METRIC_REPORTS and instances):
                     item["daily"] = [
                         dict(id=identity(i["id"]), processing_date=date.fromisoformat(i["processing_date"]).isoformat())
                         for i in instances
@@ -336,33 +366,151 @@ def queue_campaign_window(
         raise Invalid("No daily Detailed files match these Apple processing dates; refresh saved inventory")
     if len(files) > MAX_CAMPAIGN_DAYS:
         raise Invalid("More than 31 files match; choose a shorter Apple processing window")
-    jobs = []
-    inventory_fingerprint = digest(expected.inventory_id)[:24]
-    for file in files:
-        data = dict(
-            manifest_version=expected[0],
-            connection_id=expected[2],
-            connection_version=expected[3],
-            connection_hash=expected[4],
-            options=dict(
-                operation="analytics_metrics",
-                report_id=body["report_id"],
-                report_family=CAMPAIGN_DOWNLOADS,
-                instance_id=file["id"],
-            ),
-        )
-        prefix = "apple-campaign-file:" + digest(data) + ":"
-        request_key = prefix + inventory_fingerprint
-        job = db.execute(
-            "SELECT id,status FROM jobs WHERE app_id=? "
-            "AND (request_key=? OR (request_key GLOB ? AND status IN ('QUEUED','RUNNING','SUCCEEDED'))) "
-            "ORDER BY CASE status WHEN 'SUCCEEDED' THEN 0 WHEN 'RUNNING' THEN 1 WHEN 'QUEUED' THEN 2 ELSE 3 END,id LIMIT 1",
-            (app_id, request_key, prefix + "*"),
-        ).fetchone()
-        if job is None:
-            job = enqueue_db(db, service.store, app_id, "sync", data, request_key)
-        jobs.append(dict(job_id=job["id"], status=job["status"], processing_date=file["processing_date"]))
+    jobs = [
+        _queue_apple_file(service.store, db, app_id, expected, file, expected.report, "apple-campaign-file")
+        for file in files
+    ]
     return dict(app_id=app_id, jobs=jobs, external_writes=False)
+
+
+def _file_options(report, file, window=None):
+    options = dict(operation="analytics_metrics", report_id=report["id"], instance_id=file["id"])
+    if report["name"] != DOWNLOADS:
+        options["report_family"] = report["name"]
+    if report["name"] in (PURCHASES, SUBSCRIPTION_STATE):
+        if window is None:
+            raise Invalid("Apple commerce file reads require exact event dates")
+        start, end = window
+        options["start"] = (end if report["name"] == SUBSCRIPTION_STATE else start).isoformat()
+        options["end"] = end.isoformat()
+    return options
+
+
+def _queue_apple_file(store, db, app_id, expected, file, report, namespace, *, refresh_id=None, window=None):
+    options = _file_options(report, file, window)
+    data = dict(
+        manifest_version=expected.manifest_version,
+        connection_id=expected.connection_id,
+        connection_version=expected.connection_version,
+        connection_hash=expected.connection_hash,
+        options=options,
+    )
+    prefix = namespace + ":" + digest(data) + ":"
+    request_key = prefix + digest(expected.inventory_id)[:24]
+    job = db.execute(
+        "SELECT id,status FROM jobs WHERE app_id=? "
+        "AND (request_key=? OR (request_key GLOB ? AND status IN ('QUEUED','RUNNING','SUCCEEDED'))) "
+        "ORDER BY CASE status WHEN 'SUCCEEDED' THEN 0 WHEN 'RUNNING' THEN 1 WHEN 'QUEUED' THEN 2 ELSE 3 END,id LIMIT 1",
+        (app_id, request_key, prefix + "*"),
+    ).fetchone()
+    if job is None:
+        if refresh_id is not None:
+            data["apple_performance_refresh_id"] = refresh_id
+        job = enqueue_db(db, store, app_id, "sync", data, request_key)
+    return dict(job_id=job["id"], status=job["status"], processing_date=file["processing_date"])
+
+
+def _apple_performance(service, app_id, action, body):
+    """Read retained app-wide counts or queue bounded daily files for the same event range."""
+    start, end = campaign_dates(body, "Choose up to 31 Apple event dates")
+    collecting = action == "performance-collect"
+    with connection(service.store.path) as db:
+        db.execute("BEGIN IMMEDIATE" if collecting else "BEGIN")
+        expected = check_source(
+            db, app_id, body["manifest_version"], readiness_store=service.store if collecting else None
+        )
+        version, store_id, record = source(db, app_id)
+        current, reports = inventory(db, app_id, version, store_id, record)
+        if not collecting:
+            from .search_store_outcomes import outcome_coverage
+
+            result = _performance_result(db, app_id, expected, reports, start, end)
+            result["outcome_coverage"] = outcome_coverage(db, result, expected=expected, reports=reports)
+            return result
+        if not current or current["coverage"] != "COMPLETE" or current["job_id"] != body["inventory_id"]:
+            raise Invalid("Refresh the current Apple inventory before collecting these dates")
+        expected = expected._replace(inventory_id=current["job_id"])
+        files = _bounded_performance_files(reports, start, end)
+        if not files:
+            raise Invalid("No daily Apple files are available for these dates")
+        jobs = [
+            _queue_apple_file(
+                service.store, db, app_id, expected, file, report, "apple-performance-file", window=(start, end)
+            )
+            for report, file in files
+        ]
+        return dict(app_id=app_id, jobs=jobs, external_writes=False)
+
+
+def _performance_result(
+    db: Connection, app_id: str, expected: AnalyticsSource, reports: list[dict[str, Any]], start: date, end: date
+) -> dict[str, Any]:
+    key = dict(
+        app_id=app_id,
+        store_app_id=expected.store_app_id,
+        connection_id=expected.connection_id,
+        connection_version=expected.connection_version,
+        granularity="DAILY",
+    )
+    return dict(
+        app_id=app_id,
+        store_app_id=expected.store_app_id,
+        start=start.isoformat(),
+        end=end.isoformat(),
+        rows=saved_performance(db, key, reports, start, end),
+        external_writes=False,
+    )
+
+
+def search_review_snapshot(db: Connection, app_id: str, body: dict) -> tuple[dict, AnalyticsSource]:
+    """Read same-app Apple and web evidence in the caller's current transaction."""
+    start, end = campaign_dates(body, "Choose up to 31 Apple event dates")
+    expected = check_source(db, app_id, body["manifest_version"])
+    version, store_id, record = source(db, app_id)
+    _, reports = inventory(db, app_id, version, store_id, record)
+    result = _performance_result(db, app_id, expected, reports, start, end)
+    result["search_review"] = search_store_review(db, result, expected.connection_id is not None)
+    return result, expected
+
+
+def _search_review(service, app_id, action, body):
+    from .search_store_actions import bind_review
+
+    saving = action != "search-review"
+    with connection(service.store.path) as db:
+        db.execute("BEGIN IMMEDIATE" if saving else "BEGIN")
+        result, expected = search_review_snapshot(db, app_id, body)
+        bound = bind_review(db, result, expected, body, save=saving)
+        if action == "search-review-assign":
+            from .search_team import assign
+
+            return assign(db, bound, body)
+        if action == "search-review":
+            from .search_store_outcomes import outcome_coverage
+
+            bound["outcome_coverage"] = outcome_coverage(db, result)
+        return bound
+
+
+def _bounded_performance_files(reports, start, end, *, completeness=None):
+    completeness = COMPLETENESS_DAYS if completeness is None else completeness
+    files = []
+    for report in reports:
+        lag = completeness.get(report["name"])
+        if lag is None or report["coverage"] != "COMPLETE":
+            continue
+        first_day = end if report["name"] == SUBSCRIPTION_STATE else start
+        files.extend(
+            (report, file)
+            for file in report.get("daily", [])
+            if (date.fromisoformat(file["processing_date"]) - end).days <= lag
+            and date.fromisoformat(file["processing_date"]) >= first_day
+        )
+    if len(files) > len(completeness) * (MAX_CAMPAIGN_DAYS + max(completeness.values())):
+        raise Invalid("No bounded set of daily Apple files is available for these dates")
+    if len({(report["id"], file["processing_date"]) for report, file in files}) != len(files):
+        raise Invalid("Apple returned multiple daily files for the same report and processing date")
+    return files
 
 
 def apple_campaign_results(db: Any, key: dict, token: str, body: dict[str, Any]) -> dict[str, Any]:
@@ -429,8 +577,22 @@ def dispatch(service, app_id, action, body):
         raise Invalid("Use the exact Apple analytics fields")
     if action in FIELDS and set(body) != FIELDS[action]:
         raise Invalid("Use the exact Apple analytics fields")
-    if action in {"campaign-collect", "campaign-collect-window", "campaign-results"}:
-        return apple_campaign_read(service, app_id, action, body)
+    readers = {
+        "campaign-collect": apple_campaign_read,
+        "campaign-collect-window": apple_campaign_read,
+        "campaign-results": apple_campaign_read,
+        "performance": _apple_performance,
+        "performance-collect": _apple_performance,
+        "performance-refresh": performance_refresh,
+        "performance-refresh-status": performance_refresh,
+        "campaign-refresh": performance_refresh,
+        "search-review": _search_review,
+        "search-web-fetch": fetch_for_owner,
+        "search-review-save": _search_review,
+        "search-review-assign": _search_review,
+    }
+    if action in readers:
+        return readers[action](service, app_id, action, body)
     if action == "view":
         return view(service.store, app_id)
     if action == "inventory":

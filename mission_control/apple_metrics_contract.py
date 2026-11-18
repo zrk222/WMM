@@ -14,7 +14,8 @@ from collections import Counter
 from copy import deepcopy
 from datetime import date
 
-from .apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, METRIC_REPORTS
+from . import apple_purchase_rows, apple_subscription_state
+from .apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, METRIC_REPORTS, PURCHASES, SUBSCRIPTION_STATE
 from .apple_analytics_parser import EVENTS, MAX_COMPRESSED, MAX_DECOMPRESSED, MAX_ROWS, MAX_SEGMENTS, TYPES
 from .common import Invalid
 
@@ -145,9 +146,22 @@ def _sources(values):
 def _row(row, key, processing_date, sources):
     discovery = key["report_family"] == DISCOVERY
     fields = ("date", "type", "source_type", "count", "dimensions", "segment_id", "processing_date", "source_sha256")
-    _exact(row, fields + ("unique_count",) if discovery else fields)
+    extras = {DISCOVERY: ("unique_count",), PURCHASES: ("proceeds_usd",)}
+    _exact(row, fields + extras.get(key["report_family"], ()))
     if _day(row["date"]) != key["event_date"] or _day(row["processing_date"]) != processing_date:
         raise Invalid("Apple metrics row belongs to another date")
+    segment = _id(row["segment_id"])
+    if segment not in sources or _hash(row["source_sha256"], 64) != sources[segment]:
+        raise Invalid("Apple metrics row source does not match provenance")
+    if key["report_family"] == PURCHASES:
+        apple_purchase_rows.validate_observation(row)
+    elif key["report_family"] == SUBSCRIPTION_STATE:
+        apple_subscription_state.validate_observation(row)
+    else:
+        _event_observation(row, key, discovery)
+
+
+def _event_observation(row, key, discovery):
     source_type = _text(row["source_type"])
     types = EVENTS if discovery else TYPES
     expected = types.get(source_type.casefold(), "unknown")
@@ -171,9 +185,6 @@ def _row(row, key, processing_date, sources):
         # Empty dimension cells are legitimate source values.
         if value != "":
             _text(value, MAX_DIMENSION_TEXT)
-    segment = _id(row["segment_id"])
-    if segment not in sources or _hash(row["source_sha256"], 64) != sources[segment]:
-        raise Invalid("Apple metrics row source does not match provenance")
 
 
 def complete_instance(key, instance):

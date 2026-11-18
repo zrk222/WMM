@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlsplit, urlunsplit
 
 from .aeo_transport import public_url
-from .common import Invalid, canonical, digest, now
+from .common import Invalid, canonical, digest, identifier, now
 from .db import connection
 from .pmf_contract import exact
 from .web_search_evidence import validate_web_binding, validate_web_evidence
@@ -259,6 +259,74 @@ def save_reading(store: "Store", app: str, source_id: str, body: dict) -> dict:
             kind="WEB_SEO_EVIDENCE",
             data=evidence,
         ),
+    )
+
+
+def fetch_for_owner(service: "Service", app: str, action: str, body: dict) -> dict:
+    """Fetch and retain the exact OpenSEO reading from the signed-in acquisition report."""
+    from .growth_review_contract import context_of, entry_hash
+    from .growth_review_store import decoded
+    from .insights import Insights
+    from .operation_authority import PROTECTED, check
+
+    context = PROTECTED.get()
+    if context is None or "grant_id" in context:
+        raise PermissionError("Open the owner's search report to fetch its connected source")
+    envelope = json.loads(str(context["envelope"]))
+    if (
+        envelope["app_id"] != app
+        or envelope["operation"] != "apple.analytics.owner.search-web-fetch"
+        or action != "search-web-fetch"
+    ):
+        raise PermissionError("Use the current app's owner report")
+    sid, request_id = identifier(body["source_id"]), identifier(body["request_id"])
+    response = dict(app_id=app, source_id=sid, request_id=request_id)
+    with connection(service.store.path) as db:
+        db.execute("BEGIN")
+        check(db, context)
+        row = db.execute("SELECT id,version,data FROM apps WHERE id=?", (app,)).fetchone()
+        if row is None or type(body["manifest_version"]) is not int or row["version"] != body["manifest_version"]:
+            raise Invalid("App setup changed. Reopen the owner report before fetching.")
+        existing = db.execute(
+            "SELECT * FROM growth_review_entries WHERE app_id=? AND id=?", (app, request_id)
+        ).fetchone()
+        if existing:
+            entry = decoded(existing)
+            binding = entry["data"].get("native_source", {})
+            if (
+                entry["kind"] != "WEB_SEO_EVIDENCE"
+                or binding.get("source_id") != sid
+                or entry["context"] != context_of(dict(row, data=json.loads(row["data"])))
+                or entry["hash"] != entry_hash(entry["kind"], entry["data"], entry["context"])
+            ):
+                raise Invalid("This request ID belongs to another review")
+            _, report = native_reading(db, app, sid, binding["report_id"])
+            if report["hash"] != binding["report_hash"]:
+                raise Invalid("The previous reading changed. Fetch a fresh report.")
+            return dict(
+                response,
+                status="SAVED",
+                report_id=report["id"],
+                source_sha256=report["hash"],
+                review_sha256=entry["hash"],
+            )
+    require_web_source(service.store, app, sid)
+    read = Insights(service.store).refresh(app, sid, {"confirm_read": True})
+    if read.get("status") != "CONNECTED" or not read.get("report_id"):
+        raise Invalid(read.get("error") or "OpenSEO could not finish the read. Check the source connection.")
+    saved = save_reading(
+        service.store,
+        app,
+        sid,
+        dict(id=request_id, manifest_version=body["manifest_version"], report_id=read["report_id"]),
+    )
+    binding = saved["data"]["native_source"]
+    return dict(
+        response,
+        status="SAVED",
+        report_id=binding["report_id"],
+        source_sha256=binding["report_hash"],
+        review_sha256=saved["hash"],
     )
 
 

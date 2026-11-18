@@ -151,6 +151,7 @@ class AutomationReadinessTests(unittest.TestCase):
         expected = {
             "web.research.read",
             "web.research.save",
+            "search.plan.execute",
             "creative.source.save",
             "creative.analysis.save",
             "creative.profile.save",
@@ -186,6 +187,7 @@ class AutomationReadinessTests(unittest.TestCase):
         self.assertEqual(set(UNBUNDLED_OPERATIONS), expected)
         for name in study_operations:
             self.assertEqual(UNBUNDLED_OPERATIONS[name], "local_evidence")
+        self.assertEqual(UNBUNDLED_OPERATIONS["search.plan.execute"], "local_evidence")
         bundled = {name for row in WORKFLOWS.values() for name in row["operations"]}
         self.assertFalse(expected & bundled)
         for name in ("organic-video.claim", "organic-video.submit"):

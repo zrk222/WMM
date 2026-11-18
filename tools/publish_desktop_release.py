@@ -166,6 +166,7 @@ def validate_unsigned_preview(tag: str) -> None:
         "v0.1.0-preview.11.1.6",
         "v0.1.0-preview.11.2",
         "v0.1.0-preview.11.2.1",
+        "v0.1.0-preview.11.2.2",
     }:
         raise ValueError("Unsigned Windows publication is limited to the explicitly listed Preview 11 tags")
 
@@ -210,6 +211,9 @@ def publish(folder, sha, tag):
         + ". "
         "Automated synthetic installer checks are not human first-use acceptance."
     )
+    changes_file = Path(__file__).resolve().parents[1] / "docs" / "releases" / f"{tag}.md"
+    if changes_file.is_file():
+        notes = changes_file.read_text(encoding="utf-8").strip() + "\n\n" + notes
     gh(
         "release",
         "create",

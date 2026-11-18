@@ -11,12 +11,13 @@ Adopt the full goal-first setup and exception-driven campaign roadmap. Deliver t
 - When an owner chooses research, creative, campaign or measurement, the system shall store only the selected fixed goal identifier under the selected app through `goal_preference`.
 - If browser storage is unavailable or contains an unknown goal, the system shall return an empty choice through `storage_recovery`.
 - The system shall show one next action and relevant setup links from current saved source facts through `goal_guidance`.
-- A current blocked goal packet shall show the first missing input and link to its existing workflow tool. More upstream repairs may be expanded. Reject navigation when the app, goal, source or selected repair no longer matches. Historical packets remain read-only.
+- When the current goal packet is blocked, the system shall show the first missing input and link to the corresponding workflow tool. The system shall offer additional upstream repairs, reject stale navigation when the app, goal, source or selected repair changes, and render historical packets read-only.
 - The system shall display connected accounts as setup observations rather than publication or spending authority through `authority_boundary`.
 - When an app changes, the system shall render only the selected app goal and source facts through `app_isolation`.
 - The system shall start no provider call, approval, job or campaign when choosing a goal through `no_effect`.
-- On Watch the work, the current owner sees up to three recent saved Facebook or Meta batch exceptions for the selected app, with unconfirmed delivery first. Review opens the exact saved batch and does not grant authority, contact a provider or retry an action.
-- A finished batch does not become an exception when its approval expires. Unconfirmed delivery remains an exception after OFF until a provider readback resolves it. Anonymous users, other owners and other apps do not receive the batch identifier.
+- When the current owner opens Watch the work, the system shall show at most 3 saved Facebook or Meta batch exceptions for the selected app, with unconfirmed delivery first. Review shall open the exact saved batch without granting authority, reading a provider or sending an action.
+- When a batch has verified delivery, the system shall leave it out of the exception list after its approval ends. The system shall retain unconfirmed delivery after OFF until provider readback resolves it and show batch identifiers only to the owner of the selected app.
+- When the owner opens Watch the work, the system shall show the campaign agreement, monitor and private outcomes controls ahead of live worker details and advanced operations.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin
@@ -52,12 +53,16 @@ Scenario: no_effect
  Given any selectable goal
  When `no_effect` checks the declared transition
  Then no provider call or job or approval is created
+Scenario: watch_campaign_controls
+ Given the selected app is open
+ When the operator selects Watch the work
+ Then campaign controls appear above live worker details
 ```
 
 ## SHOULD - Technical
 - Reuse guided tool routing, creative forms, campaign scope UI, results, telemetry and grants. No backend authority or credential changes in this slice.
 - Local goal is presentation state, not evidence or execution input. Escape source text and use fixed actions.
-- Remaining roadmap: outcome connection inventory, combined owner agreement, durable campaign schedules, packaged desktop and optional always-on worker.
+- Related contracts cover the connection wizard, combined agreement, campaign schedules and optional host service.
 - Preserve loopback desktop and independent native iOS product. Never publish the workstation server as hosted execution.
 
 ## Authorized parameters

@@ -58,6 +58,10 @@ function fixture() {
       const fields = {
         '#apple-analytics-status': { textContent: '' },
         '#apple-analytics-error': { textContent: '' },
+        '#apple-performance-status': { textContent: '' },
+        '#apple-performance-error': { textContent: '' },
+        '#apple-performance-receipt': { innerHTML: '' },
+        '#apple-performance-results': { innerHTML: '', querySelectorAll: () => [] },
       };
       node = {
         isConnected: true,
@@ -68,6 +72,7 @@ function fixture() {
       };
     },
     api: async () => data,
+    uuid: () => '00000000-0000-4000-8000-000000000001',
     FormData: class {
       constructor(form) {
         this.values = form.values;
@@ -84,6 +89,7 @@ function fixture() {
     browser: {},
     pageReports: {
       model: () => ({ filters: {}, notes: [], metrics: [], cohorts: [] }),
+      appReportModel: () => ({ filters: {}, notes: [], metrics: [], cohorts: [] }),
       openReport() {},
     },
   };
@@ -114,6 +120,413 @@ function form(values = { report_id: 'report-1', interval_hours: '24' }) {
 function click(action) {
   return { dataset: { action: 'apple-analytics-' + action } };
 }
+
+function searchFixture(f) {
+  const dates = { start: '2026-11-13', end: '2026-11-17' };
+  const draft = {
+    task: 'Check the current source.',
+    metric: 'Observed rows',
+    guardrail: 'Preserve source scopes.',
+    follow_up: 'After the next saved reading.',
+    agent: 'Measurement reviewer',
+  };
+  return {
+    form: { id: 'apple-performance-form', isConnected: true, values: dates },
+    result: {
+      app_id: f.state.app,
+      store_app_id: '123',
+      ...dates,
+      rows: [
+        {
+          date: dates.start,
+          discovery: {
+            counts: { impressions: '0', page_views: null },
+            status: 'APPLE_REPORTED',
+            processing_date: '2026-11-16',
+            source_sha256: 'apple-file-hash',
+          },
+          downloads: {
+            counts: { first_time_downloads: null, redownloads: null },
+            status: 'NO_FILE',
+            processing_date: null,
+            source_sha256: null,
+          },
+        },
+      ],
+      search_review: {
+        insight: 'Read the <owned page> evidence.',
+        next_action: 'Review the link path',
+        success_metric: 'Eligible sessions with a store click',
+        guardrail: 'Preserve the web CTA.',
+        follow_up: 'After the selected window is complete.',
+        web_source: 'Saved OpenSEO reading',
+        web_facts: ['US · 28 days ending November 14, 2026'],
+        web_evidence_sha256: 'seo-report-hash',
+        evidence_status: 'Whole windows differ',
+        review_hash: 'exact-review-hash',
+        saved_actions: [],
+        team_agents: [{ grant_id: 'grant-1', agent_id: 'actual-agent' }],
+        assignments: {},
+        actions: [
+          { ...draft, id: 'web-baseline', title: 'Review the web baseline', depends_on: [] },
+          {
+            ...draft,
+            id: 'store-link-check',
+            title: 'Inspect the store link',
+            depends_on: ['web-baseline'],
+          },
+        ],
+      },
+    },
+  };
+}
+
+test('combined review keeps measured zero, independent source windows and dependent drafts in the PDF and JSON', async () => {
+  const f = fixture();
+  const { form, result } = searchFixture(f);
+  const calls = [];
+  let pdf, json;
+  f.d.api = async (path, body) => {
+    calls.push({ path, body });
+    return path.endsWith('/view') ? f.data : result;
+  };
+  f.d.pageReports.openReport = (report) => {
+    pdf = report;
+    return {
+      close() {
+        pdf = null;
+      },
+    };
+  };
+  f.d.download = (name, data) => {
+    json = { name, data };
+  };
+  await apple.action(click('open'), f.d);
+  assert.match(apple.reviewPanel(), /Open Search to App Store/);
+  assert.match(f.html, /Review search and App Store results/);
+  await apple.submit(form, f.d, 'search');
+  assert.deepEqual(calls.at(-1), {
+    path: '/api/apps/one/apple-analytics/search-review',
+    body: { manifest_version: 2, start: '2026-11-13', end: '2026-11-17' },
+  });
+  const output = f.node.fields['#apple-performance-results'];
+  assert.match(output.innerHTML, /Read the &lt;owned page&gt; evidence/);
+  assert.match(output.innerHTML, /<td>0<\/td><td>Unavailable<\/td>/);
+  assert.match(output.innerHTML, /After Review the web baseline/);
+  await apple.action(click('search-report'), f.d);
+  assert.equal(pdf.title, 'Search to App Store');
+  assert.equal(pdf.next_step, 'Review the link path');
+  assert.equal(pdf.sections.at(-1).items.length, 2);
+  assert.equal(pdf.sections.at(-1).items[1].facts.at(-1)[1], 'After Review the web baseline');
+  await apple.action(click('search-download'), f.d);
+  assert.equal(json.name, 'search-to-app-store-plan.json');
+  assert.equal(json.data.search_review.web_evidence_sha256, 'seo-report-hash');
+  f.state.workspace.insights = { sources: [{ provider: 'openseo', id: 'changed' }] };
+  apple.invalidate(f.state);
+  assert.equal(pdf, null);
+  assert.equal(output.innerHTML, '');
+});
+
+test('prior review receipts survive in read-only history, print and JSON', async () => {
+  const f = fixture();
+  const { form, result } = searchFixture(f);
+  const prior = {
+    review_hash: 'earlier-review',
+    saved_actions: [
+      {
+        id: 'saved-draft',
+        action_id: 'web-baseline',
+        action: { title: 'Prior <web> analysis' },
+        created: '2026-11-17T23:24:00Z',
+      },
+    ],
+    assignments: {
+      'web-baseline': {
+        agent_id: 'analyst',
+        status: 'COMPLETED',
+        receipt_sha256: 'prior-execution-hash',
+        deliverable: { summary: 'Recorded the baseline.', details: { clicks: 4 } },
+      },
+    },
+  };
+  result.search_review.earlier_plans = [prior];
+  let pdf, json;
+  f.d.api = async (path) => (path.endsWith('/view') ? f.data : result);
+  f.d.pageReports.openReport = (report) => {
+    pdf = report;
+  };
+  f.d.download = (_name, data) => {
+    json = data;
+  };
+  await apple.open(f.d);
+  await apple.submit(form, f.d, 'search');
+  const history = f.node.fields['#apple-performance-results'].innerHTML.match(
+    /<details data-search-history>(.*?)<\/details>/s,
+  )[1];
+  assert.match(history, /Prior &lt;web&gt; analysis/);
+  assert.match(history, /prior-execution-hash/);
+  assert.match(history, /Completed/);
+  assert.doesNotMatch(history, /<button|<select|data-action/);
+  await apple.action(click('search-report'), f.d);
+  const earlier = pdf.sections.find((s) => s.title === 'Earlier plan receipts for these dates');
+  assert.deepEqual(
+    earlier.items[0].facts.find(([key]) => key === 'Execution receipt SHA-256'),
+    ['Execution receipt SHA-256', 'prior-execution-hash'],
+  );
+  await apple.action(click('search-download'), f.d);
+  assert.deepEqual(json.search_review.earlier_plans, [prior]);
+});
+
+function appleReceipt(result, status, fields = {}) {
+  return {
+    app_id: result.app_id,
+    store_app_id: result.store_app_id,
+    start: result.start,
+    end: result.end,
+    refresh_id: 'apple-fetch-123',
+    status,
+    inventory_job_id: 'inventory-run',
+    inventory_status: 'SUCCEEDED',
+    provider_status: 'METRIC_DOWNLOAD_REQUIRED',
+    coverage: 'COMPLETE',
+    files: [],
+    ...fields,
+  };
+}
+
+test('explicit Apple fetch follows the exact owner receipt then reads back saved counts and per-metric coverage', async () => {
+  const f = fixture();
+  const { form, result } = searchFixture(f);
+  const calls = [];
+  result.rows[0].discovery.counts.impressions = '72';
+  result.outcome_coverage = {
+    metrics: [
+      {
+        label: 'Total downloads',
+        value: '0',
+        scope: 'Selected Apple event days',
+        repair: null,
+        source_sha256: 'total-source-hash',
+      },
+      {
+        label: 'Paid subscriptions',
+        value: null,
+        scope: 'Verified paid cohort',
+        repair: 'Measure a named paid cohort.',
+        source_sha256: null,
+      },
+    ],
+    cohorts: [],
+  };
+  f.d.api = async (path, body) => {
+    calls.push({ path, body });
+    if (path.endsWith('/view')) return f.data;
+    if (path.endsWith('/performance-refresh')) return appleReceipt(result, 'INVENTORY');
+    if (path.endsWith('/performance-refresh-status'))
+      return appleReceipt(result, 'READY', {
+        files: [
+          {
+            job_id: 'apple-source-job',
+            status: 'SUCCEEDED',
+            report_family: 'App Downloads Standard',
+            processing_date: '2026-11-16',
+          },
+        ],
+        secret: 'unrelated-input-must-not-export',
+      });
+    assert.ok(path.endsWith('/search-review'));
+    return result;
+  };
+  let pdf, exported;
+  f.d.pageReports.openReport = (model) => {
+    pdf = model;
+  };
+  f.d.download = (_name, data) => {
+    exported = data;
+  };
+  await apple.open(f.d);
+  assert.match(f.html, /Fetch Apple analytics/);
+  const job = apple.submit(form, f.d);
+  await new Promise(setImmediate);
+  assert.match(
+    f.node.fields['#apple-performance-status'].textContent,
+    /Checking Apple report availability/,
+  );
+  await job;
+  assert.deepEqual(calls[1], {
+    path: '/api/apps/one/apple-analytics/performance-refresh',
+    body: {
+      manifest_version: 2,
+      start: result.start,
+      end: result.end,
+      connection_id: 'connection-1',
+      connection_version: 3,
+      request_id: '00000000-0000-4000-8000-000000000001',
+    },
+  });
+  assert.match(calls[2].path, /\/performance-refresh-status$/);
+  assert.match(calls[3].path, /\/search-review$/);
+  assert.match(
+    f.node.fields['#apple-performance-status'].textContent,
+    /Apple file collection finished/,
+  );
+  assert.match(
+    f.node.fields['#apple-performance-receipt'].innerHTML,
+    /inventory-run|apple-source-job/,
+  );
+  const output = f.node.fields['#apple-performance-results'].innerHTML;
+  assert.match(output, /<td>72<\/td>/);
+  assert.match(output, /Total downloads <strong>0<\/strong>/);
+  assert.match(output, /Paid subscriptions <strong>Unavailable<\/strong>/);
+  assert.match(output, /Measure a named paid cohort/);
+  await apple.action(click('search-report'), f.d);
+  assert.ok(pdf.sections.some((section) => section.title === 'Apple fetch receipt'));
+  assert.ok(pdf.sections.some((section) => section.title === 'Other Apple metrics and coverage'));
+  await apple.action(click('search-download'), f.d);
+  assert.equal(exported.apple_refresh.refresh_id, 'apple-fetch-123');
+  assert.equal(exported.outcome_coverage.metrics[0].source_sha256, 'total-source-hash');
+  assert.doesNotMatch(JSON.stringify(exported), /unrelated-input-must-not-export/);
+});
+
+test('interrupted Apple fetch reuses intent, and no matching files stay unavailable', async () => {
+  const f = fixture();
+  const { form, result } = searchFixture(f);
+  const requestIds = [];
+  let ids = 0;
+  f.d.uuid = () => 'request-' + ++ids;
+  result.rows[0].discovery.counts.impressions = null;
+  f.d.api = async (path, body) => {
+    if (path.endsWith('/view')) return f.data;
+    if (path.endsWith('/performance-refresh')) {
+      requestIds.push(body.request_id);
+      if (requestIds.length === 1) throw Error('Response interrupted');
+      return appleReceipt(result, 'NO_FILES_FOR_DATES', {
+        reason: 'Apple supplied no files for the selected dates.',
+      });
+    }
+    assert.ok(path.endsWith('/search-review'));
+    return result;
+  };
+  await apple.open(f.d);
+  await apple.submit(form, f.d, 'fetch');
+  assert.match(f.node.fields['#apple-performance-error'].textContent, /interrupted/);
+  await apple.submit(form, f.d, 'fetch');
+  assert.deepEqual(requestIds, ['request-1', 'request-1']);
+  assert.match(f.node.fields['#apple-performance-status'].textContent, /Apple supplied no files/);
+  assert.match(f.node.fields['#apple-performance-results'].innerHTML, /No Apple metrics are saved/);
+});
+
+test('owner without an Apple connection can open setup directly from the performance form', async () => {
+  const f = fixture();
+  f.state.workspace.records = [];
+  f.data.connection = null;
+  const { form } = searchFixture(f);
+  const opens = [];
+  let posts = 0;
+  f.d.api = async () => {
+    posts++;
+    return f.data;
+  };
+  f.d.connectionSetup = (provider, source) => opens.push({ provider, source });
+  await apple.open(f.d);
+  assert.match(f.html, /Connect App Store Connect/);
+  assert.doesNotMatch(f.html, /value="fetch">/);
+  await apple.submit(form, f.d, 'fetch');
+  await apple.action(click('setup'), f.d);
+  assert.equal(posts, 1);
+  assert.deepEqual(opens, [{ provider: 'app_store', source: null }]);
+});
+
+test('campaign fetch accepts only the saved same-window owner report shown in the current review', async () => {
+  const f = fixture();
+  const { form, result } = searchFixture(f);
+  const calls = [];
+  result.outcome_coverage = {
+    metrics: [
+      {
+        label: 'Campaign-attributed first-time downloads',
+        value: null,
+        scope: 'Saved owner report',
+        repair: 'Fetch Detailed files for this exact approved campaign.',
+        campaign_report_id: 'verified-report',
+      },
+    ],
+    cohorts: [],
+  };
+  f.d.api = async (path, body) => {
+    calls.push({ path, body });
+    if (path.endsWith('/view')) return f.data;
+    if (path.endsWith('/campaign-refresh')) return appleReceipt(result, 'READY');
+    return result;
+  };
+  await apple.open(f.d);
+  await apple.submit(form, f.d, 'search');
+  assert.match(f.node.fields['#apple-performance-results'].innerHTML, /Fetch campaign downloads/);
+  const request = click('campaign-fetch');
+  request.dataset.id = 'foreign-report';
+  await apple.action(request, f.d);
+  assert.equal(calls.length, 2);
+  request.dataset.id = 'verified-report';
+  await apple.action(request, f.d);
+  assert.deepEqual(calls[2], {
+    path: '/api/apps/one/apple-analytics/campaign-refresh',
+    body: {
+      manifest_version: 2,
+      start: result.start,
+      end: result.end,
+      connection_id: 'connection-1',
+      connection_version: 3,
+      request_id: '00000000-0000-4000-8000-000000000001',
+      campaign_report_id: 'verified-report',
+    },
+  });
+});
+
+test('selected search actions save and assign against the exact reviewed scope', async () => {
+  const f = fixture();
+  const { form, result } = searchFixture(f);
+  const calls = [];
+  const receipt = { id: 'receipt-1', action_id: 'web-baseline', status: 'SAVED' };
+  f.d.api = async (path, body) => {
+    calls.push({ path, body });
+    if (path.endsWith('/view')) return f.data;
+    if (path.endsWith('/search-review-assign')) {
+      result.search_review.assignments['web-baseline'] = {
+        grant_id: 'grant-1',
+        agent_id: 'actual-agent',
+        status: 'ASSIGNED',
+      };
+    }
+    if (path.endsWith('/search-review')) return result;
+    return { app_id: 'one', review_hash: 'exact-review-hash', receipt };
+  };
+  await apple.open(f.d);
+  await apple.submit(form, f.d, 'search');
+  const selected = click('search-save');
+  selected.dataset.id = 'web-baseline';
+  await apple.action(selected, f.d);
+  assert.deepEqual(calls.at(-1).body, {
+    manifest_version: 2,
+    start: result.start,
+    end: result.end,
+    review_hash: 'exact-review-hash',
+    action_id: 'web-baseline',
+  });
+  assert.match(f.node.fields['#apple-performance-results'].innerHTML, /Draft saved in WMM/);
+  f.node.querySelectorAll = (selector) =>
+    selector === '[data-search-agent]'
+      ? [{ dataset: { searchAgent: 'web-baseline' }, value: 'grant-1' }]
+      : [];
+  selected.dataset.action = 'apple-analytics-search-assign';
+  await apple.action(selected, f.d);
+  assert.equal(calls.at(-2).path, '/api/apps/one/apple-analytics/search-review-assign');
+  assert.equal(calls.at(-2).body.grant_id, 'grant-1');
+  assert.match(
+    f.node.fields['#apple-performance-status'].textContent,
+    /Step assigned to actual-agent/,
+  );
+  assert.match(f.node.fields['#apple-performance-results'].innerHTML, /Awaiting agent/);
+});
 
 test('shows truthful inventory, schedule and PDF evidence without private fields', async () => {
   const f = fixture();
@@ -180,7 +593,7 @@ test('a missing local key offers repair and keeps saved reports and pause availa
   assert.match(f.html, /Reconnect App Store Connect/);
   assert.match(f.html, /WAITING FOR REPORTS|0 report instances/);
   assert.match(f.html, /Pause refresh/);
-  assert.match(f.html, /Report \/ Save PDF/);
+  assert.match(f.html, /Inventory report \/ Save PDF/);
   assert.doesNotMatch(
     f.html,
     /Read Apple inventory|Collect store impressions|Enable refresh|Save refresh settings/,
@@ -523,4 +936,46 @@ test('inspect latest refresh opens only the saved job while the app and session 
   f.state.app = 'two';
   await apple.action(click('job'), f.d);
   assert.deepEqual(opened, ['refresh-1']);
+});
+
+test('fetch the selected OpenSEO project and read back the exact new report before refreshing the plan', async () => {
+  const f = fixture();
+  const { form, result } = searchFixture(f);
+  const calls = [];
+  f.d.state.workspace.insights = {
+    sources: [
+      { id: 'old', provider: 'openseo', status: 'DISCONNECTED' },
+      { id: 'current', provider: 'openseo', status: 'CONNECTED' },
+    ],
+  };
+  f.d.uuid = () => 'reading-save-id';
+  f.d.api = async (path, body) => {
+    calls.push({ path, body });
+    if (path.endsWith('/view')) return f.data;
+    if (path.endsWith('/search-web-fetch'))
+      return {
+        app_id: 'one',
+        source_id: 'current',
+        request_id: 'reading-save-id',
+        status: 'SAVED',
+        report_id: 'new-reading',
+        source_sha256: 'evidence',
+      };
+    return result;
+  };
+  await apple.open(f.d);
+  await apple.submit(form, f.d, 'search');
+  assert.match(f.node.fields['#apple-performance-results'].innerHTML, /Fetch OpenSEO search data/);
+  await apple.action(click('search-fetch-web'), f.d);
+  assert.deepEqual(calls.slice(-2), [
+    {
+      path: '/api/apps/one/apple-analytics/search-web-fetch',
+      body: { source_id: 'current', manifest_version: 2, request_id: 'reading-save-id' },
+    },
+    {
+      path: '/api/apps/one/apple-analytics/search-review',
+      body: { manifest_version: 2, start: '2026-11-13', end: '2026-11-17' },
+    },
+  ]);
+  assert.match(f.node.fields['#apple-performance-status'].textContent, /OpenSEO data fetched/);
 });

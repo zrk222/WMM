@@ -172,6 +172,20 @@ class AppleMetricsSchedulesRow(TypedDict):
     stop_at: float | None
 
 
+class ApplePerformanceRefreshesRow(TypedDict):
+    app_id: str
+    id: str
+    event_start: str
+    event_end: str
+    scope: str
+    scope_sha256: str
+    inventory_job_id: str
+    handoff_status: str | None
+    files: str | None
+    files_sha256: str | None
+    created: str
+
+
 class ApprovalsRow(TypedDict):
     id: str
     app_id: str
@@ -1232,6 +1246,27 @@ class RecordsRow(TypedDict):
     updated: str
 
 
+class SearchStoreActionReceiptsRow(TypedDict):
+    app_id: str
+    review_hash: str
+    action_id: str
+    data: str
+    hash: str
+
+
+class SearchTeamAssignmentsRow(TypedDict):
+    app_id: str
+    review_hash: str
+    action_id: str
+    grant_id: str
+    grant_version: int
+    agent_id: str
+    assigned_by: str
+    status: str
+    result: str | None
+    receipt_sha256: str | None
+
+
 class SequenceJobsRow(TypedDict):
     run_id: str
     app_id: str
@@ -1446,6 +1481,16 @@ class VideoProjectRevisionsRow(TypedDict):
     request_key: str
     request_hash: str
     created: str
+
+
+class WorkerJobDependenciesRow(TypedDict):
+    job_id: str
+    owner: str
+    owner_version: int
+    bindings: str
+    bindings_sha256: str
+    claimed_receipts: str | None
+    claimed_receipts_sha256: str | None
 
 
 class WorkflowEventsRow(TypedDict):

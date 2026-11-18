@@ -119,9 +119,12 @@ class OpenSEOReadTests(unittest.TestCase):
     def test_native_setup_read_save_and_disconnect(self) -> None:
         result = self.work.setup("sample-app", setup())
         sid = result["source_id"]
+        fetched = self.work.refresh("sample-app", sid, {"confirm_read": True})
+        self.assertEqual(fetched["status"], "CONNECTED")
         view = self.work.list("sample-app")
         self.assertNotIn(setup()["api_key"], json.dumps(view))
         report = view["reports"][0]
+        self.assertEqual(fetched["report_id"], report["id"])
         saved = save_reading(
             self.store, "sample-app", sid, dict(id="native-test", manifest_version=1, report_id=report["id"])
         )
@@ -134,6 +137,32 @@ class OpenSEOReadTests(unittest.TestCase):
             self.assertNotIn(setup()["api_key"], "\n".join(db.iterdump()))
         self.work.disconnect("sample-app", sid, dict(version=1, confirm_disconnect=True))
         self.assertEqual(FakeVault.values, {})
+
+    def test_native_schedule_reads_only_after_explicit_opt_in_and_due_time(self) -> None:
+        with patch("mission_control.openseo_transport.call_tool", side_effect=provider_reply) as remote:
+            sid = self.work.setup("sample-app", setup())["source_id"]
+            remote.assert_called_once()
+            remote.reset_mock()
+            self.assertEqual(self.work.tick()["status"], "IDLE")
+            remote.assert_not_called()
+
+            opt_in = dict(setup(), version=1, automatic=True)
+            self.assertEqual(self.work.setup("sample-app", opt_in)["source_id"], sid)
+            remote.assert_called_once()
+            remote.reset_mock()
+            self.assertEqual(self.work.tick()["status"], "IDLE")
+            remote.assert_not_called()
+
+            with connection(self.store.path, write=True) as db:
+                db.execute("UPDATE insight_sources SET next_due=0 WHERE app_id=? AND id=?", ("sample-app", sid))
+            result = self.work.tick()
+            self.assertEqual(result["status"], "CONNECTED")
+            report = result["report"]
+            assert isinstance(report, dict)
+            self.assertEqual(report["provider"], "openseo")
+            remote.assert_called_once()
+            self.assertEqual(self.work.tick()["status"], "IDLE")
+            self.assertEqual(remote.call_count, 1)
 
     def test_wrong_property_cannot_replace_a_working_source(self) -> None:
         source = self.work.setup("sample-app", setup())["source_id"]

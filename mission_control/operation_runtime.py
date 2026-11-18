@@ -22,6 +22,7 @@ def execute(service, envelope, *, caller="SCOPED_AGENT"):
     from .ledger import Ledger
     from .managed_media_store import Media
     from .openseo_read import dispatch as web_research_dispatch
+    from .search_team import run_assigned
     from .video_edit_jobs import EditRenders
     from .video_edit_projects import Projects
     from .worker import jobs
@@ -209,6 +210,7 @@ def execute(service, envelope, *, caller="SCOPED_AGENT"):
             cursor=body.get("cursor"),
             limit=body.get("limit", 20),
         ),
+        "search.plan.execute": lambda: run_assigned(store, envelope),
         "web.research.read": lambda: web_research_dispatch(service, envelope),
         "web.research.save": lambda: web_research_dispatch(service, envelope),
         "growth.read": lambda: service.subscription_review(app),

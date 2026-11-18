@@ -225,7 +225,8 @@ function render() {
     research: researchView,
   };
   $('#main').innerHTML = views[state.view]();
-  const runtimeAnchor = state.view === 'activity' ? $('#activity-front') : $('#main .page-heading');
+  const runtimeAnchor =
+    state.view === 'activity' ? $('#activity-campaign') : $('#main .page-heading');
   if (['agents', 'activity'].includes(state.view))
     runtimeAnchor.insertAdjacentHTML(
       'afterend',

@@ -1,5 +1,7 @@
 """Actual loopback owner routes with synthetic identity and provider responses."""
 
+import gzip
+import hashlib
 import json
 import tempfile
 import threading
@@ -10,14 +12,20 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request
 
-from mission_control.apple_analytics import CAMPAIGN_DOWNLOADS
+from mission_control.apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, DOWNLOADS
 from mission_control.common import now
 from mission_control.db import connection
+from mission_control.growth_review_store import GrowthReviews
+from mission_control.insights import Insights
+from mission_control.openseo_read import save_reading
 from mission_control.operator_client import ClientError, OperatorClient
+from mission_control.search_store_review import search_store_review
 from mission_control.server import Server, owner_domain_post
 from mission_control.service import Service
 from mission_control.store import Store
 from mission_control.worker import run_once
+from tests.test_measurement_connectors import FakeVault
+from tests.test_openseo_read import provider_reply, setup
 
 APP = "sample-one"
 BASE = "/api/apps/sample-one/apple-analytics/"
@@ -128,6 +136,227 @@ class AppleMetricsRouteTests(unittest.TestCase):
             dict(manifest_version=self.app["version"], enabled=False, version=schedule["version"]),
         )
         self.assertFalse(paused["enabled"])
+
+    def test_performance_refresh_downloads_matching_files_and_replays_without_duplicates(self) -> None:
+        window = dict(manifest_version=self.app["version"], start="2026-01-01", end="2026-01-01")
+        body = dict(window, request_id="fresh-window", connection_id=self.record["id"], connection_version=1)
+        route, status_route = BASE + "performance-refresh", BASE + "performance-refresh-status"
+        self.assertEqual(self.post(status_route, window)["status"], "NOT_REQUESTED")
+        anon = OperatorClient(self.client.origin)
+        anon.bootstrap()
+        self.reject(anon, route, body, 403)
+        self.reject(anon, status_route, window, 403)
+        self.reject(self.client, route, dict(body, connection_version=2), 400)
+        admitted = self.post(route, body)
+        self.assertEqual(admitted["status"], "INVENTORY")
+        self.assertEqual(self.post(route, body), admitted)
+        self.reject(self.client, route, dict(body, request_id="overlapping-window"), 400)
+        self.reject(self.client, route, dict(body, end="2026-01-02"), 400)
+
+        inventory = dict(
+            operation="analytics_reports",
+            status="METRIC_DOWNLOAD_REQUIRED",
+            coverage="COMPLETE",
+            reports=[
+                dict(
+                    id="discovery-report",
+                    name=DISCOVERY,
+                    coverage="COMPLETE",
+                    instances=[
+                        dict(id="discovery-day", processing_date="2026-01-04", granularity="DAILY"),
+                        dict(id="late-file", processing_date="2026-01-18", granularity="DAILY"),
+                    ],
+                ),
+                dict(
+                    id="download-report",
+                    name=DOWNLOADS,
+                    coverage="COMPLETE",
+                    instances=[
+                        dict(id="downloads-day", processing_date="2026-01-03", granularity="DAILY"),
+                    ],
+                ),
+                dict(
+                    id="not-selected",
+                    name=CAMPAIGN_DOWNLOADS,
+                    coverage="COMPLETE",
+                    instances=[
+                        dict(id="detailed-day", processing_date="2026-01-03", granularity="DAILY"),
+                    ],
+                ),
+            ],
+        )
+        tab_separated = {
+            "discovery-day": b"Date\tApp Apple Identifier\tEvent\tCounts\tUnique Counts\n2026-01-01\t123\tImpression\t7\t5\n",
+            "downloads-day": b"Date\tApp Apple Identifier\tDownload Type\tCounts\n2026-01-01\t123\tFirst-time download\t0\n",
+        }
+
+        def segments(_reader, store_id, _report_id, instance_id):
+            self.assertEqual(store_id, "123")
+            raw = gzip.compress(tab_separated[instance_id], mtime=0)
+            return [
+                dict(
+                    id=instance_id,
+                    data=raw,
+                    size=len(raw),
+                    checksum=hashlib.md5(raw, usedforsecurity=False).hexdigest(),
+                )
+            ]
+
+        with (
+            patch("mission_control.provider_reports.credential", return_value="fixture"),
+            patch("mission_control.provider_reports.read_analytics", return_value=inventory),
+            patch("mission_control.provider_reports.read_instance_segments", side_effect=segments) as read_files,
+        ):
+            self.assertTrue(run_once(self.store))
+            handed_off = self.post(status_route, window)
+            self.assertEqual(handed_off["status"], "COLLECTING")
+            self.assertEqual(handed_off["provider_status"], "METRIC_DOWNLOAD_REQUIRED")
+            self.assertEqual(handed_off["inventory_job_id"], admitted["inventory_job_id"])
+            self.assertEqual({file["report_family"] for file in handed_off["files"]}, {DISCOVERY, DOWNLOADS})
+            restarted = Store(self.store.path)
+            self.assertTrue(run_once(restarted))
+            self.assertTrue(run_once(restarted))
+            self.assertFalse(run_once(restarted))
+            done = self.post(status_route, window)
+            self.assertEqual(done["status"], "READY")
+            self.assertFalse(done["external_writes"])
+            self.assertEqual(self.post(route, body), done)
+            report = self.post(BASE + "performance", window)["rows"][0]
+            self.assertEqual(report["discovery"]["counts"]["impressions"], "7")
+            self.assertEqual(report["downloads"]["counts"]["first_time_downloads"], "0")
+            self.assertEqual(read_files.call_count, 2)
+            self.post(route, dict(body, request_id="confirmed-second-refresh"))
+            self.assertTrue(run_once(restarted))
+            self.assertFalse(run_once(restarted))
+            again = self.post(status_route, window)
+            self.assertEqual(again["status"], "READY")
+            self.assertNotEqual(again["inventory_job_id"], done["inventory_job_id"])
+            self.assertEqual(again["files"], done["files"])
+            self.assertEqual(read_files.call_count, 2)
+
+    def test_performance_refresh_reports_missing_apple_files_and_scope_changes_explicitly(self) -> None:
+        window = dict(manifest_version=self.app["version"], start="2026-01-01", end="2026-01-02")
+        body = dict(window, request_id="waiting-window", connection_id=self.record["id"], connection_version=1)
+        route, status_route = BASE + "performance-refresh", BASE + "performance-refresh-status"
+        self.post(route, body)
+        inventory = dict(
+            provider="app_store",
+            operation="analytics_reports",
+            app_id=APP,
+            store_app_id="123",
+            status="WAITING_FOR_REPORTS",
+            coverage="COMPLETE",
+            observed_at=now(),
+            reports=[],
+        )
+        with patch("mission_control.worker.read_report", return_value=inventory):
+            self.assertTrue(run_once(self.store))
+        waiting = self.post(status_route, window)
+        self.assertEqual(waiting["status"], "WAITING_FOR_REPORTS")
+        self.assertEqual(waiting["provider_status"], "WAITING_FOR_REPORTS")
+        self.assertEqual(waiting["files"], [])
+        self.post(route, dict(body, request_id="revoked-window"))
+        app = self.store.app(APP)
+        changed = self.store.save_app(APP, dict(app["data"], name="New app manifest"), app["version"])
+        with patch("mission_control.worker.read_report") as read, self.assertRaises(ClientError):
+            self.assertTrue(run_once(self.store))
+            read.assert_not_called()
+            self.post(status_route, window)
+        stale = self.post(status_route, dict(window, manifest_version=changed["version"]))
+        self.assertEqual(stale["status"], "SOURCE_CHANGED")
+        self.assertEqual(stale["files"], [])
+
+    def test_search_review_uses_current_verified_web_evidence_and_retains_apple_window(self) -> None:
+        app = self.store.app(APP)
+        self.app = self.store.save_app(
+            APP,
+            dict(app["data"], website="https://sample.example", release="build-1", locale="en-US"),
+            app["version"],
+        )
+        body = dict(manifest_version=self.app["version"], start="2026-01-01", end="2026-01-05")
+        path = BASE + "search-review"
+        anon = OperatorClient(self.client.origin)
+        anon.bootstrap()
+        self.reject(anon, path, body, 403)
+        self.reject(self.client, path, dict(body, raw_metrics=[]), 400)
+        self.reject(self.client, path, dict(body, manifest_version=self.app["version"] + 1), 400)
+        with patch("mission_control.worker.read_report") as apple:
+            empty = self.post(path, body)
+        apple.assert_not_called()
+        self.assertEqual(empty["rows"], self.post(BASE + "performance", body)["rows"])
+        self.assertEqual(len(empty["rows"]), 5)
+        review = empty["search_review"]
+        self.assertEqual(review["web_facts"], [])
+        self.assertEqual([action["id"] for action in review["actions"]], ["apple-baseline", "web-baseline"])
+        self.assertIn("0/5 days", review["insight"])
+
+        FakeVault.values, FakeVault.fail_delete = {}, 0
+        with patch("mission_control.insights.Vault", FakeVault):
+            owner = Insights(self.store)
+            with patch("mission_control.openseo_transport.call_tool", side_effect=provider_reply):
+                source_id = owner.setup(APP, setup())["source_id"]
+            report = owner.list(APP)["reports"][0]
+            GrowthReviews(self.store).save(
+                APP,
+                dict(
+                    id="operator-search-review",
+                    manifest_version=self.app["version"],
+                    kind="WEB_SEO_EVIDENCE",
+                    data=report["data"]["web_evidence"],
+                ),
+            )
+            self.assertEqual(self.post(path, body)["search_review"]["web_facts"], [])
+            evidence = save_reading(
+                self.store,
+                APP,
+                source_id,
+                dict(id="native-search-review", manifest_version=self.app["version"], report_id=report["id"]),
+            )
+            fetch_path = BASE + "search-web-fetch"
+            fetch_body = dict(source_id=source_id, manifest_version=self.app["version"], request_id="fetch-once")
+            with patch("mission_control.openseo_transport.call_tool", side_effect=provider_reply) as provider:
+                self.reject(anon, fetch_path, fetch_body, 403)
+                self.reject(self.client, fetch_path, dict(fetch_body, manifest_version=self.app["version"] + 1), 400)
+                provider.assert_not_called()
+                fetched = self.post(fetch_path, fetch_body)
+                self.assertEqual(fetched["status"], "SAVED")
+                self.assertEqual(fetched["report_id"], owner.list(APP)["reports"][0]["id"])
+                calls = provider.call_count
+                self.assertGreater(calls, 0)
+                self.assertEqual(self.post(fetch_path, fetch_body), fetched)
+                self.assertEqual(provider.call_count, calls)
+            with patch("mission_control.openseo_transport.call_tool") as web:
+                combined = self.post(path, body)
+            web.assert_not_called()
+            self.assertEqual(combined["rows"], empty["rows"])
+            self.assertFalse(combined["external_writes"])
+            self.assertNotIn(setup()["api_key"], json.dumps(combined))
+            review = combined["search_review"]
+            self.assertNotEqual(review["web_evidence_sha256"], evidence["hash"])
+            self.assertEqual(review["web_evidence_sha256"], fetched["review_sha256"])
+            self.assertIn("Google organic clicks 4", review["web_facts"])
+            self.assertIn("Google organic impressions 100", review["web_facts"])
+            self.assertIn("Google organic click-through rate 4.0%", review["web_facts"])
+            self.assertIn("https://sample.example/guide", review["actions"][2]["task"])
+            self.assertEqual(review["actions"][2]["depends_on"], ["web-baseline"])
+            mature_rows = [
+                dict(
+                    day,
+                    discovery=dict(status="APPLE_REPORTED", counts=dict(impressions="0")),
+                    downloads=dict(status="APPLE_REPORTED", counts=dict(first_time_downloads="0")),
+                )
+                for day in combined["rows"]
+            ]
+            with connection(self.store.path) as db:
+                db.execute("BEGIN")
+                planned = search_store_review(db, dict(combined, rows=mature_rows), True)
+            self.assertEqual(planned["actions"][-1]["id"], "measure-tag")
+            self.assertEqual(planned["actions"][-1]["depends_on"], ["test-brief", "store-link-check"])
+            owner.disconnect(APP, source_id, dict(version=1, confirm_disconnect=True))
+            disconnected = self.post(path, body)["search_review"]
+            self.assertIsNone(disconnected["web_evidence_sha256"])
+            self.assertEqual(disconnected["web_facts"], [])
+            self.assertEqual([action["id"] for action in disconnected["actions"]], ["apple-baseline", "web-baseline"])
 
     def campaign_inventory(self, processing_dates: list[tuple[str, str, str]]) -> str:
         result = dict(

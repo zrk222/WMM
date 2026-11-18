@@ -28,13 +28,14 @@ import { attributionPanel } from './attribution.mjs';
 import { briefForm } from './app-production.mjs';
 import { download, field, modal, money, percent } from './app-ui.mjs';
 import { guidedEvidenceStates } from './guided-workflow.mjs';
-import { insightsPanel } from './insights.mjs';
+import { insightsInspect, insightsPanel, insightsSetup } from './insights.mjs';
 import { installAttributionPanel } from './app-install.mjs';
 import { openRender, renderForm } from './creative-rendering.mjs';
 import { outcomeLearningPanel } from './outcome-learning.mjs';
 import { paymentResultsPanel } from './signed-payments.mjs';
 import { storekitPanel } from './storekit.mjs';
 import {
+  WMMAppleAnalytics,
   WMMCustomerWorkflow,
   WMMFunnels,
   WMMGrowthReview,
@@ -88,6 +89,7 @@ function resultsView() {
     ${study ? `<h3>${esc(study.link.study.name)}</h3><p>Saved view checked ${esc(savedWhen(study.report.as_of))}.</p>${WMMObservationalCampaign.checkpointMarkup(study.report)}` : '<p>Choose a tracked study to see the result it supports or what you need to collect next.</p>'}
     ${study ? button('Open study evidence', 'first-post-evidence') : ''}${button(study ? 'Change tracked study' : 'Choose a tracked study', 'first-post-open')}</section>`;
   return (
+    WMMAppleAnalytics.reviewPanel() +
     decision +
     kpiGapPanel() +
     launchGatePanel() +
@@ -119,6 +121,16 @@ function growthReviewServices() {
     openExperiment,
     openJob,
     connectionSetup,
+    openOpenSEO: () => {
+      const source = state.workspace.insights?.sources?.find(
+        (item) => item.provider === 'openseo' && item.status !== 'DISCONNECTED',
+      );
+      return source ? insightsInspect(source.id) : insightsSetup('openseo');
+    },
+    openAgents: () => {
+      state.view = 'agents';
+      render();
+    },
     openAccess: () => {
       state.view = 'activity';
       render();

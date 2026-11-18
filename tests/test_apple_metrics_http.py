@@ -1,20 +1,21 @@
 """Synthetic owner-only analytics tests; no live credentials or provider calls."""
 
-from contextlib import closing, contextmanager
 import gzip
 import hashlib
 import json
-from pathlib import Path
 import sqlite3
 import tempfile
-from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from contextlib import closing, contextmanager
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
+from unittest.mock import Mock, patch
 
 from mission_control import apple_metrics_http as api
-from mission_control.apple_analytics import DISCOVERY
-from mission_control.apple_metrics_store import read_partition
+from mission_control.apple_analytics import DISCOVERY, DOWNLOADS
 from mission_control.apple_metrics_schedule import AppleMetricsSchedules
+from mission_control.apple_metrics_store import read_partition
 from mission_control.common import Invalid, canonical, now
 from mission_control.connection_setup import Connections, bound_status_source
 from mission_control.db import connection
@@ -78,7 +79,8 @@ class AppleMetricsHttpTests(unittest.TestCase):
             )
         self.identities = Identities()
 
-    def saved_inventory(self, job_id="job-1", discovery=False, **changes):
+    def saved_inventory(self, job_id="job-1", discovery=False, report_instances=None, **changes):
+        instances = report_instances or {}
         data = dict(
             connection_id=self.record["id"],
             connection_version=self.record["version"],
@@ -87,19 +89,21 @@ class AppleMetricsHttpTests(unittest.TestCase):
             options={"operation": "analytics_reports"},
         )
         data.update(changes)
-        result = dict(
+        result: dict[str, Any] = dict(
             provider="app_store",
             operation="analytics_reports",
             app_id=APP,
             store_app_id="123",
-            status="WAITING_FOR_REPORTS",
+            status="METRIC_DOWNLOAD_REQUIRED" if any(instances.values()) else "WAITING_FOR_REPORTS",
             coverage="COMPLETE",
             observed_at=now(),
-            reports=[dict(id=REPORT, name="App Downloads Standard", coverage="COMPLETE", instances=[])],
+            reports=[dict(id=REPORT, name=DOWNLOADS, coverage="COMPLETE", instances=instances.get(DOWNLOADS, []))],
             sensitive="synthetic-private-https://example.invalid",
         )
         if discovery:
-            result["reports"].append(dict(id="discovery-1", name=DISCOVERY, coverage="COMPLETE", instances=[]))
+            result["reports"].append(
+                dict(id="discovery-1", name=DISCOVERY, coverage="COMPLETE", instances=instances.get(DISCOVERY, []))
+            )
         with connection(self.store.path) as db:
             db.execute(
                 "INSERT INTO jobs(id,app_id,action,data,status,result,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?,?)",
@@ -115,7 +119,7 @@ class AppleMetricsHttpTests(unittest.TestCase):
         ):
             yield
 
-    def dispatch(self, action, body):
+    def dispatch(self, action, body) -> Any:
         with self.owner():
             return api.dispatch(self.service, APP, action, body)
 
@@ -136,8 +140,12 @@ class AppleMetricsHttpTests(unittest.TestCase):
             db.execute(sql, values)
 
     def count(self, table):
+        query = {
+            "jobs": "SELECT count(*) FROM jobs",
+            "apple_metrics_schedules": "SELECT count(*) FROM apple_metrics_schedules",
+        }[table]
         with connection(self.store.path) as db:
-            return db.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+            return db.execute(query).fetchone()[0]
 
     def test_view_only_returns_current_metadata_and_unknown_metrics(self):
         self.saved_inventory()
@@ -158,7 +166,7 @@ class AppleMetricsHttpTests(unittest.TestCase):
         for status in ("RECONNECT_REQUIRED", "PROTECTED_STORAGE_UNAVAILABLE"):
             with (
                 self.subTest(status=status),
-                bound_status_source(lambda store, app_id: {self.record["id"]: {"status": status}}),
+                bound_status_source(lambda store, app_id, status=status: {self.record["id"]: {"status": status}}),
             ):
                 value = self.dispatch("view", {})
                 self.assertEqual(value["connection"]["status"], status)
@@ -182,7 +190,7 @@ class AppleMetricsHttpTests(unittest.TestCase):
     def test_managed_key_probe_uses_exact_binding_and_does_not_return_configuration(self):
         data = dict(self.record["data"], auth_mode="managed_key", credential_ref="00000000-0000-4000-8000-000000000001")
         self.record = self.store.save_record(APP, dict(self.record, data=data))
-        local_get = unittest.mock.Mock(side_effect=[None, {"private_key": "PRIVATE_SENTINEL"}])
+        local_get = Mock(side_effect=[None, {"private_key": "PRIVATE_SENTINEL"}])
         vault = SimpleNamespace(get=local_get)
         with (
             patch.object(Connections, "vault", return_value=vault),
@@ -218,7 +226,7 @@ class AppleMetricsHttpTests(unittest.TestCase):
         self.assertFalse(paused["enabled"])
         for action, body in [
             ("view", {"actor": "owner"}),
-            ("inventory", dict(self.inventory_body(), token="bad")),
+            ("inventory", dict(self.inventory_body(), token=APP)),
             ("schedule", dict(self.schedule_body(), report_id="foreign")),
         ]:
             with self.subTest(action=action), self.assertRaises(Invalid):
@@ -305,6 +313,7 @@ class AppleMetricsHttpTests(unittest.TestCase):
             event_date="2026-10-23",
         )
         retained = read_partition(self.store.path, key)
+        assert retained is not None
         self.assertEqual([r["type"] for r in retained["instance"]["rows"]], ["impression", "impression", "page_view"])
         self.assertEqual(self.dispatch("view", {})["schedule"]["version"], schedule["version"])
         self.assertEqual(self.dispatch("view", {})["schedule"]["report_id"], REPORT)
@@ -333,6 +342,83 @@ class AppleMetricsHttpTests(unittest.TestCase):
         failed = next(j for j in self.service.workspace(APP)["jobs"] if j["id"] == rejected["job_id"])
         self.assertEqual(failed["status"], "BLOCKED")
         self.assertEqual(read_partition(self.store.path, key), retained)
+
+    def test_five_day_performance_reads_saved_counts_and_receipts(self) -> None:
+        inventory = {
+            DISCOVERY: [
+                dict(id="discovery-daily", processing_date="2026-10-25", granularity="DAILY"),
+                dict(id="discovery-weekly", processing_date="2026-10-25", granularity="WEEKLY"),
+            ],
+            DOWNLOADS: [dict(id="downloads-daily", processing_date="2026-10-27", granularity="DAILY")],
+        }
+        self.saved_inventory(discovery=True, report_instances=inventory)
+        body = dict(manifest_version=self.app["version"], start="2026-10-21", end="2026-10-25")
+        with self.assertRaises(Invalid):
+            self.dispatch("performance-collect", dict(body, inventory_id="stale-job"))
+        queued = self.dispatch("performance-collect", dict(body, inventory_id="job-1"))
+        self.assertEqual(queued, self.dispatch("performance-collect", dict(body, inventory_id="job-1")))
+        self.assertEqual(len(queued["jobs"]), 2)
+        self.assertFalse(queued["external_writes"])
+        files = {
+            "discovery-daily": (
+                b"Date\tApp Apple Identifier\tEvent\tCounts\tUnique Counts\tTerritory\n"
+                b"2026-10-24\t123\tImpression\t9\t7\tUS\n"
+                b"2026-10-24\t123\tImpression\t4\t2\tCA\n"
+                b"2026-10-24\t123\tPage view\t2\t2\tUS\n"
+            ),
+            "downloads-daily": (
+                b"Date\tApp Apple Identifier\tDownload Type\tCounts\n2026-10-25\t123\tFirst-time download\t0\n"
+            ),
+        }
+
+        def segments(_reader, store_id, _report_id, instance_id):
+            self.assertEqual(store_id, "123")
+            raw = gzip.compress(files[instance_id], mtime=0)
+            return [
+                dict(
+                    id=instance_id,
+                    data=raw,
+                    size=len(raw),
+                    checksum=hashlib.md5(raw, usedforsecurity=False).hexdigest(),
+                )
+            ]
+
+        reports = [
+            dict(
+                id="discovery-1" if family == DISCOVERY else REPORT,
+                name=family,
+                instances=instances,
+                coverage="COMPLETE",
+            )
+            for family, instances in inventory.items()
+        ]
+        with (
+            patch("mission_control.provider_reports.credential", return_value="fixture"),
+            patch(
+                "mission_control.provider_reports.read_analytics",
+                return_value=dict(reports=reports, coverage="COMPLETE"),
+            ),
+            patch("mission_control.provider_reports.read_instance_segments", side_effect=segments),
+        ):
+            self.assertTrue(run_once(self.store))
+            self.assertTrue(run_once(self.store))
+        result = self.dispatch("performance", body)
+        self.assertEqual([row["date"] for row in result["rows"]], [f"2026-10-{day}" for day in range(21, 26)])
+        missing, _, _, discovery, downloads = result["rows"]
+        self.assertIsNone(missing["discovery"]["counts"]["impressions"])
+        self.assertIsNone(missing["discovery"]["source_sha256"])
+        self.assertEqual(discovery["discovery"]["counts"], {"impressions": "13", "page_views": "2"})
+        self.assertEqual(discovery["discovery"]["status"], "PROVISIONAL")
+        self.assertEqual(downloads["downloads"]["counts"], {"first_time_downloads": "0", "redownloads": None})
+        self.assertEqual(downloads["downloads"]["status"], "APPLE_REPORTED")
+        self.assertRegex(downloads["downloads"]["source_sha256"], r"^[0-9a-f]{64}$")
+        self.assertFalse(result["external_writes"])
+        with connection(self.store.path) as db:
+            db.execute("BEGIN")
+            combined, _ = api.search_review_snapshot(db, APP, body)
+        self.assertEqual(combined["rows"], result["rows"])
+        self.assertIn("mature first-time download counts for 1/5 days", combined["search_review"]["insight"])
+        self.assertEqual(combined["search_review"]["web_facts"], [])
 
     def test_queue_rechecks_manifest_in_actual_write_transaction(self):
         original = self.service.queue

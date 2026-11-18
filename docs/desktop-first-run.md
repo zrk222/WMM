@@ -104,9 +104,10 @@ Missing measurements stay unknown. Provider access still needs the right account
 ## When you are ready to run an approved campaign
 
 1. In **Set your goal**, choose **Run an approved campaign**, then
-   **Check connections for this goal**. Choose **Check WMM-managed setup** for
-   WMM's worker or **Use my personal agent** for an assistant you run yourself.
-   Checking setup does not approve a campaign or start work.
+   **Check connections for this goal**. Choose **Check Facebook and Meta
+   accounts** to connect or test your Page and optional ad account. If you want
+   an assistant, choose **Check WMM-managed setup** or **Use my personal agent**.
+   Review and approve the exact schedule separately.
 2. Follow the repair shown for each missing item. For a Facebook Page campaign
    in WMM, **Review campaign scope** shows the exact post, destination, limits
    and expiry. Review the approved posts and their dates separately before

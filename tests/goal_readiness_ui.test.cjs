@@ -325,10 +325,11 @@ test('mode choice starts no calls and personal agent opens only existing grant c
   h.c.growthReviewServices = () => ({ current: true });
   h.w.open();
   assert.equal(h.calls.length, 1);
-  assert.equal(h.calls[0].title, 'Choose your agent setup');
+  assert.equal(h.calls[0].title, 'Check campaign connections');
   assert.match(h.calls[0].body, /goal-readiness-mode/);
   assert.match(h.calls[0].body, /Use my personal agent/);
   assert.match(h.calls[0].body, /Check WMM-managed setup/);
+  assert.match(h.calls[0].body, /Check Facebook and Meta accounts/);
   assert.match(h.calls[0].body, /This step starts no work and grants no permission/);
   h.w.repair('external-agent');
   assert.equal(h.calls[1].grant, 'control-grants');
@@ -338,8 +339,8 @@ test('mode choice starts no calls and personal agent opens only existing grant c
   );
   assert.throws(() => h.w.repair('standing-readiness'));
 });
-test('stale or closed initial mode cannot route either execution mode', () => {
-  for (const tool of ['external-agent', 'standing-readiness'])
+test('stale or closed initial setup cannot route its controls', () => {
+  for (const tool of ['campaign-accounts', 'external-agent', 'standing-readiness'])
     for (const kind of ['app', 'version', 'principal', 'goal', 'dialog', 'replaced']) {
       const h = fixture();
       h.w.open();

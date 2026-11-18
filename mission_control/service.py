@@ -41,6 +41,15 @@ from .worker import enqueue, jobs
 from .workflow_automation import recommend
 
 
+def _validate_dependent_job(body):
+    if (
+        set(body) != {"action", "data", "request_key", "depends_on_jobs"}
+        or body["action"] not in ("pipeline", "sync")
+        or not isinstance(body["depends_on_jobs"], list)
+    ):
+        raise Invalid("Choose prerequisite jobs for a local pipeline or supported read")
+
+
 def validate_evidence(kind, data, app_id):
     """Validate field presence before kind-specific arithmetic and typed values."""
     if kind not in FIELDS or not isinstance(data, dict):
@@ -433,6 +442,9 @@ class Service:
         if body.get("action") == "sync":
             body = {**body, "data": self.sync_data(app_id, body["data"])}
         args = (self.store, app_id, body.get("action"), body.get("data", {}), body.get("request_key"))
+        if "depends_on_jobs" in body:
+            _validate_dependent_job(body)
+            return enqueue(*args, commit_check=commit_check, depends_on_jobs=body["depends_on_jobs"])
         return enqueue(*args) if commit_check is None else enqueue(*args, commit_check=commit_check)
 
     def sync_data(self, app_id, data):
@@ -453,8 +465,13 @@ class Service:
         if binding["data"].get("provider") == "google_play":
             data = self.play_sync_data(app_id, binding, data)
         if "options" in data:
+            from .apple_analytics import PURCHASES, SUBSCRIPTION_STATE
+
             report_options(binding["data"]["provider"], data["options"])
-            operation = cast(dict[str, object], data["options"])["operation"]
+            options = cast(dict[str, object], data["options"])
+            if options.get("report_family") in (PURCHASES, SUBSCRIPTION_STATE):
+                raise Invalid("Open the owner performance report to read app-scoped commerce metrics")
+            operation = options["operation"]
             if operation in ("subscription_catalog", "launch_versions"):
                 app = self.store.app(app_id)
                 validate_catalog_scope(app, binding["data"])

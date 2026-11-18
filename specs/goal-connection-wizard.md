@@ -13,7 +13,8 @@ Present outcome-specific owner connection selection and the existing authoritati
 - The system shall display every selected workflow blocker and a fixed repair action through `show_blockers`.
 - The system shall display readiness as preparation for scope review and shall issue no execution authority through `no_authority`.
 - The system shall display owner-reviewed organic Instagram, TikTok, YouTube and LinkedIn work alongside Facebook through `organic_channels`, naming the supported connection path without treating adapter availability or a read-tested account as publication permission.
-- For an app with an App Store listing, the campaign and measurement goals shall open the current app's Apple download tracking panel. The campaign goal shall also open the app's social account setup when there is no read-tested Facebook Page, or the exact campaign review when there is one. These entries shall reject stale app actions and issue no approval.
+- Where the current app has an App Store listing, the system shall offer Apple download tracking in the campaign and measurement goals. For the campaign goal, the system shall offer social account setup when a read-tested Facebook Page is missing, or exact campaign review when the Page has a saved read test. Both entry points shall reject stale app actions and issue no approval.
+- When the current app owner opens campaign readiness, the system shall offer the app's social account setup without requiring an agent. The link shall share the app, goal, owner and dialog freshness checks of the agent setup options.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin
@@ -47,6 +48,11 @@ Scenario: organic_channels
  Then the wizard names Instagram, TikTok, YouTube Shorts and LinkedIn
  And direct Instagram Login is directed to the supported Facebook Page connection path
  And the exact owner publication approval remains required
+Scenario: campaign_account_setup
+ Given the owner selected the campaign goal
+ When the owner selects Check Facebook and Meta accounts
+ Then focus moves to the selected app's social account setup
+ And no readiness request or authority change is made
 ```
 
 ## SHOULD - Technical

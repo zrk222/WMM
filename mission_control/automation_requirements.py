@@ -176,6 +176,7 @@ MAX_WORKFLOWS = len(WORKFLOWS)
 UNBUNDLED_OPERATIONS = {
     "web.research.read": "local_evidence",
     "web.research.save": "local_evidence",
+    "search.plan.execute": "local_evidence",
     "packaging.editor-prepare": "video_authoring_editing",
     "observational-campaign.register": "local_evidence",
     "observational-campaign.link": "local_evidence",

@@ -24,7 +24,7 @@ from .operation_outcome import EffectUncertain
 from .operator_identity import AutomationOwnerSession, Identities, local_owner_session
 from .service import Service
 from .store import Store
-from .worker import Runner
+from .worker import Runner, queue_app_job
 
 STATIC = Path(__file__).resolve().parent / "static"
 
@@ -1069,7 +1069,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.save_owner_asset(parts, app_id, data, lambda: service.evidence(app_id, data))
         routes = {
             "records": lambda: service.evidence(app_id, data),
-            "jobs": lambda: service.queue(app_id, data),
+            "jobs": lambda: queue_app_job(self, parts, data),
             "reviews": lambda: service.prepare_review(app_id, data),
             "cohorts": lambda: service.cohort(app_id, data),
             "events": lambda: service.events(app_id, data),

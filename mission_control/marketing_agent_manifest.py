@@ -223,6 +223,25 @@ def owner_operating_protocol():
 
     return {
         "schema": "growth.owner-operating-protocol.v1",
+        "action_plan": {
+            "scope": "All app-scoped workflows operated by personal agents or teams",
+            "step_fields": [
+                "step_id",
+                "task",
+                "assigned_agent_id",
+                "operation",
+                "depends_on",
+                "source_evidence",
+                "expected_result",
+                "completion_receipt",
+                "status",
+            ],
+            "assignment": "Bind each runnable step to an authenticated agent and current app grant. Keep unassigned steps visible.",
+            "dispatch": "Run independent authorized steps concurrently. Wait for prerequisite receipts before dependent work. Serialize changes to shared resources.",
+            "completion": "Verify the promised deliverable against its receipt. A draft, a provider readback and a measured outcome each require different evidence.",
+            "recovery": "Reuse stable request keys across restarts. Reconcile uncertain effects before retry. Surface blocked steps with a specific repair.",
+            "follow_up": "Use fresh measurements and guardrails to propose the next steps. Execute supported work within current authority.",
+        },
         "draft_output_contract": output_contract(),
         "draft_recipes": draft_recipes(),
         "purpose": "Help this app acquire, activate and retain paying users through evidence-backed marketing experiments.",

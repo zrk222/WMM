@@ -276,10 +276,11 @@ class ReleaseTests(unittest.TestCase):
             self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11.1.6"))
             self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11.2"))
             self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11.2.1"))
+            self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11.2.2"))
             for tag in (
                 "v0.1.0-preview.10",
                 "v0.1.0-preview.11.1.7",
-                "v0.1.0-preview.11.2.2",
+                "v0.1.0-preview.11.2.3",
                 "v0.1.0-preview.11.3",
                 "v0.1.0-preview.12",
                 "v0.1.0",
@@ -347,6 +348,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertFalse(any(c[0] == "release" for c in self.calls))
 
     def test_upload_failure_preserves_draft_and_never_clobbers(self):
+        tag = "v0.1.0-preview.11.2.2"
         self.mark_signed_fixture()
         add_provenance(self.folder)
         self.calls, self.refs = [], []
@@ -367,8 +369,15 @@ class ReleaseTests(unittest.TestCase):
             patch.object(release, "gh", failed_upload),
             self.assertRaises(RuntimeError),
         ):
-            release.publish(self.folder, SHA, TAG)
-        self.assertTrue(any(c[:2] == ("release", "create") and "--draft" in c for c in self.calls))
+            release.publish(self.folder, SHA, tag)
+        create = next(call for call in self.calls if call[:2] == ("release", "create"))
+        self.assertIn("--draft", create)
+        body = create[create.index("--notes") + 1]
+        changes = (Path(__file__).resolve().parents[1] / "docs" / "releases" / f"{tag}.md").read_text(encoding="utf-8")
+        self.assertTrue(changes.strip())
+        self.assertTrue(body.startswith(changes.strip() + "\n\n"))
+        self.assertIn("release-attestation.sigstore.json", body)
+        self.assertIn("publisher signatures were verified", body)
         self.assertFalse(any(c[:2] == ("release", "edit") for c in self.calls))
         self.assertNotIn("--clobber", str(self.calls))
 

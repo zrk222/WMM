@@ -11,13 +11,16 @@ BASE = "https://api.appstoreconnect.apple.com"
 DOWNLOADS = "App Downloads Standard"
 CAMPAIGN_DOWNLOADS = "App Downloads Detailed"
 DISCOVERY = "App Store Discovery and Engagement Standard"
-METRIC_REPORTS = frozenset((DOWNLOADS, DISCOVERY, CAMPAIGN_DOWNLOADS))
+PURCHASES = "App Store Purchases Standard"
+SUBSCRIPTION_STATE = "App Store Subscription State Standard"
+METRIC_REPORTS = frozenset((DOWNLOADS, DISCOVERY, CAMPAIGN_DOWNLOADS, PURCHASES, SUBSCRIPTION_STATE))
 REPORTS = frozenset(
     (
         DOWNLOADS,
         CAMPAIGN_DOWNLOADS,
         "App Sessions Standard",
-        "App Store Purchases Standard",
+        PURCHASES,
+        SUBSCRIPTION_STATE,
         DISCOVERY,
         "App Store Installation and Deletion Standard",
     )
@@ -129,7 +132,7 @@ def instance(row, report_id):
 
 
 def inspect_reports(reader, rows, request_id):
-    """Inspect the five declared marketing report families with explicit omissions."""
+    """Inspect the declared app-scoped marketing report families with explicit omissions."""
     selected, complete = [], True
     available = set()
     for row in rows:
