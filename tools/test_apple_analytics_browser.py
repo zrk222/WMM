@@ -19,7 +19,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 # Standalone tool: resolve this checkout before importing its application/fixtures.
-from mission_control.apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, DOWNLOADS  # noqa: E402
+from mission_control.apple_analytics import (  # noqa: E402
+    CAMPAIGN_DOWNLOADS,
+    DISCOVERY,
+    DOWNLOADS,
+    PURCHASES,
+    SUBSCRIPTION_STATE,
+)
 from mission_control.apple_metrics_schedule import AppleMetricsSchedules  # noqa: E402
 from mission_control.common import digest, now  # noqa: E402
 from mission_control.device_signin import DeviceSignIns  # noqa: E402
@@ -337,8 +343,7 @@ def search_to_store_report(page: Any, fixture: AppleMetricsRouteTests, width: in
 
 
 def fetch_provider_fixture() -> tuple[dict[str, Any], dict[tuple[str, str], bytes]]:
-    """Only the two upstream response families are synthetic."""
-    processing_date = "2026-01-04"
+    """Synthetic Apple responses for acquisition and the two commerce report families."""
     inventory = dict(
         operation="analytics_reports",
         status="METRIC_DOWNLOAD_REQUIRED",
@@ -350,9 +355,11 @@ def fetch_provider_fixture() -> tuple[dict[str, Any], dict[tuple[str, str], byte
                 coverage="COMPLETE",
                 instances=[dict(id=instance, granularity="DAILY", processing_date=processing_date)],
             )
-            for report_id, family, instance in (
-                ("fetch-discovery", DISCOVERY, "fetch-discovery-daily"),
-                ("fetch-downloads", DOWNLOADS, "fetch-downloads-daily"),
+            for report_id, family, instance, processing_date in (
+                ("fetch-discovery", DISCOVERY, "fetch-discovery-daily", "2026-01-04"),
+                ("fetch-downloads", DOWNLOADS, "fetch-downloads-daily", "2026-01-04"),
+                ("fetch-purchases", PURCHASES, "fetch-purchases-daily", "2026-01-07"),
+                ("fetch-subscriptions", SUBSCRIPTION_STATE, "fetch-subscriptions-daily", "2026-01-08"),
             )
         ],
     )
@@ -364,6 +371,20 @@ def fetch_provider_fixture() -> tuple[dict[str, Any], dict[tuple[str, str], byte
         ),
         ("fetch-downloads", "fetch-downloads-daily"): (
             b"Date\tApp Apple Identifier\tDownload Type\tCounts\n2026-01-01\t123\tFirst-time download\t6\n"
+        ),
+        ("fetch-purchases", "fetch-purchases-daily"): (
+            b"Date\tApp Apple Identifier\tPurchase Type\tPurchases\tProceeds in USD\tContent Name\n"
+            b"2026-01-01\t123\tIn-app purchases\t2\t1.234\tsynthetic-private-purchase-title\n"
+            b"2026-01-01\t123\tIn-app purchases\t0\t-0.123\tsynthetic-private-purchase-title\n"
+            b"2026-01-02\t123\tIn-app purchases\t0\t0\tunused-field\n"
+            b"2026-01-03\t123\tIn-app purchases\t0\t0\tunused-field\n"
+            b"2026-01-04\t123\tIn-app purchases\t0\t0\tunused-field\n"
+            b"2026-01-05\t123\tIn-app purchases\t0\t0\tunused-field\n"
+        ),
+        ("fetch-subscriptions", "fetch-subscriptions-daily"): (
+            b"Date\tApp Apple Identifier\tState Metric\tState Metric Grouping\tCounts\n"
+            b"2026-01-05\t123\tFull price\tPaid plans\t3\n"
+            b"2026-01-05\t123\tFree trials\tSubscription offers\t10\n"
         ),
     }
     return inventory, rows
@@ -384,6 +405,38 @@ def open_fetch_form(page: Any, origin: str) -> Any:
     form.get_by_label("First event date").fill("2026-01-01")
     form.get_by_label("Last event date").fill("2026-01-05")
     return form
+
+
+def verify_commerce_results(page: Any, result: Any, collected: dict[str, Any]) -> None:
+    """Print the same saved commerce totals and source receipts shown to the owner."""
+    outcomes = {item["label"]: item for item in collected["outcome_coverage"]["metrics"]}
+    labels = {"Apple estimated proceeds": "1.111 USD", "Active paid subscriptions": "3"}
+    for label, value in labels.items():
+        item = outcomes[label]
+        assert item["value"] == value and len(item["source_sha256"]) == 64
+        summary = result.get_by_text(f"{label} {value}", exact=True)
+        summary.press("Enter")
+        expect(summary.locator("xpath=..")).to_contain_text(item["source_sha256"])
+    button = result.get_by_role("button", name="Search to App Store report / Save PDF", exact=True)
+    button.press("Enter")
+    preview = page.get_by_role("dialog", name="Search to App Store", exact=True)
+    for label, value in labels.items():
+        expect(preview).to_contain_text(label)
+        expect(preview).to_contain_text(value)
+        expect(preview).to_contain_text(outcomes[label]["source_sha256"])
+    page.emulate_media(media="print")
+    try:
+        pdf = page.pdf(prefer_css_page_size=True)
+        with fitz.open(stream=pdf, filetype="pdf") as document:
+            document_text = " ".join(" ".join(str(p.get_text()).split()) for p in document)
+        for label, value in labels.items():
+            assert label in document_text and value in document_text
+            assert outcomes[label]["source_sha256"] in "".join(document_text.split())
+        assert "synthetic-private-purchase-title" not in document_text
+    finally:
+        page.emulate_media(media="screen")
+    page.keyboard.press("Escape")
+    expect(button).to_be_focused()
 
 
 def fetch_apple_reports(page: Any, form: Any, fixture: AppleMetricsRouteTests) -> dict[str, Any]:
@@ -432,8 +485,13 @@ def fetch_apple_reports(page: Any, form: Any, fixture: AppleMetricsRouteTests) -
         assert run_once(fixture.store)
         collecting = fixture.post(status_route, selection)
         assert collecting["status"] == "COLLECTING"
-        assert {item["report_family"] for item in collecting["files"]} == {DISCOVERY, DOWNLOADS}
-        assert len(collecting["files"]) == 2
+        assert {item["report_family"] for item in collecting["files"]} == {
+            DISCOVERY,
+            DOWNLOADS,
+            PURCHASES,
+            SUBSCRIPTION_STATE,
+        }
+        assert len(collecting["files"]) == len(rows)
 
         page.locator("#close-modal").press("Enter")
         page.get_by_role("button", name="Open Search to App Store", exact=True).press("Enter")
@@ -445,10 +503,11 @@ def fetch_apple_reports(page: Any, form: Any, fixture: AppleMetricsRouteTests) -
         assert recovered.value.json()["refresh_id"] == collecting["refresh_id"]
 
         with page.expect_response("**/apple-analytics/search-review", timeout=20000) as reviewed:
-            assert run_once(fixture.store)
-            assert run_once(fixture.store)
+            for _ in rows:
+                assert run_once(fixture.store)
         assert reviewed.value.ok, reviewed.value.json()
-        first_day = reviewed.value.json()["rows"][0]
+        collected = reviewed.value.json()
+        first_day = collected["rows"][0]
         assert first_day["date"] == "2026-01-01"
         assert first_day["discovery"]["source_sha256"] and first_day["downloads"]["source_sha256"]
         result = page.locator("#apple-performance-results")
@@ -457,8 +516,9 @@ def fetch_apple_reports(page: Any, form: Any, fixture: AppleMetricsRouteTests) -
         for count in ("80", "0", "6"):
             expect(day.get_by_role("cell", name=count, exact=True)).to_be_visible()
         expect(result.get_by_role("row").filter(has_text="2026-01-05")).to_contain_text("Unavailable")
+        verify_commerce_results(page, result, collected)
         ready = fixture.post(status_route, selection)
-        assert ready["status"] == "READY" and len(ready["files"]) == 2
+        assert ready["status"] == "READY" and len(ready["files"]) == len(rows)
         receipt = page.locator("#apple-performance-receipt")
         receipt.locator("summary").press("Enter")
         expect(receipt.locator("details")).to_have_attribute("open", "")
@@ -467,7 +527,7 @@ def fetch_apple_reports(page: Any, form: Any, fixture: AppleMetricsRouteTests) -
             expect(receipt).to_contain_text(item["job_id"])
         assert page.locator("#apple-analytics-root").evaluate("(node) => node.scrollWidth <= node.clientWidth + 1")
         assert fixture.post(route, body)["refresh_id"] == ready["refresh_id"]
-        assert segments.call_count == 2
+        assert segments.call_count == len(rows)
         assert not run_once(fixture.store)
 
         with page.expect_response(lambda item: item.url.endswith(route)) as retried:
@@ -480,11 +540,12 @@ def fetch_apple_reports(page: Any, form: Any, fixture: AppleMetricsRouteTests) -
         repeated = fixture.post(status_route, selection)
         assert repeated["status"] == "READY"
         assert {item["job_id"] for item in repeated["files"]} == {item["job_id"] for item in ready["files"]}
-        assert segments.call_count == 2
+        assert segments.call_count == len(rows)
         assert not run_once(fixture.store)
         web.assert_not_called()
     return dict(
-        owner_fetch="INVENTORY_AND_TWO_SAVED_FILES",
+        owner_fetch="INVENTORY_AND_FOUR_SAVED_FILES",
+        apple_commerce="MATURE_USD_PROCEEDS_AND_PAID_SUBSCRIPTIONS_WITH_PRINTED_SOURCE_RECEIPTS",
         reopened_existing_receipt=True,
         cross_app_denied=True,
         duplicate_collection=False,
