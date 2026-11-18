@@ -69,6 +69,7 @@
 @media(max-width:760px){.sidebar #navigation{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible;align-items:start}.sidebar #navigation>.nav-item{min-width:0;width:100%;white-space:normal;justify-content:center;text-align:center;padding:10px 6px;gap:4px}.sidebar #navigation>details{grid-column:1/-1;margin:0}.sidebar #navigation>details>summary{justify-content:center}.sidebar #navigation>details .nav-item{min-width:0;white-space:normal}}
 
 .modal-content li,.modal-content small{overflow-wrap:anywhere}.modal-content fieldset{min-width:0}
+#apple-performance-results .detail-item dd{overflow-wrap:anywhere;margin-inline-start:0}
 #campaign-scope-form input[type="datetime-local"]{min-width:0;width:100%;max-width:100%}
 
 /* Setup keeps the next task visible; optional settings retain every control. */

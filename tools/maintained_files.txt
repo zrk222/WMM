@@ -7,9 +7,11 @@ mission_control/agent_context.py
 mission_control/agent_contract.py
 mission_control/agent_grant_http.py
 mission_control/agent_grants.py
+mission_control/agent_handoffs.py
 mission_control/agent_review_dispatch.py
 mission_control/agent_review_policy.py
 mission_control/agent_setup.py
+mission_control/agent_task_dependencies.py
 mission_control/agent_tasks.py
 mission_control/agent_workflow_protocol.py
 mission_control/app_launch_history.py
@@ -128,6 +130,10 @@ mission_control/release_inventory.py
 mission_control/release_readiness.py
 mission_control/review_access.py
 mission_control/schema_types.py
+mission_control/search_store_actions.py
+mission_control/search_store_review.py
+mission_control/search_team.py
+mission_control/search_team_analysis.py
 mission_control/server.py
 mission_control/service.py
 mission_control/setup_discovery.py
@@ -150,12 +156,14 @@ mission_control/weekly_plan_status.py
 mission_control/weekly_rule_exception.py
 mission_control/weekly_store_growth.py
 mission_control/worker.py
+mission_control/worker_dependencies.py
 tests/campaign_paid_schedule_browser.py
 tests/dashboard_fixture.py
 tests/test_action_buttons_browser.py
 tests/test_ads_reports.py
 tests/test_agent_context_tasks.py
 tests/test_agent_control_ui.py
+tests/test_agent_plan_contracts.py
 tests/test_agent_review_dispatch.py
 tests/test_agent_setup_entrypoint.py
 tests/test_agent_setup_http.py
@@ -274,6 +282,8 @@ tests/test_schedule_authority_boundary.py
 tests/test_schedule_pause_evidence.py
 tests/test_schedules.py
 tests/test_schema_types.py
+tests/test_search_store_actions.py
+tests/test_search_team.py
 tests/test_social_connections.py
 tests/test_social_http.py
 tests/test_source_first_setup.py
@@ -293,6 +303,7 @@ tests/test_weekly_operation_exceptions.py
 tests/test_weekly_rule_exception.py
 tests/test_weekly_store_growth.py
 tests/test_windows_lifecycle_diagnostics.py
+tests/test_worker_dependencies.py
 tests/test_workflow_telemetry.py
 tools/benchmark_http.py
 tools/branch_hygiene.py

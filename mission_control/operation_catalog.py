@@ -341,6 +341,9 @@ OPERATIONS = {
     "growth.save": descriptor(
         "POST", "/subscription-growth/entries", "WRITE_LOCAL_EVIDENCE", ("id", "manifest_version", "kind", "data")
     ),
+    "search.plan.execute": descriptor(
+        "POST", "/search-plan/execute", "WRITE_LOCAL_EVIDENCE", optional=("review_hash", "action_id")
+    ),
     "web.research.read": descriptor(
         "POST", "/insights/{resource_id}/web-read", "READ_OWNED_PROVIDER_STATUS", ("confirm_read",), (), True
     ),
@@ -444,7 +447,11 @@ OPERATIONS = {
         "POST", "/production/briefs/save", "WRITE_LOCAL_PLAN", ("data",), ("id", "version")
     ),
     "handoff.create": descriptor(
-        "POST", "/agent-handoffs", "WRITE_LOCAL_PLAN", ("job_id", "recipient", "operations", "expires")
+        "POST",
+        "/agent-handoffs",
+        "WRITE_LOCAL_PLAN",
+        ("job_id", "recipient", "operations", "expires"),
+        ("depends_on_jobs",),
     ),
     "handoff.resume": descriptor(
         "POST", "/agent-handoffs/{resource_id}/resume", "READ_PRIVATE_LOCAL_DATA", ("version", "payload_hash"), (), True

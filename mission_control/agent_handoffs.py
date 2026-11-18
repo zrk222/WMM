@@ -1,8 +1,8 @@
 """Secret-free task continuity for existing worker jobs; never grants execution."""
 
-from datetime import datetime, timedelta, timezone
 import json
 import re
+from datetime import datetime, timedelta, timezone
 
 from .agent_grants import current
 from .agent_task_dependencies import bind_dependencies, dependency_receipts, dependency_status, job_fingerprint
@@ -35,29 +35,31 @@ def _job(db, app_id, identity):
 
 
 RESOURCE_TABLES = {
-    "connection_id": (
-        ("records", "id", "version,hash"),
-        ("agent_connections", "id", "version"),
-        ("drive_connections", "id", "version"),
-        ("social_connections", "id", "version"),
-    ),
-    "experiment_id": (("experiments", "id", "version,hash"),),
-    "brief_id": (("creative_briefs", "id", "version,hash"),),
-    "project_id": (
-        ("video_project_heads", "id", "revision"),
-        ("studio_source_heads", "project_id", "version"),
-        ("ios_studio_projects", "id", "revision,source_hash"),
-    ),
-    "media_id": (("managed_media", "id", "hash"),),
-    "asset_id": (("managed_media", "id", "hash"),),
-    "source_id": (
-        ("insight_sources", "id", "version,hash"),
-        ("records", "id", "version,hash"),
-        ("storekit_sources", "id", "version,hash"),
-        ("attribution_sources", "id", "version,hash"),
-    ),
-    "record_id": (("records", "id", "version,hash"),),
-    "profile_id": (("production_profiles", "id", "version,hash"), ("agent_connections", "id", "version")),
+    "connection_id": ("records", "agent_connections", "drive_connections", "social_connections"),
+    "experiment_id": ("experiments",),
+    "brief_id": ("creative_briefs",),
+    "project_id": ("video_project_heads", "studio_source_heads", "ios_studio_projects"),
+    "media_id": ("managed_media",),
+    "asset_id": ("managed_media",),
+    "source_id": ("insight_sources", "records", "storekit_sources", "attribution_sources"),
+    "record_id": ("records",),
+    "profile_id": ("production_profiles", "agent_connections"),
+}
+RESOURCE_QUERIES = {
+    "records": "SELECT version,hash FROM records WHERE app_id=? AND id=? ORDER BY version,hash",
+    "agent_connections": "SELECT version FROM agent_connections WHERE app_id=? AND id=? ORDER BY version",
+    "drive_connections": "SELECT version FROM drive_connections WHERE app_id=? AND id=? ORDER BY version",
+    "social_connections": "SELECT version FROM social_connections WHERE app_id=? AND id=? ORDER BY version",
+    "experiments": "SELECT version,hash FROM experiments WHERE app_id=? AND id=? ORDER BY version,hash",
+    "creative_briefs": "SELECT version,hash FROM creative_briefs WHERE app_id=? AND id=? ORDER BY version,hash",
+    "video_project_heads": "SELECT revision FROM video_project_heads WHERE app_id=? AND id=? ORDER BY revision",
+    "studio_source_heads": "SELECT version FROM studio_source_heads WHERE app_id=? AND project_id=? ORDER BY version",
+    "ios_studio_projects": "SELECT revision,source_hash FROM ios_studio_projects WHERE app_id=? AND id=? ORDER BY revision,source_hash",
+    "managed_media": "SELECT hash FROM managed_media WHERE app_id=? AND id=? ORDER BY hash",
+    "insight_sources": "SELECT version,hash FROM insight_sources WHERE app_id=? AND id=? ORDER BY version,hash",
+    "storekit_sources": "SELECT version,hash FROM storekit_sources WHERE app_id=? AND id=? ORDER BY version,hash",
+    "attribution_sources": "SELECT version,hash FROM attribution_sources WHERE app_id=? AND id=? ORDER BY version,hash",
+    "production_profiles": "SELECT version,hash FROM production_profiles WHERE app_id=? AND id=? ORDER BY version,hash",
 }
 
 
@@ -89,10 +91,8 @@ def _resources(db, app_id, job):
         raise Invalid("Job references too many resources for a handoff")
     bindings = []
     for key, identity in sorted(found):
-        for table, column, fields in RESOURCE_TABLES[key]:
-            rows = db.execute(
-                f"SELECT {fields} FROM {table} WHERE app_id=? AND {column}=? ORDER BY {fields}", (app_id, identity)
-            ).fetchall()
+        for table in RESOURCE_TABLES[key]:
+            rows = db.execute(RESOURCE_QUERIES[table], (app_id, identity)).fetchall()
             bindings.append([key, digest(identity), table, [list(row) for row in rows]])
     return dict(
         hash=digest(bindings),

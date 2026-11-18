@@ -379,6 +379,12 @@
     'Choose a refresh interval, save it and inspect the latest result. Pause future reads here whenever you need.',
   );
   define(
+    'apple-performance-form',
+    'Choose the Apple event dates for this acquisition review.',
+    'WMM shows saved App Store counts and OpenSEO evidence with each source’s own dates and coverage.',
+    'Inspect the sources and prerequisites before saving or assigning an action.',
+  );
+  define(
     'apple-campaign-form',
     'See how many first-time App Store downloads Apple reported for one campaign.',
     'You get daily counts for the selected storefront. Apple may omit small counts, so missing rows stay unknown.',

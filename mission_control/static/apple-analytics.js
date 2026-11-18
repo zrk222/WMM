@@ -31,6 +31,10 @@
       )
       .map((r) => [r.id, r.version, r.hash])
       .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    const seoBindings = (w.insights?.sources || [])
+      .filter((source) => source.provider === 'openseo')
+      .map((source) => [source.id, source.version, source.status])
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
     return {
       app: state.app,
       workspace: app.id,
@@ -44,6 +48,7 @@
       roleVersion: role?.version,
       csrf: state.boot?.csrf,
       bindings,
+      seoBindings,
     };
   }
   const same = (a, b) => a.identityRef === b.identityRef && JSON.stringify(a) === JSON.stringify(b);
@@ -51,7 +56,15 @@
     active = null;
   }
   function invalidate(state) {
-    if (active && !same(active.scope, scope(state))) clear();
+    if (!active || same(active.scope, scope(state))) return;
+    if (active.performance?.search_review) {
+      active.searchPreview?.close();
+      const output = active.node.querySelector('#apple-performance-results');
+      if (output) output.innerHTML = '';
+      const status = active.node.querySelector('#apple-performance-status');
+      if (status) status.textContent = 'App access or source setup changed. Reopen the review.';
+    }
+    clear();
   }
   function current(t) {
     return (
@@ -63,6 +76,9 @@
   }
   function panel() {
     return `<section class="panel" aria-label="Apple analytics"><p class="eyebrow">APP STORE / ANALYTICS</p><h2 id="apple-report-availability-heading" tabindex="-1">Keep Apple analytics current</h2><p>Check report availability and choose whether to refresh the downloads report. Missing report instances do not mean zero downloads.</p>${button('Review Apple analytics', 'open')}</section>`;
+  }
+  function reviewPanel() {
+    return `<section class="panel" aria-labelledby="search-to-store-title"><h2 id="search-to-store-title">Search to App Store</h2><p>Review saved OpenSEO evidence and Apple results to choose your next acquisition test.</p>${button('Open Search to App Store', 'open')}</section>`;
   }
   function show(d, title, html, data = null) {
     d.modal(
@@ -187,7 +203,7 @@
           r.coverage === 'COMPLETE' &&
           r.daily?.length,
       );
-    return `<section aria-labelledby="apple-performance-title"><h3 id="apple-performance-title">App Store performance</h3><p>Review Apple’s daily impressions, page views and downloads. Apple can revise recent days. Missing counts stay unavailable.</p><form id="apple-performance-form"><div class="field"><label for="apple-performance-start">First event date</label><input id="apple-performance-start" name="start" type="date" value="${localDateTime(start).slice(0, 10)}" required></div><div class="field"><label for="apple-performance-end">Last event date (included)</label><input id="apple-performance-end" name="end" type="date" value="${localDateTime(end).slice(0, 10)}" required></div><button type="submit" class="button" value="review">Review saved metrics</button>${collect ? '<button type="submit" class="button outline" value="collect">Collect available Apple files</button>' : ''}</form><p id="apple-performance-status" role="status"></p><p id="apple-performance-error" class="field-error" role="alert"></p><div id="apple-performance-results"></div></section>`;
+    return `<section aria-labelledby="apple-performance-title"><h3 id="apple-performance-title">App Store performance</h3><p>Choose Apple event dates for the review. OpenSEO evidence keeps its own reporting window.</p><form id="apple-performance-form"><div class="field"><label for="apple-performance-start">First event date</label><input id="apple-performance-start" name="start" type="date" value="${localDateTime(start).slice(0, 10)}" required></div><div class="field"><label for="apple-performance-end">Last event date (included)</label><input id="apple-performance-end" name="end" type="date" value="${localDateTime(end).slice(0, 10)}" required></div><button type="submit" class="button" value="search">Review search and App Store results</button><button type="submit" class="button outline" value="review">Review saved metrics</button>${collect ? '<button type="submit" class="button outline" value="collect">Collect available Apple files</button>' : ''}</form><p id="apple-performance-status" role="status"></p><p id="apple-performance-error" class="field-error" role="alert"></p><div id="apple-performance-results"></div></section>`;
   }
   const performanceMetrics = [
     ['App icon list impressions', 'discovery', 'impressions'],
@@ -201,11 +217,13 @@
       ? 'Unavailable'
       : String(value) + (row[family].status === 'PROVISIONAL' ? ' (provisional)' : '');
   }
-  function performanceResults(result) {
-    const hasMetrics = result.rows.some((row) =>
+  function hasPerformanceMetrics(result) {
+    return result.rows.some((row) =>
       performanceMetrics.some(([, family, field]) => row[family].counts[field] != null),
     );
-    if (!hasMetrics)
+  }
+  function performanceTable(result) {
+    if (!hasPerformanceMetrics(result))
       return '<p>No Apple metrics are saved for these days. Read the Apple inventory and collect available files.</p>';
     const labels = performanceMetrics.map(([label]) => `<th scope="col">${label}</th>`).join('');
     const rows = result.rows
@@ -214,7 +232,404 @@
           `<tr><th scope="row">${esc(row.date)}</th>${performanceMetrics.map(([, family, field]) => `<td>${esc(performanceValue(row, family, field))}</td>`).join('')}</tr>`,
       )
       .join('');
-    return `<div class="table-wrap"><table class="result-table"><caption>Daily app-wide counts from Apple’s standard reports</caption><thead><tr><th scope="col">Apple event date</th>${labels}</tr></thead><tbody>${rows}</tbody></table></div>${button('Performance report / Save PDF', 'performance-report')}`;
+    return `<div class="table-wrap"><table class="result-table"><caption>Daily app-wide counts from Apple’s standard reports</caption><thead><tr><th scope="col">Apple event date</th>${labels}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+  function performanceResults(result) {
+    const table = performanceTable(result);
+    return hasPerformanceMetrics(result)
+      ? table + button('Performance report / Save PDF', 'performance-report')
+      : table;
+  }
+  function searchReview(result) {
+    const review = result.search_review;
+    const fields = [
+      'insight',
+      'next_action',
+      'success_metric',
+      'guardrail',
+      'follow_up',
+      'web_source',
+      'evidence_status',
+    ];
+    if (
+      !review ||
+      !fields.every((key) => typeof review[key] === 'string') ||
+      !Array.isArray(review.web_facts) ||
+      !review.web_facts.every((fact) => typeof fact === 'string') ||
+      !Array.isArray(review.actions) ||
+      !review.actions.every(
+        (action) =>
+          ['id', 'title', 'task', 'metric', 'guardrail', 'follow_up', 'agent'].every(
+            (key) => typeof action?.[key] === 'string',
+          ) &&
+          Array.isArray(action.depends_on) &&
+          action.depends_on.every((id) => typeof id === 'string'),
+      )
+    )
+      throw Error('The saved search review could not be read. Review the selected dates again.');
+    return review;
+  }
+  function reviewFacts(review) {
+    return [
+      ['Recommended action', review.next_action],
+      ['Measure', review.success_metric],
+      ['Keep fixed', review.guardrail],
+      ['Review again', review.follow_up],
+    ];
+  }
+  function timing(action, actions) {
+    return action.depends_on.length
+      ? 'After ' +
+          action.depends_on
+            .map((id) => actions.find((item) => item.id === id)?.title || id)
+            .join(', ')
+      : 'Can run in parallel';
+  }
+  function actionFacts(action, actions) {
+    return [
+      ['Task', action.task],
+      ['Measure', action.metric],
+      ['Keep fixed', action.guardrail],
+      ['Review again', action.follow_up],
+      ['Suggested role', action.agent],
+      ['Timing', timing(action, actions)],
+    ];
+  }
+  function factsList(facts) {
+    return `<dl class="details-list">${facts.map(([label, value]) => `<div class="detail-item"><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>`;
+  }
+  function savedAction(review, id) {
+    return review.saved_actions?.find(
+      (receipt) => receipt.action_id === id && receipt.status === 'SAVED',
+    );
+  }
+  function assignment(review, id) {
+    return Object.hasOwn(review.assignments || {}, id) ? review.assignments[id] : null;
+  }
+  function assignmentFacts(job) {
+    if (!job) return [];
+    const status = {
+      ASSIGNED: 'Awaiting agent',
+      COMPLETED: 'Completed',
+      NEEDS_EXTERNAL_VERIFICATION: 'Needs external verification',
+    };
+    return [
+      ['Assigned agent', job.agent_id],
+      ['Agent status', status[job.status] || 'Check plan status'],
+      ...(job.receipt_sha256 ? [['Execution receipt SHA-256', job.receipt_sha256]] : []),
+      ...(job.deliverable
+        ? [
+            ['Agent deliverable', job.deliverable.summary],
+            ['Deliverable details', JSON.stringify(job.deliverable.details)],
+          ]
+        : []),
+    ];
+  }
+  function assignmentMarkup(action, review, selector) {
+    const job = assignment(review, action.id);
+    if (job) return factsList(assignmentFacts(job));
+    const agents = review.team_agents || [];
+    if (!review.review_hash || !agents.length) return '';
+    const choices = agents
+      .map((agent) => `<option value="${esc(agent.grant_id)}">${esc(agent.agent_id)}</option>`)
+      .join('');
+    return `<label class="field">Agent for ${esc(action.title)}<select data-search-agent="${esc(action.id)}"><option value="">Choose an eligible agent</option>${choices}</select></label>${button('Assign to agent', 'search-assign', selector)}`;
+  }
+  function searchActionMarkup(action, review) {
+    const selector = `data-id="${esc(action.id)}"`;
+    const saved = savedAction(review, action.id);
+    const canSave = typeof review.review_hash === 'string' && review.review_hash.length;
+    const sourceControl =
+      action.id === 'web-baseline'
+        ? button('Review OpenSEO source', 'search-openseo')
+        : ['apple-baseline', 'measure-tag'].includes(action.id)
+          ? button('Open Apple report controls', 'search-apple')
+          : '';
+    return `<details data-search-draft="${esc(action.id)}"><summary>${esc(action.title)}</summary>${factsList(actionFacts(action, review.actions))}${saved ? '<p>Draft saved in WMM.</p>' : canSave ? button('Save action', 'search-save', selector) : ''}${button('Download draft', 'search-download-draft', selector)}${sourceControl}${assignmentMarkup(action, review, selector)}</details>`;
+  }
+  function assignmentProgress(review) {
+    const assigned = review.actions.map((action) => assignment(review, action.id)).filter(Boolean);
+    if (!assigned.length) return '';
+    const completed = assigned.filter((job) => job.status === 'COMPLETED').length;
+    const verify = assigned.filter((job) => job.status === 'NEEDS_EXTERNAL_VERIFICATION').length;
+    return `<p>${assigned.length} of ${review.actions.length} steps assigned. ${completed} completed.${verify ? ' Steps needing external verification: ' + verify + '.' : ''}</p>`;
+  }
+  function searchResults(result) {
+    const review = result.search_review;
+    const team = review.team_agents?.length
+      ? '<p>Assign actions to eligible agents. A step waits for its prerequisites and for its assigned agent to run it through WMM.</p>'
+      : `<p>Agent assignments require an eligible WMM agent grant.</p>${button('Open agent access', 'search-agents')}`;
+    return `<section aria-labelledby="apple-search-review-title"><h3 id="apple-search-review-title">Search to App Store</h3><p><strong>${esc(review.evidence_status)}</strong></p><p>${esc(review.insight)}</p>${factsList(reviewFacts(review))}<h4>OpenSEO evidence</h4><p>${esc(review.web_source)}</p>${review.web_facts.length ? `<ul>${review.web_facts.map((fact) => `<li>${esc(fact)}</li>`).join('')}</ul>` : ''}<h4>Apple evidence</h4><p>Apple event dates ${esc(result.start)} to ${esc(result.end)}.</p>${performanceTable(result)}<h4>Proposed work</h4><p>Saving an action keeps a draft for this app.</p>${team}${assignmentProgress(review)}${review.actions.map((action) => searchActionMarkup(action, review)).join('')}<div class="toolbar">${button('Search to App Store report / Save PDF', 'search-report')}${button('Download action plan', 'search-download')}${button('Refresh plan status', 'search-refresh')}</div></section>`;
+  }
+  function planScope(result) {
+    return {
+      app_id: result.app_id,
+      store_app_id: result.store_app_id,
+      start: result.start,
+      end: result.end,
+      review_hash: result.search_review.review_hash ?? null,
+    };
+  }
+  function planExport(result) {
+    const review = result.search_review;
+    const rows = result.rows.map((row) => ({
+      date: row.date,
+      ...Object.fromEntries(
+        ['discovery', 'downloads'].map((family) => {
+          const { counts, status, processing_date, source_sha256 } = row[family];
+          const selected = performanceMetrics
+            .filter(([, type]) => type === family)
+            .map(([, , field]) => [field, counts[field]]);
+          return [
+            family,
+            { counts: Object.fromEntries(selected), status, processing_date, source_sha256 },
+          ];
+        }),
+      ),
+    }));
+    const {
+      insight,
+      next_action,
+      success_metric,
+      guardrail,
+      follow_up,
+      web_source,
+      evidence_status,
+      web_facts,
+      web_evidence_sha256,
+      actions,
+      saved_actions,
+      assignments,
+    } = review;
+    return {
+      ...planScope(result),
+      search_review: {
+        insight,
+        next_action,
+        success_metric,
+        guardrail,
+        follow_up,
+        web_source,
+        evidence_status,
+        web_facts,
+        web_evidence_sha256,
+        actions,
+        saved_actions,
+        assignments,
+      },
+      rows,
+    };
+  }
+  function renderSearch(t, result) {
+    const output = t.node.querySelector('#apple-performance-results');
+    const expanded = new Set(
+      Array.from(
+        output.querySelectorAll('[data-search-draft][open]'),
+        (item) => item.dataset.searchDraft,
+      ),
+    );
+    const agents = new Map(
+      Array.from(output.querySelectorAll('[data-search-agent]'), (item) => [
+        item.dataset.searchAgent,
+        item.value,
+      ]),
+    );
+    output.innerHTML = searchResults(result);
+    output.querySelectorAll('[data-search-draft]').forEach((item) => {
+      item.open = expanded.has(item.dataset.searchDraft);
+    });
+    output.querySelectorAll('[data-search-agent]').forEach((item) => {
+      const previous = agents.get(item.dataset.searchAgent);
+      if (previous && Array.from(item.options).some((option) => option.value === previous))
+        item.value = previous;
+    });
+  }
+  function validatePerformance(t, result, body) {
+    if (
+      result.app_id !== t.scope.app ||
+      result.store_app_id !== t.scope.store ||
+      result.start !== body.start ||
+      result.end !== body.end ||
+      !Array.isArray(result.rows)
+    )
+      throw Error('Apple report dates or app changed. Review the selected dates again.');
+  }
+  function searchBody(t) {
+    return {
+      manifest_version: t.scope.version,
+      start: t.performance.start,
+      end: t.performance.end,
+    };
+  }
+  function searchPath(t, operation) {
+    return '/api/apps/' + encodeURIComponent(t.scope.app) + '/apple-analytics/' + operation;
+  }
+  async function searchAction(kind, t, d, node) {
+    const result = t.performance;
+    const action = result.search_review.actions.find((item) => item.id === node.dataset.id);
+    if (kind === 'search-report') {
+      t.searchPreview = d.pageReports.openReport(
+        searchReport(result, d.state, d.pageReports),
+        d.browser,
+        node,
+      );
+      return t.searchPreview;
+    }
+    if (kind === 'search-download')
+      return d.download('search-to-app-store-plan.json', planExport(result));
+    if (kind === 'search-download-draft' && action)
+      return d.download('search-to-app-store-' + action.id + '.json', {
+        ...planScope(result),
+        action,
+        source: result.search_review.web_source,
+        web_evidence_sha256: result.search_review.web_evidence_sha256 ?? null,
+        draft_receipt: savedAction(result.search_review, action.id) ?? null,
+        assignment: assignment(result.search_review, action.id),
+      });
+    if (kind === 'search-openseo') {
+      d.close();
+      return d.openOpenSEO();
+    }
+    if (kind === 'search-agents') {
+      d.close();
+      return d.openAgents();
+    }
+    if (kind === 'search-apple') {
+      const inventory = t.node.querySelector('[data-action="apple-analytics-inventory"]');
+      const setup = t.node.querySelector('[data-action="apple-analytics-setup"]');
+      return (inventory || setup || t.node.querySelector('#apple-performance-start'))?.focus();
+    }
+    if (!['search-save', 'search-assign', 'search-refresh'].includes(kind)) return;
+    const review = result.search_review;
+    const assigns = kind === 'search-assign';
+    const changes = kind !== 'search-refresh';
+    if (changes && (!action || !review.review_hash)) return;
+    const status = t.node.querySelector('#apple-performance-status');
+    const message = t.node.querySelector('#apple-performance-error');
+    status.textContent = '';
+    message.textContent = '';
+    const grant = assigns
+      ? Array.from(t.node.querySelectorAll('[data-search-agent]')).find(
+          (item) => item.dataset.searchAgent === action.id,
+        )?.value
+      : null;
+    if (assigns && !review.team_agents?.some((item) => item.grant_id === grant)) {
+      message.textContent = 'Choose an eligible agent for this step.';
+      return;
+    }
+    const body = searchBody(t);
+    busy(t, true);
+    try {
+      if (changes) {
+        const response = await d.api(
+          searchPath(t, assigns ? 'search-review-assign' : 'search-review-save'),
+          {
+            ...body,
+            review_hash: review.review_hash,
+            action_id: action.id,
+            ...(assigns ? { grant_id: grant } : {}),
+          },
+        );
+        if (!current(t)) return;
+        if (
+          response.app_id !== t.scope.app ||
+          response.review_hash !== review.review_hash ||
+          response.receipt?.action_id !== action.id ||
+          response.receipt?.status !== 'SAVED'
+        )
+          throw Error('The saved draft receipt could not be verified.');
+        review.saved_actions = [
+          ...(review.saved_actions || []).filter((item) => item.action_id !== action.id),
+          response.receipt,
+        ];
+        if (!assigns) status.textContent = 'Draft saved in WMM.';
+      }
+      if (assigns || !changes) {
+        const refreshed = await d.api(searchPath(t, 'search-review'), body);
+        if (!current(t)) return;
+        validatePerformance(t, refreshed, body);
+        searchReview(refreshed);
+        t.performance = refreshed;
+        const job = assigns ? assignment(refreshed.search_review, action.id) : null;
+        status.textContent = assigns
+          ? job?.grant_id === grant
+            ? 'Step assigned to ' + job.agent_id + '.'
+            : 'Plan refreshed. Review the current assignment before retrying.'
+          : 'Search to App Store plan refreshed.';
+      }
+      renderSearch(t, t.performance);
+      if (action) {
+        const drafts = Array.from(t.node.querySelectorAll('[data-search-draft]'));
+        drafts
+          .find((item) => item.dataset.searchDraft === action.id)
+          ?.querySelector('summary')
+          ?.focus();
+      } else t.node.querySelector('[data-action="apple-analytics-search-refresh"]')?.focus();
+    } catch (error) {
+      if (current(t))
+        message.textContent =
+          error.message + (assigns ? ' Refresh plan status before trying again.' : '');
+    } finally {
+      busy(t, false);
+    }
+  }
+  function searchReport(result, state, pages) {
+    const base = performanceReport(result, state, pages);
+    const review = result.search_review;
+    const facts = (action) => {
+      const receipt = savedAction(review, action.id);
+      return [
+        ...actionFacts(action, review.actions),
+        ...(receipt ? [['WMM draft receipt', receipt.id]] : []),
+        ...assignmentFacts(assignment(review, action.id)),
+      ];
+    };
+    return {
+      ...base,
+      title: 'Search to App Store',
+      purpose: review.insight,
+      next_step: review.next_action,
+      sections: [
+        {
+          title: 'Decision',
+          items: [
+            {
+              title: 'Next acquisition decision',
+              status: review.evidence_status,
+              facts: reviewFacts(review),
+            },
+          ],
+        },
+        {
+          title: 'OpenSEO evidence',
+          items: [
+            {
+              title: review.web_source,
+              status: 'Independent reporting window',
+              facts: [
+                ...review.web_facts.map((fact) => ['Evidence', fact]),
+                ...(review.web_evidence_sha256
+                  ? [['OpenSEO source SHA-256', review.web_evidence_sha256]]
+                  : []),
+              ],
+            },
+          ],
+        },
+        ...base.sections,
+        {
+          title: 'Proposed work',
+          items: review.actions.map((action) => ({
+            title: action.title,
+            status: savedAction(review, action.id) ? 'Draft saved' : 'Proposed',
+            facts: facts(action),
+          })),
+        },
+      ],
+      notes: [
+        ...base.notes,
+        'OpenSEO figures describe web search. Apple figures describe App Store events. The report keeps each source’s scope and reporting window.',
+      ],
+    };
   }
   function performanceReport(result, state, pages) {
     return {
@@ -420,6 +835,8 @@
     if (kind === 'apple-analytics-open') return open(d);
     const t = active;
     if (!t || !current(t) || t.pending) return;
+    if (kind.startsWith('apple-analytics-search-') && t.performance?.search_review)
+      return searchAction(kind.slice('apple-analytics-'.length), t, d, node);
     if (kind === 'apple-analytics-setup') {
       d.close();
       return d.connectionSetup('app_store', t.data?.connection?.id ?? null);
@@ -552,6 +969,7 @@
       end: values.get('end'),
     };
     const collecting = mode === 'collect';
+    const search = mode === 'search';
     if (collecting) {
       if (!canRead(t.data) || !t.data.inventory?.job_id) return;
       body.inventory_id = t.data.inventory.job_id;
@@ -563,10 +981,10 @@
     busy(t, true);
     try {
       const result = await d.api(
-        '/api/apps/' +
-          encodeURIComponent(t.scope.app) +
-          '/apple-analytics/' +
-          (collecting ? 'performance-collect' : 'performance'),
+        searchPath(
+          t,
+          collecting ? 'performance-collect' : search ? 'search-review' : 'performance',
+        ),
         body,
       );
       if (!current(t)) return;
@@ -580,15 +998,15 @@
           ' Apple file reads queued or already recorded. Check Activity, then review saved metrics.' +
           (failed ? ' Refresh Apple inventory before retrying unsuccessful reads.' : '');
       } else {
-        if (
-          result.store_app_id !== t.scope.store ||
-          result.start !== body.start ||
-          result.end !== body.end
-        )
-          throw Error('Apple report dates or app changed. Review the selected dates again.');
+        validatePerformance(t, result, body);
+        if (search) searchReview(result);
         t.performance = result;
-        t.node.querySelector('#apple-performance-results').innerHTML = performanceResults(result);
-        status.textContent = 'Saved App Store metrics reviewed.';
+        if (search) renderSearch(t, result);
+        else
+          t.node.querySelector('#apple-performance-results').innerHTML = performanceResults(result);
+        status.textContent = search
+          ? 'Search and App Store results reviewed.'
+          : 'Saved App Store metrics reviewed.';
       }
     } catch (error) {
       if (current(t)) message.textContent = error.message;
@@ -692,6 +1110,7 @@
   }
   return {
     panel,
+    reviewPanel,
     scope,
     same,
     clear,

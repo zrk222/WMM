@@ -57,7 +57,7 @@ Each row mirrors a closed descriptor in `mission_control/operation_catalog.py`.
 | `growth.history` | `GET` | `/subscription-growth/history` | `READ_PRIVATE_LOCAL_DATA` | - | - | - |
 | `growth.read` | `GET` | `/subscription-growth` | `READ_PRIVATE_LOCAL_DATA` | - | - | - |
 | `growth.save` | `POST` | `/subscription-growth/entries` | `WRITE_LOCAL_EVIDENCE` | `id`, `manifest_version`, `kind`, `data` | - | - |
-| `handoff.create` | `POST` | `/agent-handoffs` | `WRITE_LOCAL_PLAN` | `job_id`, `recipient`, `operations`, `expires` | - | - |
+| `handoff.create` | `POST` | `/agent-handoffs` | `WRITE_LOCAL_PLAN` | `job_id`, `recipient`, `operations`, `expires` | `depends_on_jobs` | - |
 | `handoff.resume` | `POST` | `/agent-handoffs/{resource_id}/resume` | `READ_PRIVATE_LOCAL_DATA` | `version`, `payload_hash` | - | - |
 | `hypit.plan` | `POST` | `/production/hypit-plan` | `READ_PRIVATE_EXECUTION_PLAN` | `data` | - | - |
 | `hypit.queue` | `POST` | `/production/hypit-renders` | `QUEUE_LOCAL_PREPARATION` | `data`, `request_key` | - | - |
@@ -110,6 +110,7 @@ Each row mirrors a closed descriptor in `mission_control/operation_catalog.py`.
 | `publication.list` | `POST` | `/publications/list` | `READ_PRIVATE_LOCAL_DATA` | - | - | - |
 | `publication.prepare` | `POST` | `/publications/prepare` | `WRITE_LOCAL_PLAN` | `draft`, `preflight_id` | - | - |
 | `report.read` | `GET` | `/reports/summary` | `READ_PRIVATE_LOCAL_DATA` | - | - | - |
+| `search.plan.execute` | `POST` | `/search-plan/execute` | `WRITE_LOCAL_EVIDENCE` | - | `review_hash`, `action_id` | - |
 | `snapshot.export` | `GET` | `/export` | `READ_PRIVATE_LOCAL_DATA` | - | - | - |
 | `studio.close` | `POST` | `/studio/{resource_id}/close` | `STOP_OWNED_LOCAL_NATIVE_SESSION` | - | - | - |
 | `studio.edit` | `POST` | `/studio/{resource_id}/edit` | `WRITE_PRIVATE_NATIVE_SOURCE` | `request_key`, `base_version`, `base_hash`, `parameter` | - | - |

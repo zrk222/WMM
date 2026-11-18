@@ -58,6 +58,9 @@ function fixture() {
       const fields = {
         '#apple-analytics-status': { textContent: '' },
         '#apple-analytics-error': { textContent: '' },
+        '#apple-performance-status': { textContent: '' },
+        '#apple-performance-error': { textContent: '' },
+        '#apple-performance-results': { innerHTML: '', querySelectorAll: () => [] },
       };
       node = {
         isConnected: true,
@@ -84,6 +87,7 @@ function fixture() {
     browser: {},
     pageReports: {
       model: () => ({ filters: {}, notes: [], metrics: [], cohorts: [] }),
+      appReportModel: () => ({ filters: {}, notes: [], metrics: [], cohorts: [] }),
       openReport() {},
     },
   };
@@ -114,6 +118,158 @@ function form(values = { report_id: 'report-1', interval_hours: '24' }) {
 function click(action) {
   return { dataset: { action: 'apple-analytics-' + action } };
 }
+
+function searchFixture(f) {
+  const dates = { start: '2026-11-13', end: '2026-11-17' };
+  const draft = {
+    task: 'Check the current source.',
+    metric: 'Observed rows',
+    guardrail: 'Preserve source scopes.',
+    follow_up: 'After the next saved reading.',
+    agent: 'Measurement reviewer',
+  };
+  return {
+    form: { id: 'apple-performance-form', isConnected: true, values: dates },
+    result: {
+      app_id: f.state.app,
+      store_app_id: '123',
+      ...dates,
+      rows: [
+        {
+          date: dates.start,
+          discovery: {
+            counts: { impressions: '0', page_views: null },
+            status: 'APPLE_REPORTED',
+            processing_date: '2026-11-16',
+            source_sha256: 'apple-file-hash',
+          },
+          downloads: {
+            counts: { first_time_downloads: null, redownloads: null },
+            status: 'NO_FILE',
+            processing_date: null,
+            source_sha256: null,
+          },
+        },
+      ],
+      search_review: {
+        insight: 'Read the <owned page> evidence.',
+        next_action: 'Review the link path',
+        success_metric: 'Eligible sessions with a store click',
+        guardrail: 'Preserve the web CTA.',
+        follow_up: 'After the selected window is complete.',
+        web_source: 'Saved OpenSEO reading',
+        web_facts: ['US · 28 days ending November 14, 2026'],
+        web_evidence_sha256: 'seo-report-hash',
+        evidence_status: 'Whole windows differ',
+        review_hash: 'exact-review-hash',
+        saved_actions: [],
+        team_agents: [{ grant_id: 'grant-1', agent_id: 'actual-agent' }],
+        assignments: {},
+        actions: [
+          { ...draft, id: 'web-baseline', title: 'Review the web baseline', depends_on: [] },
+          {
+            ...draft,
+            id: 'store-link-check',
+            title: 'Inspect the store link',
+            depends_on: ['web-baseline'],
+          },
+        ],
+      },
+    },
+  };
+}
+
+test('combined review keeps measured zero, independent source windows and dependent drafts in the PDF and JSON', async () => {
+  const f = fixture();
+  const { form, result } = searchFixture(f);
+  const calls = [];
+  let pdf, json;
+  f.d.api = async (path, body) => {
+    calls.push({ path, body });
+    return path.endsWith('/view') ? f.data : result;
+  };
+  f.d.pageReports.openReport = (report) => {
+    pdf = report;
+    return {
+      close() {
+        pdf = null;
+      },
+    };
+  };
+  f.d.download = (name, data) => {
+    json = { name, data };
+  };
+  await apple.action(click('open'), f.d);
+  assert.match(apple.reviewPanel(), /Open Search to App Store/);
+  assert.match(f.html, /Review search and App Store results/);
+  await apple.submit(form, f.d, 'search');
+  assert.deepEqual(calls.at(-1), {
+    path: '/api/apps/one/apple-analytics/search-review',
+    body: { manifest_version: 2, start: '2026-11-13', end: '2026-11-17' },
+  });
+  const output = f.node.fields['#apple-performance-results'];
+  assert.match(output.innerHTML, /Read the &lt;owned page&gt; evidence/);
+  assert.match(output.innerHTML, /<td>0<\/td><td>Unavailable<\/td>/);
+  assert.match(output.innerHTML, /After Review the web baseline/);
+  await apple.action(click('search-report'), f.d);
+  assert.equal(pdf.title, 'Search to App Store');
+  assert.equal(pdf.next_step, 'Review the link path');
+  assert.equal(pdf.sections.at(-1).items.length, 2);
+  assert.equal(pdf.sections.at(-1).items[1].facts.at(-1)[1], 'After Review the web baseline');
+  await apple.action(click('search-download'), f.d);
+  assert.equal(json.name, 'search-to-app-store-plan.json');
+  assert.equal(json.data.search_review.web_evidence_sha256, 'seo-report-hash');
+  f.state.workspace.insights = { sources: [{ provider: 'openseo', id: 'changed' }] };
+  apple.invalidate(f.state);
+  assert.equal(pdf, null);
+  assert.equal(output.innerHTML, '');
+});
+
+test('selected search actions save and assign against the exact reviewed scope', async () => {
+  const f = fixture();
+  const { form, result } = searchFixture(f);
+  const calls = [];
+  const receipt = { id: 'receipt-1', action_id: 'web-baseline', status: 'SAVED' };
+  f.d.api = async (path, body) => {
+    calls.push({ path, body });
+    if (path.endsWith('/view')) return f.data;
+    if (path.endsWith('/search-review-assign')) {
+      result.search_review.assignments['web-baseline'] = {
+        grant_id: 'grant-1',
+        agent_id: 'actual-agent',
+        status: 'ASSIGNED',
+      };
+    }
+    if (path.endsWith('/search-review')) return result;
+    return { app_id: 'one', review_hash: 'exact-review-hash', receipt };
+  };
+  await apple.open(f.d);
+  await apple.submit(form, f.d, 'search');
+  const selected = click('search-save');
+  selected.dataset.id = 'web-baseline';
+  await apple.action(selected, f.d);
+  assert.deepEqual(calls.at(-1).body, {
+    manifest_version: 2,
+    start: result.start,
+    end: result.end,
+    review_hash: 'exact-review-hash',
+    action_id: 'web-baseline',
+  });
+  assert.match(f.node.fields['#apple-performance-results'].innerHTML, /Draft saved in WMM/);
+  f.node.querySelectorAll = (selector) =>
+    selector === '[data-search-agent]'
+      ? [{ dataset: { searchAgent: 'web-baseline' }, value: 'grant-1' }]
+      : [];
+  selected.dataset.action = 'apple-analytics-search-assign';
+  await apple.action(selected, f.d);
+  assert.equal(calls.at(-2).path, '/api/apps/one/apple-analytics/search-review-assign');
+  assert.equal(calls.at(-2).body.grant_id, 'grant-1');
+  assert.match(
+    f.node.fields['#apple-performance-status'].textContent,
+    /Step assigned to actual-agent/,
+  );
+  assert.match(f.node.fields['#apple-performance-results'].innerHTML, /Awaiting agent/);
+});
 
 test('shows truthful inventory, schedule and PDF evidence without private fields', async () => {
   const f = fixture();

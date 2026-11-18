@@ -20,6 +20,7 @@ from .db import connection
 from .discovery_http import json_body
 from .managed_media_http import singleton
 from .operation_authority import bound_owner, protected
+from .search_store_review import search_store_review
 from .worker import enqueue_db
 
 FIELDS = {
@@ -28,6 +29,9 @@ FIELDS = {
     "impressions": {"manifest_version", "report_id"},
     "performance": {"manifest_version", "start", "end"},
     "performance-collect": {"manifest_version", "inventory_id", "start", "end"},
+    "search-review": {"manifest_version", "start", "end"},
+    "search-review-save": {"manifest_version", "start", "end", "action_id", "review_hash"},
+    "search-review-assign": {"manifest_version", "start", "end", "action_id", "review_hash", "grant_id"},
     "campaign-collect": {"manifest_version", "report_id", "link", "instance_id"},
     "campaign-collect-window": {"manifest_version", "report_id", "inventory_id", "link", "start", "end"},
     "campaign-results": {"manifest_version", "report_id", "link", "territory", "start", "end"},
@@ -381,21 +385,7 @@ def _apple_performance(service, app_id, action, body):
         version, store_id, record = source(db, app_id)
         current, reports = inventory(db, app_id, version, store_id, record)
         if not collecting:
-            key = dict(
-                app_id=app_id,
-                store_app_id=store_id,
-                connection_id=expected.connection_id,
-                connection_version=expected.connection_version,
-                granularity="DAILY",
-            )
-            return dict(
-                app_id=app_id,
-                store_app_id=store_id,
-                start=body["start"],
-                end=body["end"],
-                rows=saved_performance(db, key, reports, start, end),
-                external_writes=False,
-            )
+            return _performance_result(db, app_id, expected, reports, start, end)
         if not current or current["coverage"] != "COMPLETE" or current["job_id"] != body["inventory_id"]:
             raise Invalid("Refresh the current Apple inventory before collecting these dates")
         expected = expected._replace(inventory_id=current["job_id"])
@@ -409,6 +399,52 @@ def _apple_performance(service, app_id, action, body):
             for report, file in files
         ]
         return dict(app_id=app_id, jobs=jobs, external_writes=False)
+
+
+def _performance_result(
+    db: Connection, app_id: str, expected: AnalyticsSource, reports: list[dict[str, Any]], start: date, end: date
+) -> dict[str, Any]:
+    key = dict(
+        app_id=app_id,
+        store_app_id=expected.store_app_id,
+        connection_id=expected.connection_id,
+        connection_version=expected.connection_version,
+        granularity="DAILY",
+    )
+    return dict(
+        app_id=app_id,
+        store_app_id=expected.store_app_id,
+        start=start.isoformat(),
+        end=end.isoformat(),
+        rows=saved_performance(db, key, reports, start, end),
+        external_writes=False,
+    )
+
+
+def search_review_snapshot(db: Connection, app_id: str, body: dict) -> tuple[dict, AnalyticsSource]:
+    """Read same-app Apple and web evidence in the caller's current transaction."""
+    start, end = campaign_dates(body, "Choose up to 31 Apple event dates")
+    expected = check_source(db, app_id, body["manifest_version"])
+    version, store_id, record = source(db, app_id)
+    _, reports = inventory(db, app_id, version, store_id, record)
+    result = _performance_result(db, app_id, expected, reports, start, end)
+    result["search_review"] = search_store_review(db, result, expected.connection_id is not None)
+    return result, expected
+
+
+def _search_review(service, app_id, action, body):
+    from .search_store_actions import bind_review
+
+    saving = action != "search-review"
+    with connection(service.store.path) as db:
+        db.execute("BEGIN IMMEDIATE" if saving else "BEGIN")
+        result, expected = search_review_snapshot(db, app_id, body)
+        bound = bind_review(db, result, expected, body, save=saving)
+        if action == "search-review-assign":
+            from .search_team import assign
+
+            return assign(db, bound, body)
+        return bound
 
 
 def _performance_files(reports, start, end):
@@ -494,6 +530,8 @@ def dispatch(service, app_id, action, body):
         return apple_campaign_read(service, app_id, action, body)
     if action in {"performance", "performance-collect"}:
         return _apple_performance(service, app_id, action, body)
+    if action in {"search-review", "search-review-save", "search-review-assign"}:
+        return _search_review(service, app_id, action, body)
     if action == "view":
         return view(service.store, app_id)
     if action == "inventory":

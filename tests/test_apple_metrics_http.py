@@ -413,6 +413,12 @@ class AppleMetricsHttpTests(unittest.TestCase):
         self.assertEqual(downloads["downloads"]["status"], "APPLE_REPORTED")
         self.assertRegex(downloads["downloads"]["source_sha256"], r"^[0-9a-f]{64}$")
         self.assertFalse(result["external_writes"])
+        with connection(self.store.path) as db:
+            db.execute("BEGIN")
+            combined, _ = api.search_review_snapshot(db, APP, body)
+        self.assertEqual(combined["rows"], result["rows"])
+        self.assertIn("mature first-time download counts for 1/5 days", combined["search_review"]["insight"])
+        self.assertEqual(combined["search_review"]["web_facts"], [])
 
     def test_queue_rechecks_manifest_in_actual_write_transaction(self):
         original = self.service.queue

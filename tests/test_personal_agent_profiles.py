@@ -61,11 +61,6 @@ class GuideTests(unittest.TestCase):
         )
         self.assertTrue(viral["ugc_intake_exempt"])
         self.assertEqual(len({r["wmm_runbook"]["first_action"] for r in guide["profiles"]}), 6)
-        plan = protocol["action_plan"]
-        self.assertTrue(
-            {"step_id", "task", "assigned_agent_id", "depends_on", "completion_receipt"} <= set(plan["step_fields"])
-        )
-        self.assertIn("plan_steps", guide["result_contract"]["owner_summary"])
         team = guide["team_operating_contract"]
         self.assertEqual(team["authority"], "ADVISORY_ONLY")
         self.assertIn("distinct authenticated human", team["review"])

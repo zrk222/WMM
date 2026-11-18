@@ -13,11 +13,17 @@ from urllib.request import Request
 from mission_control.apple_analytics import CAMPAIGN_DOWNLOADS
 from mission_control.common import now
 from mission_control.db import connection
+from mission_control.growth_review_store import GrowthReviews
+from mission_control.insights import Insights
+from mission_control.openseo_read import save_reading
 from mission_control.operator_client import ClientError, OperatorClient
+from mission_control.search_store_review import search_store_review
 from mission_control.server import Server, owner_domain_post
 from mission_control.service import Service
 from mission_control.store import Store
 from mission_control.worker import run_once
+from tests.test_measurement_connectors import FakeVault
+from tests.test_openseo_read import provider_reply, setup
 
 APP = "sample-one"
 BASE = "/api/apps/sample-one/apple-analytics/"
@@ -128,6 +134,86 @@ class AppleMetricsRouteTests(unittest.TestCase):
             dict(manifest_version=self.app["version"], enabled=False, version=schedule["version"]),
         )
         self.assertFalse(paused["enabled"])
+
+    def test_search_review_uses_current_verified_web_evidence_and_retains_apple_window(self) -> None:
+        app = self.store.app(APP)
+        self.app = self.store.save_app(
+            APP,
+            dict(app["data"], website="https://sample.example", release="build-1", locale="en-US"),
+            app["version"],
+        )
+        body = dict(manifest_version=self.app["version"], start="2026-01-01", end="2026-01-05")
+        path = BASE + "search-review"
+        anon = OperatorClient(self.client.origin)
+        anon.bootstrap()
+        self.reject(anon, path, body, 403)
+        self.reject(self.client, path, dict(body, raw_metrics=[]), 400)
+        self.reject(self.client, path, dict(body, manifest_version=self.app["version"] + 1), 400)
+        with patch("mission_control.worker.read_report") as apple:
+            empty = self.post(path, body)
+        apple.assert_not_called()
+        self.assertEqual(empty["rows"], self.post(BASE + "performance", body)["rows"])
+        self.assertEqual(len(empty["rows"]), 5)
+        review = empty["search_review"]
+        self.assertEqual(review["web_facts"], [])
+        self.assertEqual([action["id"] for action in review["actions"]], ["apple-baseline", "web-baseline"])
+        self.assertIn("0/5 days", review["insight"])
+
+        FakeVault.values, FakeVault.fail_delete = {}, 0
+        with patch("mission_control.insights.Vault", FakeVault):
+            owner = Insights(self.store)
+            with patch("mission_control.openseo_transport.call_tool", side_effect=provider_reply):
+                source_id = owner.setup(APP, setup())["source_id"]
+            report = owner.list(APP)["reports"][0]
+            GrowthReviews(self.store).save(
+                APP,
+                dict(
+                    id="operator-search-review",
+                    manifest_version=self.app["version"],
+                    kind="WEB_SEO_EVIDENCE",
+                    data=report["data"]["web_evidence"],
+                ),
+            )
+            self.assertEqual(self.post(path, body)["search_review"]["web_facts"], [])
+            evidence = save_reading(
+                self.store,
+                APP,
+                source_id,
+                dict(id="native-search-review", manifest_version=self.app["version"], report_id=report["id"]),
+            )
+            with patch("mission_control.openseo_transport.call_tool") as web:
+                combined = self.post(path, body)
+            web.assert_not_called()
+            self.assertEqual(combined["rows"], empty["rows"])
+            self.assertFalse(combined["external_writes"])
+            self.assertNotIn(setup()["api_key"], json.dumps(combined))
+            review = combined["search_review"]
+            self.assertEqual(review["web_evidence_sha256"], evidence["hash"])
+            self.assertIn("Google organic clicks 4", review["web_facts"])
+            self.assertIn("Google organic impressions 100", review["web_facts"])
+            self.assertIn("Google organic click-through rate 4.0%", review["web_facts"])
+            self.assertIn("https://sample.example/guide", review["actions"][2]["task"])
+            self.assertEqual(review["actions"][2]["depends_on"], ["web-baseline"])
+            mature_rows = [
+                dict(
+                    day,
+                    discovery=dict(status="APPLE_REPORTED", counts=dict(impressions="0")),
+                    downloads=dict(status="APPLE_REPORTED", counts=dict(first_time_downloads="0")),
+                )
+                for day in combined["rows"]
+            ]
+            with connection(self.store.path) as db:
+                db.execute("BEGIN")
+                planned = search_store_review(db, dict(combined, rows=mature_rows), True)
+            self.assertEqual(planned["actions"][-1]["id"], "measure-tag")
+            self.assertEqual(
+                planned["actions"][-1]["depends_on"], ["apple-baseline", "web-baseline", "store-link-check"]
+            )
+            owner.disconnect(APP, source_id, dict(version=1, confirm_disconnect=True))
+            disconnected = self.post(path, body)["search_review"]
+            self.assertIsNone(disconnected["web_evidence_sha256"])
+            self.assertEqual(disconnected["web_facts"], [])
+            self.assertEqual([action["id"] for action in disconnected["actions"]], ["apple-baseline", "web-baseline"])
 
     def campaign_inventory(self, processing_dates: list[tuple[str, str, str]]) -> str:
         result = dict(
