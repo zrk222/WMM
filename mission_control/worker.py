@@ -4,7 +4,7 @@ import json
 import threading
 import time
 from contextlib import nullcontext
-from typing import cast
+from typing import Any, cast
 from urllib.error import HTTPError, URLError
 
 from .automation_health import Supervision
@@ -18,19 +18,49 @@ from .ledger import Ledger
 from .pipeline import execute
 from .provider_reports import PreparedAppleMetrics, read_report
 from .providers import sync
+from .worker_dependencies import _admit as admit_dependencies
+from .worker_dependencies import _before_claim as check_dependencies
+from .worker_dependencies import _record as dependency_record
+from .worker_dependencies import _view as dependency_view
 
 
-def enqueue(store, app_id, action, data, request_key, *, commit_check=None):
+def queue_app_job(handler: Any, parts: list[str], data: dict[str, Any]) -> dict[str, Any]:
+    """Use the existing queue and bind prerequisite admissions to the current app owner."""
+    service = handler.server.service
+    app_id = parts[2]
+    if "depends_on_jobs" not in data:
+        return service.queue(app_id, data)
+    from .operation_authority import bound_owner, protected
+
+    origin = f"http://127.0.0.1:{handler.server.server_port}"
+    if len(parts) != 4 or handler.path != "/" + "/".join(parts):
+        raise Invalid("Use the exact app job address")
+    if handler.headers.get_all("Host") != [origin[7:]] or handler.headers.get_all("Origin") != [origin]:
+        raise PermissionError("Use the exact local job admission origin")
+    session = handler.session()
+    identities = handler.server.identities
+    user = identities.fresh(session)
+    envelope = dict(app_id=app_id, operation="job.dependencies.admit", input=data)
+    with (
+        bound_owner(service.store, envelope, identities, session, user),
+        protected(service.store, envelope),
+    ):
+        return service.queue(app_id, data)
+
+
+def enqueue(store, app_id, action, data, request_key, *, commit_check=None, depends_on_jobs=None):
     """Persist an idempotent app-scoped job while rejecting a reused key with different input."""
     store.app(app_id)
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
         if commit_check is not None:
             commit_check(db)
+        if depends_on_jobs is not None:
+            return enqueue_db(db, store, app_id, action, data, request_key, depends_on_jobs=depends_on_jobs)
         return enqueue_db(db, store, app_id, action, data, request_key)
 
 
-def enqueue_db(db, store, app_id, action, data, request_key):
+def enqueue_db(db, store, app_id, action, data, request_key, *, depends_on_jobs=None):
     """Queue using the caller's existing transaction and authority guards."""
     if not db.in_transaction:
         raise Invalid("Job admission requires an existing write transaction")
@@ -47,9 +77,12 @@ def enqueue_db(db, store, app_id, action, data, request_key):
     if row["action"] != action or row["data"] != canonical(data):
         raise Invalid("Request key already used for a different job")
     result = json_job(row)
+    admit_dependencies(db, result, depends_on_jobs, inserted=bool(inserted))
     from .automation_execution import attach_job
 
     attach_job(db, result, bool(inserted))
+    if depends_on_jobs is not None:
+        return dependency_view(db, result, dependency_record(db, result["id"]))
     return result
 
 
@@ -80,21 +113,27 @@ def campaign_job_preview(job):
     return job
 
 
-def _job_list_view(row):
+def _job_list_view(db, row):
     if row["action"] == "campaign_owner_report":
         public_fields = ("id", "app_id", "action", "status", "created", "updated", "attempts")
         return {**{key: row[key] for key in public_fields}, "data": {}, "result": None}
-    return campaign_job_preview(json_job(row))
+    result = campaign_job_preview(json_job(row))
+    if result.pop("dependent_job", None):
+        return dependency_view(db, result, dependency_record(db, result["id"]))
+    return result
 
 
 def jobs(store, app_id):
     """Return bounded recent runs for one workspace."""
     store.app(app_id)
     with connection(store.path) as db:
+        db.execute("BEGIN")
         return [
-            _job_list_view(r)
+            _job_list_view(db, r)
             for r in db.execute(
-                "SELECT * FROM jobs WHERE app_id=? AND action!='drive_import' ORDER BY created DESC LIMIT 100",
+                "SELECT j.*, d.job_id AS dependent_job FROM jobs j "
+                "LEFT JOIN worker_job_dependencies d ON d.job_id=j.id "
+                "WHERE j.app_id=? AND j.action!='drive_import' ORDER BY j.created DESC LIMIT 100",
                 (app_id,),
             )
         ]
@@ -212,6 +251,8 @@ def claim(store):
                     pending = False
                 if pending:
                     continue
+            if not check_dependencies(db, candidate, dependency_record(db, candidate["id"])):
+                continue
             row = candidate
             break
         if not row:

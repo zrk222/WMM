@@ -46,6 +46,13 @@ that output for provider confirmation or KPI evidence before claiming delivery o
 lift. Handoff dependencies apply to the recipient's continuation. The original
 worker jobs keep their existing schedule and authority checks.
 
+To order new worker jobs at admission, the signed-in owner can supply
+`depends_on_jobs` to `POST /api/apps/{app_id}/jobs` for a local pipeline or a
+supported provider read. Use the original request key on retry. WMM binds the
+prerequisite job IDs to this app in the admission transaction and checks their
+results when claiming the job. Other ready jobs can run while it waits. An
+uncertain result or a changed receipt puts the dependent job into review.
+
 Read `report.read` (CLI/in-process) or `wmm_report_read` (MCP), with empty input
 and an app-scoped grant permitting that read. It returns the same consolidated
 analytics projection as native Results & reports: `appID`, `sourceHash`,
