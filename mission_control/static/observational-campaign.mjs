@@ -1,9 +1,12 @@
 import { $, api, button, esc, state } from './app.mjs';
 import { download, modal } from './app-ui.mjs';
 import { WMMPageReports } from './feature-apis.mjs';
+import { myReviewRole, reviewIdentity, verifiedOwnerNext } from './verified-review.mjs';
 /* Private owner controls for one-post campaign attribution. */
 const WMMObservationalCampaign = (() => {
   let active;
+  const measurementIntro =
+    '<p>Prepare a tagged link, then count eligible landing visits and linked registrations for a fixed window. Launch approval is separate.</p>';
 
   function identity() {
     const w = state.workspace;
@@ -77,13 +80,20 @@ const WMMObservationalCampaign = (() => {
   }
 
   async function open(offset = 0) {
+    const workspace = state.workspace;
+    if (!state.app || !workspace?.app || workspace.app.id !== state.app)
+      throw new Error('Wait for the selected app to load, then open measurement.');
     const task = (active = {
       app: state.app,
-      version: state.workspace?.app?.version,
+      version: workspace.app.version,
       identity: identity(),
       studies: [],
     });
-    panel(task, '<p>Loading saved studies…</p>');
+    if (reviewIdentity().status !== 'AUTHENTICATED' || myReviewRole()?.role !== 'OWNER') {
+      panel(task, measurementIntro + verifiedOwnerNext(workspace, 'review and register studies'));
+      return;
+    }
+    panel(task, measurementIntro + '<p role="status">Loading saved studies…</p>');
     try {
       const saved = await call(task, 'history', { offset });
       if (!valid(task)) return;
@@ -105,7 +115,7 @@ const WMMObservationalCampaign = (() => {
         .join('');
       panel(
         task,
-        '<p>Prepare a tagged link, then count eligible landing visits and linked registrations for a fixed window. Launch approval is separate.</p>' +
+        measurementIntro +
           '<h3>Saved studies</h3>' +
           (rows || '<p>No registered studies on this page.</p>') +
           (saved.records.length === saved.limit
@@ -180,7 +190,16 @@ const WMMObservationalCampaign = (() => {
           '<button class="button primary" type="submit">Save study</button></form></details>',
       );
     } catch (error) {
-      if (valid(task)) $('#observational-campaign-status').textContent = error.message;
+      if (!valid(task)) return;
+      const repair =
+        error.feedback?.action === 'identity-login'
+          ? button('Sign in with GitHub', 'identity-login')
+          : button(
+              'Retry loading saved studies',
+              'observational-campaign-page',
+              `data-id="${offset}"`,
+            );
+      panel(task, measurementIntro + '<p role="alert">' + esc(error.message) + '</p>' + repair);
     }
   }
 

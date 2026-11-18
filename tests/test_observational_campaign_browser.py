@@ -43,15 +43,42 @@ class ObservationalCampaignBrowserTests(unittest.TestCase):
                 first_experiment.get_by_text("More options", exact=True).click()
             guided_path.click()
 
-        page.locator("#navigation > [data-view=activity]").click()
-        page.get_by_role("button", name="Sign in for verified review", exact=True).click()
+        history_before_signin = []
+
+        def track_history(request):
+            if request.url.endswith("/observational-campaign/history"):
+                history_before_signin.append(request.url)
+
+        page.on("request", track_history)
+        page.get_by_role("button", name="Run an approved campaign", exact=True).press("Enter")
+        page.get_by_role("button", name="Plan a tracked organic post", exact=True).press("Enter")
+        measurement = page.get_by_role("dialog", name="Measure one organic post", exact=True)
+        expect(measurement).to_contain_text("Launch approval is separate")
+        expect(measurement).not_to_contain_text("Loading saved studies")
+        measurement.get_by_role("button", name="Sign in with GitHub", exact=True).press("Enter")
+        page.remove_listener("request", track_history)
+        self.assertEqual(history_before_signin, [])
         page.get_by_label("GitHub identity token", exact=True).fill(OWNER_TOKEN)
         page.get_by_role("button", name="Verify my identity", exact=True).click()
+        page.locator("#navigation > [data-view=activity]").click()
         expect(page.get_by_role("button", name="Sign out of review session")).to_be_visible()
         page.locator("#navigation > [data-view=overview]").click()
         page.get_by_role("button", name="Run an approved campaign", exact=True).press("Enter")
         goal = page.get_by_role("region", name="Your selected goal", exact=True)
         expect(goal.get_by_role("button", name="Plan a tracked organic post", exact=True)).to_be_visible()
+        history_url = "**/observational-campaign/history"
+        page.route(
+            history_url,
+            lambda route: route.fulfill(
+                status=403, json={"error": "Authenticated operator session changed; sign in again"}
+            ),
+        )
+        goal.get_by_role("button", name="Plan a tracked organic post", exact=True).press("Enter")
+        expect(measurement.get_by_role("alert")).to_contain_text("Sign in to continue with this app")
+        expect(measurement).not_to_contain_text("Loading saved studies")
+        expect(measurement.get_by_role("button", name="Sign in with GitHub", exact=True)).to_be_visible()
+        page.keyboard.press("Escape")
+        page.unroute(history_url)
         page.get_by_role("button", name="Open your first packet", exact=True).press("Enter")
         packet = page.get_by_role("dialog", name="Run an approved campaign — evidence packet")
         expect(packet).to_contain_text("keeps its evidence requirements")
