@@ -9,7 +9,7 @@ from urllib.parse import urlencode, urlsplit
 
 from .ads_reports import REPORT_PATHS, read_keywords
 from .apple_ads_economics import campaign_costs
-from .apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, DOWNLOADS, read_analytics
+from .apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, DOWNLOADS, PURCHASES, SUBSCRIPTION_STATE, read_analytics
 from .apple_analytics import identity as analytics_identity
 from .apple_metrics import parse_partitions
 from .apple_segments import read_instance_segments
@@ -118,10 +118,12 @@ class PreparedAppleMetrics:
             metadata_source_hash=self.metadata_source_hash,
             external_writes=False,
             event_data_finality="UNKNOWN",
-            interpretation=(
-                "Discovery observations are per source row. Unique counts cannot be summed across dimensions."
-                if discovery
-                else "Download events are not installs, sales, revenue, or measured lift."
+            interpretation={
+                DISCOVERY: "Discovery observations are per source row. Unique counts cannot be summed across dimensions.",
+                PURCHASES: "Apple estimates developer proceeds in USD and includes signed refunds and partial refunds.",
+                SUBSCRIPTION_STATE: "Subscription counts are dated snapshots. Do not sum them across dates.",
+            }.get(
+                self.identity["report_family"], "Download events are not installs, sales, revenue, or measured lift."
             ),
             **impressions,
         )
@@ -146,6 +148,9 @@ def report_options(provider, options):
         and provider == "app_store"
         and set(options) == {"operation"}
     ):
+        return options
+    if provider == "app_store" and options.get("report_family") in (PURCHASES, SUBSCRIPTION_STATE):
+        _commerce_options(options)
         return options
     if operation == "analytics_metrics_latest" and provider == "app_store":
         fields = set(options)
@@ -177,6 +182,20 @@ def report_options(provider, options):
     report_dates(options)
     campaign_ids(options["campaign_ids"])
     return options
+
+
+def _commerce_options(options: dict[str, Any]) -> None:
+    fields = {"operation", "report_id", "report_family", "instance_id", "start", "end"}
+    if set(options) != fields or options["operation"] != "analytics_metrics":
+        raise Invalid("Choose a dated, app-scoped commerce report file from the owner report")
+    analytics_identity(options["report_id"])
+    analytics_identity(options["instance_id"])
+    try:
+        start, end = (date.fromisoformat(options[key]) for key in ("start", "end"))
+    except (TypeError, ValueError):
+        raise Invalid("Choose valid Apple commerce event dates") from None
+    if (start.isoformat(), end.isoformat()) != (options["start"], options["end"]) or not 0 <= (end - start).days < 31:
+        raise Invalid("Choose up to 31 Apple commerce event dates")
 
 
 def google_options(options):
@@ -353,6 +372,10 @@ def prepare_analytics_metrics(reader, binding, app_id, store_id, options, connec
         granularity=selected["granularity"],
     )
     partitions = tuple(parse_partitions(key, selected["processing_date"], segments, True))
+    if family in (PURCHASES, SUBSCRIPTION_STATE):
+        partitions = tuple(p for p in partitions if options["start"] <= p["partition"]["event_date"] <= options["end"])
+        if not partitions:
+            raise Invalid("Apple returned no commerce observations for the selected event dates")
     public_binding = {name: value for name, value in binding.items() if not name.startswith("_")}
     return PreparedAppleMetrics(
         identity=key,

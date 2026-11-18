@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from sqlite3 import Connection
 from typing import Any
 
-from .apple_analytics import DISCOVERY, DOWNLOADS
+from .apple_analytics import DISCOVERY, DOWNLOADS, PURCHASES, SUBSCRIPTION_STATE
 from .apple_metrics_store import read_in_snapshot
 from .common import digest
 
@@ -12,7 +12,7 @@ METRICS = {
     DISCOVERY: {"impression": "impressions", "page_view": "page_views"},
     DOWNLOADS: {"first_download": "first_time_downloads", "redownload": "redownloads"},
 }
-COMPLETENESS_DAYS = {DISCOVERY: 3, DOWNLOADS: 2}
+COMPLETENESS_DAYS = {DISCOVERY: 3, DOWNLOADS: 2, PURCHASES: 2, SUBSCRIPTION_STATE: 3}
 
 
 def _saved_day(db, key, day, family, report):

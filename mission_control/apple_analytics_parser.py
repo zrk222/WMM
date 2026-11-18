@@ -9,7 +9,8 @@ import zlib
 from collections import Counter
 from datetime import date
 
-from .apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, DOWNLOADS, METRIC_REPORTS
+from . import apple_purchase_rows, apple_subscription_state
+from .apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, DOWNLOADS, METRIC_REPORTS, PURCHASES, SUBSCRIPTION_STATE
 from .apple_campaign_links import campaign_token
 from .common import Invalid, canonical, digest
 
@@ -63,11 +64,13 @@ def _name(value):
 
 
 def _rows(data, app_id, budget, report_family):
-    discovery = report_family == DISCOVERY
-    required = DISCOVERY_REQUIRED if discovery else REQUIRED
-    detailed = report_family == CAMPAIGN_DOWNLOADS
-    if detailed:
-        required = required | {"campaign", "territory"}
+    required = {
+        DOWNLOADS: REQUIRED,
+        CAMPAIGN_DOWNLOADS: REQUIRED | {"campaign", "territory"},
+        DISCOVERY: DISCOVERY_REQUIRED,
+        PURCHASES: apple_purchase_rows.REQUIRED_FIELDS,
+        SUBSCRIPTION_STATE: apple_subscription_state.REQUIRED_FIELDS,
+    }[report_family]
     try:
         reader = csv.reader(io.StringIO(data.decode("utf-8-sig"), newline=""), delimiter="\t", strict=True)
         headers = next(reader)
@@ -82,31 +85,42 @@ def _rows(data, app_id, budget, report_family):
             if row["app apple identifier"] != app_id:
                 raise Invalid("Apple report belongs to another app")
             day = _day(row["date"])
-            count = row["counts"]
-            if not re.fullmatch(r"[0-9]{1,15}", count):
-                raise Invalid("Invalid Apple report count")
-            source_type = row["event" if discovery else "download type"].strip()
-            if not source_type:
-                raise Invalid("Missing Apple report event type")
-            types = EVENTS if discovery else TYPES
-            observation = dict(
-                date=day,
-                type=types.get(source_type.casefold(), "unknown"),
-                source_type=source_type,
-                count=int(count),
-                dimensions={key: value for key, value in row.items() if key not in required},
-            )
-            if detailed:
-                observation["dimensions"] = detailed_dimensions(row)
-            if discovery:
-                unique = row["unique counts"]
-                if not re.fullmatch(r"[0-9]{1,15}", unique) or int(unique) > int(count):
-                    raise Invalid("Invalid Apple report unique count")
-                observation["unique_count"] = int(unique)
+            if report_family == PURCHASES:
+                observation = apple_purchase_rows.observation(row, day)
+            elif report_family == SUBSCRIPTION_STATE:
+                observation = apple_subscription_state.observation(row, day)
+            else:
+                observation = _event_row(row, day, required, report_family)
             rows.append(observation)
         return rows
     except (UnicodeError, csv.Error, StopIteration):
         raise Invalid("Malformed Apple report CSV") from None
+
+
+def _event_row(row, day, required, report_family):
+    discovery = report_family == DISCOVERY
+    count = row["counts"]
+    if not re.fullmatch(r"[0-9]{1,15}", count):
+        raise Invalid("Invalid Apple report count")
+    source_type = row["event" if discovery else "download type"].strip()
+    if not source_type:
+        raise Invalid("Missing Apple report event type")
+    types = EVENTS if discovery else TYPES
+    observation = dict(
+        date=day,
+        type=types.get(source_type.casefold(), "unknown"),
+        source_type=source_type,
+        count=int(count),
+        dimensions={key: value for key, value in row.items() if key not in required},
+    )
+    if report_family == CAMPAIGN_DOWNLOADS:
+        observation["dimensions"] = detailed_dimensions(row)
+    if discovery:
+        unique = row["unique counts"]
+        if not re.fullmatch(r"[0-9]{1,15}", unique) or int(unique) > int(count):
+            raise Invalid("Invalid Apple report unique count")
+        observation["unique_count"] = int(unique)
+    return observation
 
 
 def detailed_dimensions(row: dict[str, str]) -> dict[str, str]:

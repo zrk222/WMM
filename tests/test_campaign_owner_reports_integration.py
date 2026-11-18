@@ -10,9 +10,10 @@ from mission_control import campaign_owner_reports as reports
 from mission_control.apple_analytics import CAMPAIGN_DOWNLOADS
 from mission_control.apple_analytics_parser import parse_instance
 from mission_control.apple_metrics_store import _reconcile
-from mission_control.common import canonical, digest
+from mission_control.common import canonical, digest, iso_time
 from mission_control.db import connection
 from mission_control.operator_client import ClientError, OperatorClient
+from mission_control.search_store_outcomes import _campaigns
 from mission_control.server import owner_domain_post
 from mission_control.store import Store
 from mission_control.worker import Runner
@@ -321,6 +322,17 @@ class ReportIntegrationTests(unittest.TestCase):
             with connection(self.store.path) as db:
                 db.execute("BEGIN IMMEDIATE")
                 self.add_apple_fixture(db, key, "2026-01-02", "2026-01-04", 5)
+            # The retained incomplete capture supplies the chosen scope. New partition evidence is read
+            # immediately, without requiring the owner to capture another private campaign report.
+            with (
+                connection(self.store.path) as db,
+                patch("mission_control.apple_metrics_http.source", return_value=(1, "123456789", None)),
+            ):
+                owner = db.execute("SELECT owner FROM campaign_owner_reports WHERE app_id='sample'").fetchone()[0]
+                current = _campaigns(db, "sample", owner, iso_time(dates["starts_at"]), iso_time(dates["ends_at"]))
+            self.assertEqual([row["value"] for row in current], ["5"])
+            self.assertTrue(current[0]["campaign_report_id"])
+            self.assertEqual(len(current[0]["source_sha256"]), 64)
             observed = self.f.capture(selection)["report"]["apple_downloads"]
             self.assertEqual(observed["status"], "REPORTED")
             self.assertEqual(observed["first_time_downloads"], 5)

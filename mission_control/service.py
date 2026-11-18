@@ -465,8 +465,13 @@ class Service:
         if binding["data"].get("provider") == "google_play":
             data = self.play_sync_data(app_id, binding, data)
         if "options" in data:
+            from .apple_analytics import PURCHASES, SUBSCRIPTION_STATE
+
             report_options(binding["data"]["provider"], data["options"])
-            operation = cast(dict[str, object], data["options"])["operation"]
+            options = cast(dict[str, object], data["options"])
+            if options.get("report_family") in (PURCHASES, SUBSCRIPTION_STATE):
+                raise Invalid("Open the owner performance report to read app-scoped commerce metrics")
+            operation = options["operation"]
             if operation in ("subscription_catalog", "launch_versions"):
                 app = self.store.app(app_id)
                 validate_catalog_scope(app, binding["data"])
