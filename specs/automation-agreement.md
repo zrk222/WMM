@@ -10,6 +10,7 @@ Return one combined owner review of selected existing local-work policy, campaig
 - The system shall return selected current app, owner, policy and catalog bindings in one SQLite read transaction through `snapshot`.
 - The system shall return existing local policy status and summary hash with distinct local and campaign financial records through `independent_scopes`.
 - The system shall return exact scheduled post requests, due times, input hashes, current job states and dispatch uncertainty through `batch_review`.
+- Where a saved campaign scope is selected, the system shall display the action types covered by the post and ad allowances alongside the destinations, approval fingerprints and existing caps. The agreement and report shall show automatic publication of new variants as disabled.
 - The system shall return a matching combined summary digest and authority_issued false over protected HTTP without durable writes, secret resolution or provider effects through `read_only`.
 
 ### Acceptance criteria (Gherkin)
@@ -30,6 +31,11 @@ Scenario: batch_review
   Given a saved scheduled post and changed or uncertain job receipt
   When `batch_review` reads the schedule
   Then exact due times and post identities are bound and uncertainty requires reconciliation
+Scenario: campaign_actions
+  Given a saved campaign scope with a post allowance and zero paid allowance
+  When the owner opens the agreement or its report
+  Then the covered action identifies approved Facebook Page text or link posts
+  And the agreement shows automatic publication of new variants is disabled
 Scenario: read_only
   Given private synthetic credential fields and existing durable resources
   When `read_only` reads the agreement over protected HTTP
