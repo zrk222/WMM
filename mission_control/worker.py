@@ -383,6 +383,10 @@ def _persist_prepared_apple_metrics(db, store, job, prepared):
     ):
         return None, None
     try:
+        if "apple_performance_refresh_id" in job["data"]:
+            from .apple_performance_refresh import guard_job
+
+            guard_job(db, job)
         if "analytics_schedule_id" in job["data"]:
             from .apple_metrics_schedule import check_scheduled_db
 
@@ -603,6 +607,7 @@ def failed_special(job):
 
 def run_once(store, stop=None):
     """Complete one leased job without overwriting cancellation or hiding failure."""
+    from .apple_performance_refresh import guard_worker as guard_apple_refresh
     from .sequence_jobs import guard_owned
     from .sequence_runtime import advance
 
@@ -620,6 +625,7 @@ def run_once(store, stop=None):
     with tracking as children:
         try:
             guard_owned(store, job)
+            guard_apple_refresh(store, job)
             from .automation_execution import WorkerLease, job_execution
 
             with job_execution(store, cast(WorkerLease, job)):
@@ -628,6 +634,7 @@ def run_once(store, stop=None):
                 emit(store, job, "STARTED")
                 result = process(store, job) if stop is None else process(store, job, stop)
             guard_owned(store, job)
+            guard_apple_refresh(store, job)
             status = (
                 "BLOCKED"
                 if job["action"] == "campaign_monitor"
@@ -685,6 +692,21 @@ def persist_job_result(store, job, result, status, retry_delay):
                     return
             except Invalid as error:
                 result, status, retry_delay = failed_result(job, error)
+        refresh_inventory = read_operation == "analytics_reports" and "apple_performance_refresh_id" in job["data"]
+        if refresh_inventory and status == "SUCCEEDED":
+            from .apple_performance_refresh import guard_job
+
+            db.execute("BEGIN IMMEDIATE")
+            leased = db.execute(
+                "SELECT 1 FROM jobs WHERE id=? AND app_id=? AND status='RUNNING' AND attempts=? AND lease>=? AND data=?",
+                (job["id"], job["app_id"], job["attempts"], time.time(), canonical(job["data"])),
+            ).fetchone()
+            if not leased:
+                return
+            try:
+                guard_job(db, job)
+            except Invalid as error:
+                result, status, retry_delay = failed_result(job, error)
         if status == "SUCCEEDED" and read_operation == "launch_versions":
             from .app_launch_history import retain_job_result
 
@@ -725,6 +747,10 @@ def persist_job_result(store, job, result, status, retry_delay):
                 from .apple_metrics_schedule import complete_job
 
                 complete_job(db, job, result, status)
+            if refresh_inventory and status == "SUCCEEDED":
+                from .apple_performance_refresh import complete_inventory
+
+                complete_inventory(db, store, job)
             if job["action"] == "agent_run":
                 from .agent_tasks import complete as agent_complete
 

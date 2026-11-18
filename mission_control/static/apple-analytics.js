@@ -460,23 +460,25 @@
             (item) => item.id === t.node.querySelector('[data-search-web-source]')?.value,
           );
     if (!source) throw Error('Choose a connected OpenSEO project for this app.');
-    const base =
-      '/api/apps/' + encodeURIComponent(t.scope.app) + '/insights/' + encodeURIComponent(source.id);
-    const read = await d.api(base + '/web-read', { confirm_read: true });
-    if (!current(t)) return;
-    if (!read.report_id || read.status !== 'CONNECTED')
-      throw Error(
-        read.error || 'OpenSEO could not complete the read. Inspect the project connection.',
-      );
-    if (!read.report?.web_evidence)
-      throw Error(
-        'OpenSEO returned no eligible app-page rows. Review the property, market and coverage in source setup.',
-      );
-    await d.api(base + '/save-web-evidence', {
-      id: d.uuid(),
+    const request =
+      t.webFetch?.source === source.id ? t.webFetch : { source: source.id, id: d.uuid() };
+    t.webFetch = request;
+    const read = await d.api(searchPath(t, 'search-web-fetch'), {
       manifest_version: t.scope.version,
-      report_id: read.report_id,
+      source_id: source.id,
+      request_id: request.id,
     });
+    if (!current(t)) return;
+    if (
+      read.app_id !== t.scope.app ||
+      read.source_id !== source.id ||
+      read.request_id !== request.id ||
+      read.status !== 'SAVED' ||
+      !read.report_id ||
+      !read.source_sha256
+    )
+      throw Error('The new OpenSEO reading could not be verified. Check the source connection.');
+    t.webFetch = null;
   }
 
   function searchResults(result, sources, ready) {

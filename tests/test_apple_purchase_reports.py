@@ -111,7 +111,7 @@ class PurchaseReportTests(unittest.TestCase):
         with self.assertRaisesRegex(Invalid, "owner performance"):
             case.queue(OPTIONS)
 
-    def test_owner_reads_retained_commerce_after_dated_private_file_jobs(self) -> None:
+    def test_owner_refresh_fetches_dated_private_commerce_and_projects_both_results(self) -> None:
         case = routes.AppleMetricsRouteTests("test_owner_can_queue_observe_and_pause_without_provider_calls")
         self.addCleanup(case.doCleanups)
         case.setUp()
@@ -135,11 +135,20 @@ class PurchaseReportTests(unittest.TestCase):
             observed_at=now(),
             reports=reports,
         )
-        job = case.post(routes.BASE + "inventory", case.inventory_body())
+        start = case.post(
+            routes.BASE + "performance-refresh", dict(window, **case.inventory_body(), request_id="commerce-refresh")
+        )
+        self.assertEqual(start["status"], "INVENTORY")
         with patch("mission_control.worker.read_report", return_value=inventory):
             self.assertTrue(run_once(case.store))
-        queued = case.post(routes.BASE + "performance-collect", dict(window, inventory_id=job["job_id"]))
-        self.assertEqual(len(queued["jobs"]), 2)
+        status = case.post(routes.BASE + "performance-refresh-status", window)
+        self.assertEqual(status["status"], "COLLECTING")
+        self.assertEqual({row["report_family"] for row in status["files"]}, {PURCHASES, SUBSCRIPTION_STATE})
+        with connection(case.store.path) as db:
+            for file in status["files"]:
+                job = db.execute("SELECT data FROM jobs WHERE id=?", (file["job_id"],)).fetchone()
+                options = json.loads(job["data"])["options"]
+                self.assertEqual((options["start"], options["end"]), (window["start"], window["end"]))
 
         def files(_reader: Any, app_id: str, report_id: str, instance_id: str) -> list[dict]:
             self.assertEqual(app_id, "123")

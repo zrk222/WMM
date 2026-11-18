@@ -7,16 +7,17 @@ from sqlite3 import Connection
 from unittest.mock import patch
 
 from mission_control import campaign_owner_reports as reports
-from mission_control.apple_analytics import CAMPAIGN_DOWNLOADS
+from mission_control.apple_analytics import CAMPAIGN_DOWNLOADS, DOWNLOADS
 from mission_control.apple_analytics_parser import parse_instance
 from mission_control.apple_metrics_store import _reconcile
-from mission_control.common import canonical, digest, iso_time
+from mission_control.common import canonical, digest, iso_time, now
 from mission_control.db import connection
 from mission_control.operator_client import ClientError, OperatorClient
 from mission_control.search_store_outcomes import _campaigns
 from mission_control.server import owner_domain_post
+from mission_control.service import Service
 from mission_control.store import Store
-from mission_control.worker import Runner
+from mission_control.worker import Runner, run_once
 from tests import test_campaign_owner_reports as report_fixtures
 from tests import test_campaign_schedule as schedule_fixtures
 from tests.test_apple_campaign_attribution import COLUMNS, segment
@@ -346,6 +347,125 @@ class ReportIntegrationTests(unittest.TestCase):
             wrong = self.f.capture(dict(selection, measurement_window=wrong_dates))["report"]["apple_downloads"]
             self.assertIsNone(wrong["first_time_downloads"])
             self.assertEqual(wrong["status"], "WINDOW_MISMATCH")
+
+    def test_refresh_fetches_detailed_only_for_exact_current_private_campaign(self) -> None:
+        app = self.store.app("sample")
+        app = self.store.save_app("sample", dict(app["data"], store_app_id="123456789"), app["version"])
+        connection_row = Service(self.store).evidence(
+            "sample",
+            dict(
+                kind="connection",
+                title="Synthetic Apple",
+                source="Fixture only",
+                data=dict(
+                    provider="app_store", store_app_id="123456789", env_ref="GROWTH_SAMPLE_SYNTHETIC", account_id="0"
+                ),
+            ),
+        )
+        link = "https://apps.apple.com/app/apple-store/id123456789?pt=123456&ct=apple-owner-fixture&mt=8"
+        dates = dict(starts_at="2026-01-01T00:00:00+00:00", ends_at="2026-01-02T00:00:00+00:00")
+        chosen = self.f.chosen(monitor_id=None, measurement_window=dates, apple_storefront="US")
+        with connection(self.store.path) as db:
+            row = db.execute("SELECT summary FROM campaign_scopes WHERE id=?", (chosen["scope_id"],)).fetchone()
+            summary = json.loads(row["summary"])
+            summary.update(
+                ad_account_id=None,
+                measurement_plan=dict(
+                    dates,
+                    link=link,
+                    campaign_tag="apple-owner-fixture",
+                    measurement_source="APPLE_APP_DOWNLOADS",
+                    primary_metric="apple_first_time_downloads",
+                    denominator="none",
+                    hypothesis="Collect only the saved campaign evidence for this app.",
+                    decision_rule="Use its mature US report.",
+                ),
+            )
+            db.execute(
+                "UPDATE campaign_scopes SET summary=?,summary_hash=? WHERE id=?",
+                (canonical(summary), digest(summary), chosen["scope_id"]),
+            )
+        report = self.f.capture(chosen)
+        path = "/api/apps/sample/apple-analytics/"
+        window = dict(manifest_version=app["version"], start="2026-01-01", end="2026-01-01")
+        body = dict(
+            window,
+            connection_id=connection_row["id"],
+            connection_version=connection_row["version"],
+            campaign_report_id=report["id"],
+            request_id="apple-campaign-fixture",
+        )
+        for changed in (
+            dict(body, campaign_report_id="wrong-private-report"),
+            dict(body, end="2026-01-02"),
+            dict(body, campaign_link=link),
+        ):
+            with self.assertRaises(ClientError) as denied:
+                self.client.request("POST", path + "campaign-refresh", changed)
+            self.assertEqual(denied.exception.status, 400)
+        with connection(self.store.path) as db:
+            db.execute(
+                "INSERT INTO operator_roles VALUES(?,?,?,?,?,?,?,?)",
+                ("sample", "other-owner", "other-owner", "OWNER", "ACTIVE", 1, now(), "fixture"),
+            )
+        other = OperatorClient(self.client.origin)
+        other.bootstrap()
+        with patch(
+            "mission_control.operator_identity.github_read",
+            return_value=dict(principal="other-owner", login="other-owner", provider="GITHUB", verified_at=now()),
+        ):
+            other.request("POST", "/api/identity/login", {"token": "other_synthetic_owner_token"})
+            with self.assertRaises(ClientError) as foreign:
+                other.request("POST", path + "campaign-refresh", body)
+        self.assertEqual(foreign.exception.status, 400)
+        initial = self.client.request("POST", path + "campaign-refresh", body)
+        assert isinstance(initial, dict)
+        self.assertEqual(initial["status"], "INVENTORY")
+        inventory = dict(
+            operation="analytics_reports",
+            status="METRIC_DOWNLOAD_REQUIRED",
+            coverage="COMPLETE",
+            reports=[
+                dict(
+                    id="detailed-report",
+                    name=CAMPAIGN_DOWNLOADS,
+                    coverage="COMPLETE",
+                    instances=[dict(id="detailed-jan-03", processing_date="2026-01-03", granularity="DAILY")],
+                ),
+                dict(
+                    id="standard-report",
+                    name=DOWNLOADS,
+                    coverage="COMPLETE",
+                    instances=[dict(id="standard-jan-03", processing_date="2026-01-03", granularity="DAILY")],
+                ),
+            ],
+        )
+        data = COLUMNS + "2026-01-01\t123456789\tFirst-time Download\t4\tapple-owner-fixture\tUS\tfixture\n"
+        with (
+            patch("mission_control.provider_reports.credential", return_value="fixture"),
+            patch("mission_control.provider_reports.read_analytics", return_value=inventory),
+            patch("mission_control.provider_reports.read_instance_segments", return_value=[segment(data)]) as collect,
+        ):
+            self.assertTrue(run_once(self.store))
+            self.assertTrue(run_once(Store(self.store.path)))
+            self.assertFalse(run_once(self.store))
+        self.assertEqual(collect.call_count, 1)
+        self.assertEqual(collect.call_args.args[1:], ("123456789", "detailed-report", "detailed-jan-03"))
+        status = self.client.request("POST", path + "performance-refresh-status", window)
+        assert isinstance(status, dict)
+        self.assertEqual(status["status"], "READY")
+        self.assertEqual(status["campaign_report_id"], report["id"])
+        self.assertEqual([file["report_family"] for file in status["files"]], [CAMPAIGN_DOWNLOADS])
+        self.assertNotIn("apple-owner-fixture", json.dumps(status))
+        self.assertEqual(self.client.request("POST", path + "campaign-refresh", body), status)
+        with patch(
+            "mission_control.operator_identity.github_read",
+            return_value=dict(principal="other-owner", login="other-owner", provider="GITHUB", verified_at=now()),
+        ):
+            other_status = other.request("POST", path + "performance-refresh-status", window)
+        assert isinstance(other_status, dict)
+        self.assertEqual(other_status["status"], "NOT_REQUESTED")
+        self.assertIsNone(other_status["campaign_report_id"])
 
     @staticmethod
     def add_apple_fixture(db: Connection, key: dict[str, str | int], event: str, processing: str, count: int) -> None:

@@ -172,6 +172,20 @@ class AppleMetricsSchedulesRow(TypedDict):
     stop_at: float | None
 
 
+class ApplePerformanceRefreshesRow(TypedDict):
+    app_id: str
+    id: str
+    event_start: str
+    event_end: str
+    scope: str
+    scope_sha256: str
+    inventory_job_id: str
+    handoff_status: str | None
+    files: str | None
+    files_sha256: str | None
+    created: str
+
+
 class ApprovalsRow(TypedDict):
     id: str
     app_id: str

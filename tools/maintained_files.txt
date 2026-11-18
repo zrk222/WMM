@@ -20,14 +20,18 @@ mission_control/apple_ads_economics.py
 mission_control/apple_analytics.py
 mission_control/apple_analytics_parser.py
 mission_control/apple_campaign_links.py
+mission_control/apple_commerce_outcomes.py
 mission_control/apple_metrics_contract.py
 mission_control/apple_metrics_http.py
 mission_control/apple_metrics_schedule.py
 mission_control/apple_metrics_store.py
 mission_control/apple_owner_outcome.py
+mission_control/apple_performance_refresh.py
 mission_control/apple_performance_report.py
+mission_control/apple_purchase_rows.py
 mission_control/apple_readiness_report.py
 mission_control/apple_storefront.py
+mission_control/apple_subscription_state.py
 mission_control/architecture.py
 mission_control/attribution_adservices.py
 mission_control/attribution_ingestion.py
@@ -131,6 +135,7 @@ mission_control/release_readiness.py
 mission_control/review_access.py
 mission_control/schema_types.py
 mission_control/search_store_actions.py
+mission_control/search_store_outcomes.py
 mission_control/search_store_review.py
 mission_control/search_team.py
 mission_control/search_team_analysis.py
@@ -172,9 +177,11 @@ tests/test_app_launch_status.py
 tests/test_apple_ads_economics.py
 tests/test_apple_analytics.py
 tests/test_apple_campaign_attribution.py
+tests/test_apple_commerce_outcomes.py
 tests/test_apple_inventory_watch.py
 tests/test_apple_metrics_http.py
 tests/test_apple_metrics_http_route.py
+tests/test_apple_purchase_reports.py
 tests/test_architecture_gates.py
 tests/test_automation_agreement.py
 tests/test_automation_profiles_browser.py
@@ -283,6 +290,7 @@ tests/test_schedule_pause_evidence.py
 tests/test_schedules.py
 tests/test_schema_types.py
 tests/test_search_store_actions.py
+tests/test_search_store_outcomes.py
 tests/test_search_team.py
 tests/test_social_connections.py
 tests/test_social_http.py

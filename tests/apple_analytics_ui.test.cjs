@@ -952,20 +952,25 @@ test('fetch the selected OpenSEO project and read back the exact new report befo
   f.d.api = async (path, body) => {
     calls.push({ path, body });
     if (path.endsWith('/view')) return f.data;
-    if (path.endsWith('/web-read'))
-      return { status: 'CONNECTED', report_id: 'new-reading', report: { web_evidence: {} } };
-    if (path.endsWith('/save-web-evidence')) return { id: 'reading-save-id' };
+    if (path.endsWith('/search-web-fetch'))
+      return {
+        app_id: 'one',
+        source_id: 'current',
+        request_id: 'reading-save-id',
+        status: 'SAVED',
+        report_id: 'new-reading',
+        source_sha256: 'evidence',
+      };
     return result;
   };
   await apple.open(f.d);
   await apple.submit(form, f.d, 'search');
   assert.match(f.node.fields['#apple-performance-results'].innerHTML, /Fetch OpenSEO search data/);
   await apple.action(click('search-fetch-web'), f.d);
-  assert.deepEqual(calls.slice(-3), [
-    { path: '/api/apps/one/insights/current/web-read', body: { confirm_read: true } },
+  assert.deepEqual(calls.slice(-2), [
     {
-      path: '/api/apps/one/insights/current/save-web-evidence',
-      body: { id: 'reading-save-id', manifest_version: 2, report_id: 'new-reading' },
+      path: '/api/apps/one/apple-analytics/search-web-fetch',
+      body: { source_id: 'current', manifest_version: 2, request_id: 'reading-save-id' },
     },
     {
       path: '/api/apps/one/apple-analytics/search-review',
