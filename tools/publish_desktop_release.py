@@ -210,6 +210,9 @@ def publish(folder, sha, tag):
         + ". "
         "Automated synthetic installer checks are not human first-use acceptance."
     )
+    changes_file = Path(__file__).resolve().parents[1] / "docs" / "releases" / f"{tag}.md"
+    if changes_file.is_file():
+        notes = changes_file.read_text(encoding="utf-8").strip() + "\n\n" + notes
     gh(
         "release",
         "create",
