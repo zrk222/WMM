@@ -80,7 +80,7 @@ class PublicationReportTests(unittest.TestCase):
         with self.assertRaises(Invalid):
             self.read(item)
 
-    def test_empty_executed_chain_is_not_an_unexecuted_report(self):
+    def test_empty_executed_chain_is_not_an_unexecuted_report(self) -> None:
         item, job = self.leased()
         with patch("mission_control.publication_sessions.Vault", return_value=execution.Vault()):
             self.run_step(job, SimpleNamespace(create=lambda *a: self.state("READY_TO_PUBLISH")))
@@ -91,7 +91,7 @@ class PublicationReportTests(unittest.TestCase):
         with self.assertRaises(Invalid):
             self.read(item)
 
-    def test_truncated_chain_cannot_hide_behind_an_unchanged_valid_head(self):
+    def test_truncated_chain_cannot_hide_behind_an_unchanged_valid_head(self) -> None:
         item, job = self.leased()
         with patch("mission_control.publication_sessions.Vault", return_value=execution.Vault()):
             self.run_step(job, SimpleNamespace(create=lambda *a: self.state("READY_TO_PUBLISH")))
