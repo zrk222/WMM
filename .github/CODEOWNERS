@@ -1,0 +1,10 @@
+# Route source stewardship to the repository owner.
+# Independent approval uses the configured reviewer check, not this ownership list.
+* @zrk222
+
+# Security and release path stewardship remains with the owner.
+/.github/ @zrk222
+/mission_control/ @zrk222
+/packaging/ @zrk222
+/tools/ @zrk222
+/docs/ @zrk222

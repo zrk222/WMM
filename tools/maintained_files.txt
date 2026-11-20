@@ -280,6 +280,7 @@ tests/test_query_budgets.py
 tests/test_reconciliation.py
 tests/test_rejected_http_response.py
 tests/test_release_attestation_assets.py
+tests/test_release_clearance.py
 tests/test_release_inventory.py
 tests/test_release_provenance.py
 tests/test_release_sbom.py
@@ -325,6 +326,7 @@ tools/check_format.py
 tools/check_layering.py
 tools/check_new_public_annotations.py
 tools/check_platform_receipts.py
+tools/check_release_clearance.py
 tools/check_schedule_mutations.py
 tools/check_types.py
 tools/ci_host_user.py
