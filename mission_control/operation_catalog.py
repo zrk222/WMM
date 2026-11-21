@@ -690,4 +690,4 @@ def request_data(envelope: object) -> ResolvedRequest:
         method=rule["method"],
         path="/api/apps/" + app_id + suffix,
         body=envelope["input"] if rule["method"] == "POST" else None,
-)
+    )
