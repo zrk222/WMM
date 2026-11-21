@@ -94,7 +94,12 @@ def dispatch(store, app_id, action, body):
     def read_intent(value):
         if "principal" in context or not isinstance(value.get("result"), dict):
             return value
-        return dict(value, result={key: item for key, item in value["result"].items() if key != "destination_check"})
+        return dict(
+            value,
+            result={
+                key: item for key, item in value["result"].items() if key not in {"destination_check", "claim_snapshot"}
+            },
+        )
 
     if action == "history":
         owner = scope_owner(store, context, actor)
