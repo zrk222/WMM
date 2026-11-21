@@ -75,6 +75,15 @@ Each row mirrors a closed descriptor in `mission_control/operation_catalog.py`.
 | `ios.timeline.queue` | `POST` | `/ios-timeline/queue` | `QUEUE_LOCAL_PREPARATION` | `project_id`, `revision`, `project_hash`, `request_key` | - | - |
 | `job.cancel` | `POST` | `/jobs/{resource_id}/cancel` | `CANCEL_LOCAL_JOB` | - | - | - |
 | `jobs.read` | `GET` | `/jobs` | `READ_PRIVATE_LOCAL_DATA` | - | - | - |
+| `marketing-review.change` | `POST` | `/marketing-review/change` | `WRITE_LOCAL_EVIDENCE` | `scope_id`, `id`, `title`, `shipped_at`, `shipment_sha256`, `claim_ids` | - | - |
+| `marketing-review.check-artifact` | `POST` | `/marketing-review/check-artifact` | `READ_OWNED_PROVIDER_STATUS` | `scope_id`, `id`, `hash` | - | - |
+| `marketing-review.claims` | `POST` | `/marketing-review/claims` | `READ_PRIVATE_LOCAL_DATA` | `scope_id` | - | - |
+| `marketing-review.demo-status` | `POST` | `/marketing-review/demo-status` | `READ_PRIVATE_LOCAL_DATA` | `scope_id`, `id`, `hash`, `publication_id` | - | - |
+| `marketing-review.effort` | `POST` | `/marketing-review/effort` | `WRITE_LOCAL_EVIDENCE` | `scope_id`, `id`, `occurred_at`, `checks_run`, `reviews_completed`, `minutes`, `evidence_sha256`, `note` | - | - |
+| `marketing-review.index-artifact` | `POST` | `/marketing-review/index-artifact` | `WRITE_LOCAL_EVIDENCE` | `scope_id`, `id`, `url`, `approved_claim_text`, `claim_ids`, `published_at` | - | - |
+| `marketing-review.prepare-demo` | `POST` | `/marketing-review/prepare-demo` | `WRITE_LOCAL_PLAN` | `scope_id`, `id`, `change_id`, `change_hash`, `brief_id`, `brief_hash`, `hook_review`, `study_id`, `study_hash`, `channel` | - | - |
+| `marketing-review.retention` | `POST` | `/marketing-review/retention` | `WRITE_LOCAL_EVIDENCE` | `scope_id`, `id`, `demo_id`, `demo_hash`, `source_id`, `days`, `observed_at`, `coverage_from`, `coverage_through`, `complete`, `source_event_count`, `source_receipt_sha256`, `events` | - | - |
+| `marketing-review.topics` | `POST` | `/marketing-review/topics` | `READ_PRIVATE_LOCAL_DATA` | `scope_id` | - | - |
 | `measurement.read` | `GET` | `/measurement` | `READ_PRIVATE_LOCAL_DATA` | - | - | - |
 | `media.sources` | `GET` | `/media/sources` | `READ_PRIVATE_LOCAL_DATA` | - | - | - |
 | `native.queue` | `POST` | `/production/renders` | `QUEUE_LOCAL_PREPARATION` | `data`, `request_key` | - | - |
