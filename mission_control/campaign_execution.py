@@ -4,12 +4,14 @@ import json
 import sqlite3
 from contextvars import ContextVar
 from datetime import datetime, timezone
+from typing import Any
 
 from .campaign_contract import ad_data, paid_view, post_data, row_intent, scope_data
 from .campaign_destination import check_destination
 from .campaign_locks import CampaignLockBusy, paid_lock
 from .campaign_pause_receipts import confirm_paid_transition, pause_revision
 from .campaign_pause_receipts import saved_pause_receipt as saved_pause_receipt
+from .campaign_stale_claims import retain_post, source_snapshot
 from .campaign_transport import MetaTransport, Unconfirmed
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
@@ -467,7 +469,11 @@ class CampaignExecutionService:
                 raise PermissionError("Approved post count is exhausted")
             tag = scoped_tracking_tag(db, app_id, post["link"])
             assert_fresh_campaign_tag(db, app_id, tag, scope_id=scope_id)
-            retained = {"destination_check": destination_check} if destination_check else {}
+            retained: dict[str, Any] = {
+                "claim_snapshot": dict(approved_claim_text=post["message"], source=source_snapshot(db, app_id, []))
+            }
+            if destination_check:
+                retained["destination_check"] = destination_check
             if tag is not None:
                 retained["campaign_tag_hash"] = digest(tag)
             identity = uid()
@@ -519,13 +525,27 @@ class CampaignExecutionService:
             if row["remote_id"] and remote_id and row["remote_id"] != remote_id:
                 raise Invalid("Campaign receipt identity changed")
             previous = json.loads(row["result"]) if row["result"] else {}
-            for field in ("destination_check", "campaign_tag_hash"):
+            for field in ("destination_check", "campaign_tag_hash", "claim_snapshot"):
                 if field in previous:
                     result = dict(result or {}, **{field: previous[field]})
             db.execute(
                 "UPDATE campaign_intents SET status=?,remote_id=COALESCE(?,remote_id),result=?,updated=? WHERE app_id=? AND id=?",
                 (status, remote_id, canonical(result) if result else None, now(), app_id, identity),
             )
+            if status == "VERIFIED" and result and result.get("permalink_url") and previous.get("claim_snapshot"):
+                scope_row = db.execute(
+                    "SELECT owner FROM campaign_scopes WHERE app_id=? AND id=?", (app_id, row["scope_id"])
+                ).fetchone()
+                retain_post(
+                    db,
+                    app_id,
+                    scope_row["owner"],
+                    row["scope_id"],
+                    row["id"],
+                    previous["claim_snapshot"],
+                    result["permalink_url"],
+                    row["created"],
+                )
             saved = row_intent(
                 db.execute("SELECT * FROM campaign_intents WHERE app_id=? AND id=?", (app_id, identity)).fetchone()
             )
