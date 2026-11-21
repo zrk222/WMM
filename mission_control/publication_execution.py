@@ -615,4 +615,4 @@ def _can_resume(authority):
         and authority["status"] == "APPROVED"
         and authority["expires"] > time.time()
         and authority["calls_used"] < authority["max_calls"]
-)
+    )
