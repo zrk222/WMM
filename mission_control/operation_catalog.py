@@ -55,6 +55,69 @@ def descriptor(
 
 
 OPERATIONS = {
+    "marketing-review.index-artifact": descriptor(
+        "POST",
+        "/marketing-review/index-artifact",
+        "WRITE_LOCAL_EVIDENCE",
+        ("scope_id", "id", "url", "approved_claim_text", "claim_ids", "published_at"),
+    ),
+    "marketing-review.claims": descriptor("POST", "/marketing-review/claims", "READ_PRIVATE_LOCAL_DATA", ("scope_id",)),
+    "marketing-review.check-artifact": descriptor(
+        "POST", "/marketing-review/check-artifact", "READ_OWNED_PROVIDER_STATUS", ("scope_id", "id", "hash")
+    ),
+    "marketing-review.effort": descriptor(
+        "POST",
+        "/marketing-review/effort",
+        "WRITE_LOCAL_EVIDENCE",
+        ("scope_id", "id", "occurred_at", "checks_run", "reviews_completed", "minutes", "evidence_sha256", "note"),
+    ),
+    "marketing-review.change": descriptor(
+        "POST",
+        "/marketing-review/change",
+        "WRITE_LOCAL_EVIDENCE",
+        ("scope_id", "id", "title", "shipped_at", "shipment_sha256", "claim_ids"),
+    ),
+    "marketing-review.topics": descriptor("POST", "/marketing-review/topics", "READ_PRIVATE_LOCAL_DATA", ("scope_id",)),
+    "marketing-review.prepare-demo": descriptor(
+        "POST",
+        "/marketing-review/prepare-demo",
+        "WRITE_LOCAL_PLAN",
+        (
+            "scope_id",
+            "id",
+            "change_id",
+            "change_hash",
+            "brief_id",
+            "brief_hash",
+            "hook_review",
+            "study_id",
+            "study_hash",
+            "channel",
+        ),
+    ),
+    "marketing-review.demo-status": descriptor(
+        "POST", "/marketing-review/demo-status", "READ_PRIVATE_LOCAL_DATA", ("scope_id", "id", "hash", "publication_id")
+    ),
+    "marketing-review.retention": descriptor(
+        "POST",
+        "/marketing-review/retention",
+        "WRITE_LOCAL_EVIDENCE",
+        (
+            "scope_id",
+            "id",
+            "demo_id",
+            "demo_hash",
+            "source_id",
+            "days",
+            "observed_at",
+            "coverage_from",
+            "coverage_through",
+            "complete",
+            "source_event_count",
+            "source_receipt_sha256",
+            "events",
+        ),
+    ),
     "observational-campaign.register": descriptor(
         "POST", "/observational-campaign/register", "WRITE_LOCAL_PLAN", ACTION_FIELDS["register"]["required"]
     ),
@@ -627,4 +690,4 @@ def request_data(envelope: object) -> ResolvedRequest:
         method=rule["method"],
         path="/api/apps/" + app_id + suffix,
         body=envelope["input"] if rule["method"] == "POST" else None,
-    )
+)
