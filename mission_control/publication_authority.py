@@ -1,17 +1,21 @@
 """Exact owner-reviewed publication authority; no provider or credential access."""
 
+import json
+import time
 from datetime import datetime, timezone
-import json, time
+from typing import cast
+
 from .agent_grants import app_scope
 from .authority_expiry import deadline
-from .campaign_access import identity as campaign_identity, scope_owner
+from .campaign_access import identity as campaign_identity
+from .campaign_access import scope_owner
 from .campaign_schedule import owner_context
-from .common import Invalid, canonical, digest, now, uid, iso_time
+from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
 from .operation_authority import check
 from .publication_contract import validate_draft
-from .review_access import member, exact_role
-from .social_contract import reference, display
+from .review_access import exact_role, member
+from .social_contract import display, reference
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS publication_authorities(
@@ -66,7 +70,7 @@ def initialize(store):
 
 def _admit(store, app_id, operation, body, owner_only=False):
     context, actor = campaign_identity(store, app_id)
-    if json.loads(context["envelope"]) != {"app_id": app_id, "operation": operation, "input": body}:
+    if json.loads(cast(str, context["envelope"])) != {"app_id": app_id, "operation": operation, "input": body}:
         raise PermissionError("Publication operation differs from protected admission")
     if owner_only and "principal" not in context:
         raise PermissionError("Fresh owner authority is required")
@@ -121,8 +125,10 @@ def _connection(db, app_id, draft):
 
 
 def _proof(store, db, app_id, draft, verify_bytes=True):
+    from .mini_demo_publication import check as check_mini_demo
     from .publication_artifacts import verify
 
+    check_mini_demo(db, store, app_id, draft)
     return verify(store, db, app_id, draft, verify_bytes=verify_bytes)
 
 
@@ -404,6 +410,11 @@ class Publications:
                 "preflight": _preflight(db, app_id, owner, preflight_id, draft, fresh=True),
                 "proof": _proof(self.store, db, app_id, draft),
             }
+            from .campaign_stale_claims import source_snapshot
+
+            binding["claim_snapshot"] = dict(
+                approved_claim_text=draft["caption"], source=source_snapshot(db, app_id, [])
+            )
             _duration(db, binding["preflight"], binding["proof"])
             review_hash = digest({"draft": draft, "preflight_id": preflight_id})
             ident = uid()
