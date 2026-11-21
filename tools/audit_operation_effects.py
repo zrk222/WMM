@@ -6,10 +6,9 @@ source; unresolved roots fail. Unknown dynamic calls are reported separately.
 
 import argparse
 import ast
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 from pathlib import Path
-
 
 UNKNOWN = object()
 EXTERNAL_EFFECTS = {
@@ -156,7 +155,7 @@ class Audit:
         if isinstance(node, ast.Dict):
             return {
                 self.expr(k, env, module, chain, execute): self.expr(v, env, module, chain, False)
-                for k, v in zip(node.keys, node.values)
+                for k, v in zip(node.keys, node.values, strict=True)
                 if k is not None
             }
         if isinstance(node, ast.Lambda):
@@ -244,7 +243,12 @@ class Audit:
                 ):
                     return getattr(value, node.func.attr)(*args)
                 if isinstance(value, dict) and node.func.attr == "get" and args:
-                    return value.get(args[0], args[1] if len(args) > 1 else UNKNOWN)
+                    try:
+                        return value.get(args[0], args[1] if len(args) > 1 else UNKNOWN)
+                    except TypeError:
+                        # The bounded interpreter represents tuples as lists. A
+                        # symbolic/unhashable key is unknown, not a runtime error.
+                        return UNKNOWN
             if isinstance(node.func, ast.Name) and node.func.id == "getattr" and len(node.args) >= 2:
                 owner = self.expr(node.args[0], env, module, chain, False)
                 name = self.expr(node.args[1], env, module, chain, False)
@@ -375,7 +379,7 @@ class Audit:
         if "." in ref.name and parameters and parameters[0].arg == "self":
             env["self"] = Ref(ref.module, ref.name.rsplit(".", 1)[0])
             parameters = parameters[1:]
-        env.update({p.arg: v for p, v in zip(parameters, args)})
+        env.update({p.arg: v for p, v in zip(parameters, args, strict=False)})
         self.statements(node.body, env, ref.module, chain + [location])
 
     def catalog(self):
@@ -390,8 +394,8 @@ class Audit:
                     self.errors.append("OPERATIONS must be a literal descriptor dictionary")
                     return {}
                 result = {}
-                for key, value in zip(node.value.keys, node.value.values):
-                    if not isinstance(value, ast.Call) or len(value.args) < 3:
+                for key, value in zip(node.value.keys, node.value.values, strict=True):
+                    if key is None or not isinstance(value, ast.Call) or len(value.args) < 3:
                         self.errors.append("Unresolved catalog descriptor")
                         continue
                     try:
