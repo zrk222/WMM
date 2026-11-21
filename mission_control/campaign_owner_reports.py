@@ -310,6 +310,7 @@ def comparison(db, app_id, owner, key, current):
         status="COMPATIBLE_SAVED_OBSERVATIONS",
         previous_id=previous["id"],
         previous_hash=previous["hash"],
+        previous_verification_effort=old.get("verification_effort"),
         changes=changes,
         limitations="Same declared window and metric definitions; changes are descriptive, not causal growth.",
     )
@@ -412,6 +413,21 @@ def build(db, store, app_id, owner, chosen):
             )
         elif "apple_storefront" in chosen:
             raise Invalid("Select an approved Apple download campaign to use this storefront")
+    from .campaign_stale_claims import review as claim_review
+    from .marketing_effort import summary as effort_summary
+
+    value["stale_claims"] = claim_review(db, app_id, owner, chosen["scope_id"])
+    value["verification_effort"] = effort_summary(db, app_id, owner, chosen["scope_id"], chosen["measurement_window"])
+    previous_effort = value["comparison"].pop("previous_verification_effort", None)
+    value["comparison"]["verification_effort"] = dict(
+        status="COMPARABLE_RECORDED_EFFORT"
+        if previous_effort
+        and previous_effort["status"] == "OWNER_RECORDED"
+        and value["verification_effort"]["status"] == "OWNER_RECORDED"
+        else "NO_COMPARABLE_RECORDED_EFFORT",
+        previous=previous_effort,
+        current=value["verification_effort"],
+    )
     value["next_action"] = next_action(
         campaign,
         monitor_view,
@@ -420,6 +436,7 @@ def build(db, store, app_id, owner, chosen):
         value.get("primary_outcome"),
         value.get("joined_outcome_advice"),
         value.get("apple_downloads"),
+        value["stale_claims"],
     )
     value["source_hash"] = digest(
         dict(
@@ -427,6 +444,8 @@ def build(db, store, app_id, owner, chosen):
             campaign=campaign,
             monitor=value["monitor"],
             kpis=metrics["sourceHash"],
+            stale_claims=value["stale_claims"],
+            verification_effort=value["verification_effort"],
             experiment=experiment,
             **({"outcome_receipt_sha256": chosen["outcome_receipt_sha256"]} if "first_party_outcomes" in value else {}),
             **({"delivery_evidence": value["delivery_evidence"]} if "delivery_evidence" in value else {}),
@@ -436,7 +455,7 @@ def build(db, store, app_id, owner, chosen):
     return value, key
 
 
-def next_action(campaign, monitor, experiment, delivery=None, outcome=None, advice=None, apple=None):
+def next_action(campaign, monitor, experiment, delivery=None, outcome=None, advice=None, apple=None, stale_claims=None):
     if guidance := pause_guidance(campaign["receipts"]):
         return guidance
     uncertain = ("UNKNOWN", "DISPATCHING", "ACKNOWLEDGED", "VERIFYING")
@@ -445,6 +464,8 @@ def next_action(campaign, monitor, experiment, delivery=None, outcome=None, advi
     observation = monitor["last_observation"]
     if observation and observation.get("status") == "BLOCKED":
         return "Inspect the blocked monitor and reconcile its saved campaign receipts; do not replay mutations."
+    if stale_claims and stale_claims["stale_count"]:
+        return "Review stale public claims against the current product sources. Original wording and links are retained in stale_claims; no public post was changed."
     if apple:
         guidance = apple["next_action"]
         if _historical(campaign):
