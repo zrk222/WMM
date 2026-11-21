@@ -28,6 +28,18 @@ def execute(service, envelope, *, caller="SCOPED_AGENT"):
     from .worker import jobs
 
     request_data(envelope)
+    if envelope["operation"].startswith("marketing-review."):
+        from .marketing_review import dispatch as marketing_dispatch
+        from .operation_authority import REQUEST, protected
+
+        context = REQUEST.get()
+        reviewed_agent = caller == "SCOPED_AGENT" and context and context.get("grant_id") and context.get("review")
+        if caller != "LOCAL_SESSION" and not reviewed_agent:
+            raise PermissionError("Marketing review requires a current owner or independently reviewed exact request")
+        with protected(service.store, envelope):
+            return marketing_dispatch(
+                service.store, envelope["app_id"], envelope["operation"].split(".")[1], envelope["input"]
+            )
     if envelope["operation"].startswith("observational-campaign."):
         from .observational_campaign import ObservationalCampaign
         from .operation_authority import protected
