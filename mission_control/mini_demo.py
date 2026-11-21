@@ -216,4 +216,4 @@ def status(db: Connection, store: Any, app: str, owner: str, scope: str, body: d
         ),
         measurement=report_in_snapshot(db, app, study, context, now()),
         limits="Preparation and rendering do not approve a post. Attach a matching publication receipt through the existing review flow.",
-  )
+    )
