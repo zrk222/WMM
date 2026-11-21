@@ -459,6 +459,34 @@ const WMMOwnerReports = (() => {
       '</section>'
     );
   }
+  function marketingNotes(report) {
+    const effort = report.verification_effort;
+    const notes = effort
+      ? [
+          `Verification effort: ${effort.checks_run ?? 'Unknown'} checks, ${effort.reviews_completed ?? 'Unknown'} reviews, ${effort.minutes ?? 'Unknown'} minutes. Recorded effort only, not total campaign cost.`,
+        ]
+      : [];
+    const previous = report.comparison?.verification_effort?.previous;
+    if (previous)
+      notes.push(
+        `Previous recorded effort for the same window: ${previous.checks_run ?? 'Unknown'} checks, ${previous.reviews_completed ?? 'Unknown'} reviews, ${previous.minutes ?? 'Unknown'} minutes.`,
+      );
+    for (const artifact of report.stale_claims?.artifacts || []) {
+      if (artifact.status === 'STALE')
+        notes.push(
+          `Stale public claim, owner review only: ${artifact.approved_claim_text} (${artifact.url || 'Public URL unavailable; inspect the saved publication receipt'}). No public text was changed.`,
+        );
+    }
+    return notes;
+  }
+  function marketingMarkup(report) {
+    const notes = marketingNotes(report);
+    return notes.length
+      ? '<section aria-label="Marketing claim review and checking effort"><h3>Public claims and checking effort</h3>' +
+          notes.map((note) => '<p>' + esc(note) + '</p>').join('') +
+          '</section>'
+      : '';
+  }
   function model(saved, base) {
     const r = saved.report;
     return {
@@ -513,6 +541,7 @@ const WMMOwnerReports = (() => {
           r.selection.measurement_window.ends_at,
         'Source windows retained; app-wide source observations are not filtered to the requested window.',
         coverageText(r.kpi_coverage),
+        ...marketingNotes(r),
         ...appleNotes(r.apple_downloads),
         ...(outcomeNote(r) ? [outcomeNote(r)] : []),
         ...(deliveryNote(r) ? [deliveryNote(r)] : []),
@@ -551,6 +580,7 @@ const WMMOwnerReports = (() => {
       '<h3>Your next useful decision</h3><p>' +
       esc(r.next_action) +
       '</p>' +
+      marketingMarkup(r) +
       appleMarkup(r.apple_downloads) +
       (outcomeNote(r)
         ? '<section aria-label="First-party campaign outcomes"><h3>Attributed campaign outcomes</h3><p>' +
@@ -718,7 +748,19 @@ const WMMOwnerReports = (() => {
       node.disabled = false;
     }
   }
-  return { open, selection, schedule, submit, planSummary, model, markup, inspect, action };
+  return {
+    open,
+    selection,
+    schedule,
+    submit,
+    planSummary,
+    model,
+    markup,
+    marketingNotes,
+    marketingMarkup,
+    inspect,
+    action,
+  };
 })();
 
 export { WMMOwnerReports };
