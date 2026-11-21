@@ -5,14 +5,19 @@ is never automatically replayed. The OS lock serializes local executions; approv
 revocation prevents subsequent admission but cannot recall an in-flight request.
 """
 
+import json
+import re
+import time
+from contextlib import suppress
 from dataclasses import dataclass
-import json, re, time
+from typing import Any
+
+from . import publication_sessions as sessions
+from .campaign_locks import paid_lock
 from .common import Invalid, canonical, digest, now, safe_data, uid
 from .db import connection
-from .campaign_locks import paid_lock
-from .publication_authority import current, _admit
+from .publication_authority import _admit, current
 from .publication_contract import channel_descriptor
-from . import publication_sessions as sessions
 from .publication_schedule import check_job
 
 SCHEMA = """
@@ -47,7 +52,7 @@ CREATE TRIGGER IF NOT EXISTS publication_event_no_replace BEFORE INSERT ON publi
 
 def _adapter(provider):
     # Explicit imports keep the registry closed and visible to frozen bundlers.
-    from . import publication_meta, publication_linkedin, publication_youtube, publication_tiktok
+    from . import publication_linkedin, publication_meta, publication_tiktok, publication_youtube
 
     return {
         "instagram": publication_meta,
@@ -159,7 +164,7 @@ def _event(db, row, action, attempt):
     ).fetchone()
     prev = previous["hash"] if previous else ""
     seq = previous["sequence"] + 1 if previous else 1
-    value = dict(
+    value: dict[str, Any] = dict(
         intent_id=row["id"],
         app_id=row["app_id"],
         authority_id=row["authority_id"],
@@ -270,6 +275,31 @@ def _save(db, row, state, checkpoint, action, attempt, attention=False):
     )
     saved, _ = _row(db, row["app_id"], row["id"])
     _event(db, saved, action, attempt)
+    if after == "PUBLISHED":
+        from .marketing_review_store import save as save_marketing
+        from .publication_authority import _row as authority_row
+
+        authority, draft, binding = authority_row(db, row["app_id"], row["authority_id"])
+        if snapshot := binding.get("claim_snapshot"):
+            save_marketing(
+                db,
+                row["app_id"],
+                row["owner"],
+                "ARTIFACT",
+                row["id"],
+                "",
+                dict(
+                    url=None,
+                    publication_id=row["authority_id"],
+                    provider=draft["provider"],
+                    approved_claim_text=snapshot["approved_claim_text"],
+                    source=snapshot["source"],
+                    source_sha256=digest(snapshot["source"]),
+                    published_at=None,
+                    receipt_created_at=row["created"],
+                    provenance="PROVIDER_READ_RECEIPT_PUBLIC_URL_UNAVAILABLE",
+                ),
+            )
     return saved
 
 
@@ -332,8 +362,8 @@ class _Execution:
         return None
 
     def prepare(self):
-        from .publication_credentials import context
         from .publication_artifacts import load
+        from .publication_credentials import context
 
         self.ctx = context(self.store, self.app_id, self.draft, self.before_call, self.heartbeat)
         self.artifact = load(self.store, self.app_id, self.draft) if self.draft["artifact"] else {}
@@ -380,10 +410,8 @@ class _Execution:
 
     def retire_previous(self, previous):
         if previous and previous != self.pending:
-            try:
+            with suppress(Invalid, OSError):
                 sessions.retire(self.store, self.app_id, self.identity, previous)
-            except (Invalid, OSError):
-                pass
 
     def hold(self):
         with connection(self.store.path) as db:
@@ -403,7 +431,7 @@ class _Execution:
             self.prepare()
             self.checkpoint()
             view = self.commit_response(self.invoke())
-        except Exception:
+        except Exception:  # noqa: BLE001 - preserve uncertain provider receipt, never replay
             return self.hold()
         return _continuation(self.store, self.identity, self.action, view)
 
@@ -483,10 +511,8 @@ def _recovery_save(store, row, result, checkpoint, action, expected_pending=None
         view = _view(db, saved)
     previous = row["session_checkpoint"]
     if previous and previous != checkpoint:
-        try:
+        with suppress(Invalid, OSError):
             sessions.retire(store, row["app_id"], row["id"], previous)
-        except (Invalid, OSError):
-            pass
     return view
 
 
@@ -589,4 +615,4 @@ def _can_resume(authority):
         and authority["status"] == "APPROVED"
         and authority["expires"] > time.time()
         and authority["calls_used"] < authority["max_calls"]
-    )
+)
