@@ -184,6 +184,17 @@ class AutomationReadinessTests(unittest.TestCase):
             "observational-campaign.correct",
         }
         expected |= study_operations | {"packaging.editor-prepare"}
+        expected |= {
+            "marketing-review.index-artifact",
+            "marketing-review.claims",
+            "marketing-review.check-artifact",
+            "marketing-review.effort",
+            "marketing-review.change",
+            "marketing-review.topics",
+            "marketing-review.prepare-demo",
+            "marketing-review.demo-status",
+            "marketing-review.retention",
+        }
         self.assertEqual(set(UNBUNDLED_OPERATIONS), expected)
         for name in study_operations:
             self.assertEqual(UNBUNDLED_OPERATIONS[name], "local_evidence")
