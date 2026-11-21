@@ -64,6 +64,7 @@ def owner_domain_post(parts: list[str]) -> DomainPost | None:
         "apple-analytics": "apple_metrics_http",
         "onesignal": "onesignal_setup_http",
         "authority-expiry": "authority_expiry_http",
+        "marketing-review": "marketing_review_http",
         "observational-campaign": "observational_campaign_http",
     }.get(parts[3])
     if module is None:
