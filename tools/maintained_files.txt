@@ -125,6 +125,7 @@ mission_control/operator_identity.py
 mission_control/organic_video_collector.py
 mission_control/organic_video_discovery.py
 mission_control/organic_video_policy.py
+mission_control/owner_domain_routes.py
 mission_control/payment_sources.py
 mission_control/personal_agent_profiles.py
 mission_control/play_connections.py
