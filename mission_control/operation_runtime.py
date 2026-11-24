@@ -7,8 +7,7 @@ def execute(service, envelope, *, caller="SCOPED_AGENT"):
     """An authenticated gateway admits first; this internal dispatcher adds no authority."""
     from .common import Invalid
 
-    if caller not in ("LOCAL_SESSION", "SCOPED_AGENT"):
-        raise Invalid("Unknown operation caller")
+    _validate_caller(caller)
     from .activity_timeline import read as activity_read
     from .agent_operations import discovery
     from .creative_rendering import Renders
@@ -29,17 +28,9 @@ def execute(service, envelope, *, caller="SCOPED_AGENT"):
 
     request_data(envelope)
     if envelope["operation"].startswith("marketing-review."):
-        from .marketing_review import dispatch as marketing_dispatch
-        from .operation_authority import REQUEST, protected
+        from .marketing_review import _dispatch_envelope
 
-        context = REQUEST.get()
-        reviewed_agent = caller == "SCOPED_AGENT" and context and context.get("grant_id") and context.get("review")
-        if caller != "LOCAL_SESSION" and not reviewed_agent:
-            raise PermissionError("Marketing review requires a current owner or independently reviewed exact request")
-        with protected(service.store, envelope):
-            return marketing_dispatch(
-                service.store, envelope["app_id"], envelope["operation"].split(".")[1], envelope["input"]
-            )
+        return _dispatch_envelope(service, envelope, caller)
     if envelope["operation"].startswith("observational-campaign."):
         from .observational_campaign import ObservationalCampaign
         from .operation_authority import protected
@@ -257,3 +248,11 @@ def save_evidence(service, app, body):
         raise Invalid("Workflow evidence cannot replace a connection or change record kind")
     # Concurrent creation/update changes the version; Store.save_record rejects it.
     return service.evidence(app, body)
+
+
+def _validate_caller(caller):
+    """Reject unknown gateway caller types before any operation is dispatched."""
+    from .common import Invalid
+
+    if caller not in ("LOCAL_SESSION", "SCOPED_AGENT"):
+        raise Invalid("Unknown operation caller")
