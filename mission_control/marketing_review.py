@@ -135,3 +135,15 @@ def dispatch(store: Any, app: str, action: str, body: dict) -> dict:
         demo = mini_demo._saved(db, app, owner, scope, "DEMO", body["demo_id"], body["demo_hash"])
         result = assess(db, app, demo, body)
         return save(db, app, owner, "RETENTION", body["id"], scope, dict(inputs=body, report=result))
+
+
+def _dispatch_envelope(service, envelope, caller):
+    """Preserve the exact owner or reviewed-agent admission before dispatch."""
+    from .operation_authority import REQUEST, protected
+
+    context = REQUEST.get()
+    reviewed_agent = caller == "SCOPED_AGENT" and context and context.get("grant_id") and context.get("review")
+    if caller != "LOCAL_SESSION" and not reviewed_agent:
+        raise PermissionError("Marketing review requires a current owner or independently reviewed exact request")
+    with protected(service.store, envelope):
+        return dispatch(service.store, envelope["app_id"], envelope["operation"].split(".")[1], envelope["input"])
