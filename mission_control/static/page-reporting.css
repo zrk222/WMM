@@ -224,6 +224,7 @@
 }
 .wmm-print-report dd {
   margin: 0;
+  font-variant-ligatures: none;
 }
 .wmm-print-report dt {
   font-weight: 600;
