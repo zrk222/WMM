@@ -68,6 +68,25 @@ def retain_post(
     )
 
 
+def retain_verified_receipt(
+    db: Connection, app: str, row: Any, status: str, result: dict | None, previous: dict
+) -> None:
+    """Index only verified public receipts inside the caller's existing transaction."""
+    if status != "VERIFIED" or not result or not result.get("permalink_url") or not previous.get("claim_snapshot"):
+        return
+    scope = db.execute("SELECT owner FROM campaign_scopes WHERE app_id=? AND id=?", (app, row["scope_id"])).fetchone()
+    retain_post(
+        db,
+        app,
+        scope["owner"],
+        row["scope_id"],
+        row["id"],
+        previous["claim_snapshot"],
+        result["permalink_url"],
+        row["created"],
+    )
+
+
 def review(db: Connection, app: str, owner: str, scope: str) -> dict:
     """A report reads saved local evidence only, without public-page requests."""
     artifacts = []
@@ -138,3 +157,15 @@ def verify_public(url: str, wording: str) -> dict:
         response_sha256=result["sha256"],
         limits="Public response text only; rendered or authenticated pages may be unverifiable.",
     )
+
+
+def retained_claim_snapshot(db: Connection, app: str, post: dict, destination_check: dict | None, tag: Any) -> dict:
+    """Freeze the original source and preserve optional destination and tag evidence."""
+    retained: dict[str, Any] = {
+        "claim_snapshot": dict(approved_claim_text=post["message"], source=source_snapshot(db, app, []))
+    }
+    if destination_check:
+        retained["destination_check"] = destination_check
+    if tag is not None:
+        retained["campaign_tag_hash"] = digest(tag)
+    return retained
