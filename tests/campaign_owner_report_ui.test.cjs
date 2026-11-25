@@ -320,3 +320,34 @@ test('the private report and PDF distinguish an explicit zero from missing Apple
   assert.match(html, /&lt;post-fingerprint>/);
   assert.doesNotMatch(html, /Choose a primary outcome|<post-fingerprint>/);
 });
+
+test('private report shows stale wording safely and recorded effort including zero', () => {
+  const a = fixture().a;
+  const report = {
+    verification_effort: { checks_run: 2, reviews_completed: 1, minutes: 0 },
+    comparison: {
+      verification_effort: { previous: { checks_run: 1, reviews_completed: 0, minutes: 5 } },
+    },
+    stale_claims: {
+      artifacts: [
+        {
+          status: 'STALE',
+          approved_claim_text: '<script>unsafe</script>',
+          url: 'https://example.com/offer',
+        },
+      ],
+    },
+  };
+  const text = a.marketingMarkup(report);
+  assert.match(text, /2 checks, 1 reviews, 0 minutes/);
+  assert.match(text, /Previous recorded effort/);
+  assert.match(text, /&lt;script>/);
+  assert.doesNotMatch(text, /<script>/);
+  assert.match(text, /No public text was changed/);
+  assert.match(
+    a.marketingNotes({
+      verification_effort: { checks_run: null, reviews_completed: null, minutes: null },
+    })[0],
+    /Unknown checks/,
+  );
+});

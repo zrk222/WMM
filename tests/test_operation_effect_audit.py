@@ -1,14 +1,15 @@
 """Synthetic source fixtures: the audit never executes these modules."""
 
-from pathlib import Path
 import importlib.util
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 _spec = importlib.util.spec_from_file_location(
     "wmm_effect_audit", Path(__file__).resolve().parents[1] / "tools" / "audit_operation_effects.py"
 )
+assert _spec is not None and _spec.loader is not None
 _module = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = _module
 _spec.loader.exec_module(_module)
@@ -59,6 +60,15 @@ class OperationEffectAuditTests(unittest.TestCase):
         report = Audit(root).run()
         self.assertTrue(report["ok"])
         self.assertTrue(report["heuristic"])
+
+    def test_symbolic_tuple_dictionary_key_does_not_crash_or_hide_provider_path(self) -> None:
+        root = self.fixture(
+            "def execute(service,envelope):\n cache={}\n key=(envelope['source'],envelope['subject'])\n cache.get(key)\n from .social_transport import request\n return request()\n",
+            extra={"social_transport.py": "def request():pass\n"},
+        )
+        report = Audit(root).run()
+        self.assertFalse(report["ok"])
+        self.assertIn("social_transport.py", str(report["results"][0]["provider_paths"]))
 
     def test_missing_root_fails(self):
         root = self.fixture('def execute(service,envelope):\n return {}[envelope["operation"]]()\n')

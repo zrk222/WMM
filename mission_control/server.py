@@ -22,6 +22,7 @@ from .device_signin import DeviceSignIns
 from .http_types import AppVersionRow, DesktopProof, DomainPost, JsonObject, Webhook, WorkerHealthHook
 from .operation_outcome import EffectUncertain
 from .operator_identity import AutomationOwnerSession, Identities, local_owner_session
+from .owner_domain_routes import owner_domain_post as resolve_owner_domain_post
 from .service import Service
 from .store import Store
 from .worker import Runner, queue_app_job
@@ -49,28 +50,7 @@ def media_range(value: str, size: int) -> tuple[int, int]:
 
 def owner_domain_post(parts: list[str]) -> DomainPost | None:
     """Resolve only fixed private domain modules, retaining lazy imports."""
-    if len(parts) < 4 or parts[:2] != ["api", "apps"]:
-        return None
-    module = {
-        "drive": "drive_http",
-        "media": "managed_media_http",
-        "funnels": "funnel_http",
-        "discovery": "discovery_http",
-        "organic-video": "organic_video_http",
-        "packaging": "packaging_http",
-        "campaigns": "campaign_http",
-        "campaign-monitor": "campaign_monitor_http",
-        "campaign-owner-reports": "campaign_owner_reports",
-        "apple-analytics": "apple_metrics_http",
-        "onesignal": "onesignal_setup_http",
-        "authority-expiry": "authority_expiry_http",
-        "observational-campaign": "observational_campaign_http",
-    }.get(parts[3])
-    if module is None:
-        return None
-    from importlib import import_module
-
-    return cast(DomainPost, import_module("." + module, __package__).post)
+    return resolve_owner_domain_post(parts)
 
 
 class Server(ThreadingHTTPServer):

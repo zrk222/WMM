@@ -1015,6 +1015,17 @@ class ManagedMediaReviewsRow(TypedDict):
     created: str
 
 
+class MarketingReviewEvidenceRow(TypedDict):
+    app_id: str
+    owner: str
+    kind: str
+    id: str
+    scope_id: str
+    data: str
+    hash: str
+    created: str
+
+
 class NativeOwnerReviewIdentityRow(TypedDict):
     app_id: str
     native_owner: str

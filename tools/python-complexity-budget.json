@@ -12,6 +12,6 @@
   "modules": {
     "mission_control/campaign_execution.py": 1216,
     "mission_control/onesignal_setup.py": 1003,
-    "mission_control/server.py": 1811
+    "mission_control/server.py": 1791
   }
 }

@@ -57,6 +57,7 @@ mission_control/campaign_report_delivery.py
 mission_control/campaign_report_pause.py
 mission_control/campaign_schedule.py
 mission_control/campaign_schedule_authority.py
+mission_control/campaign_stale_claims.py
 mission_control/campaign_transport.py
 mission_control/campaign_video_execution.py
 mission_control/cloud_connection.py
@@ -100,9 +101,16 @@ mission_control/linux_vault.py
 mission_control/managed_media_http.py
 mission_control/market_research.py
 mission_control/marketing_agent_manifest.py
+mission_control/marketing_effort.py
 mission_control/marketing_ontology.py
+mission_control/marketing_review.py
+mission_control/marketing_review_http.py
+mission_control/marketing_review_store.py
 mission_control/measurement_economics.py
 mission_control/migrations/__init__.py
+mission_control/mini_demo.py
+mission_control/mini_demo_publication.py
+mission_control/mini_demo_retention.py
 mission_control/notices.py
 mission_control/observational_campaign.py
 mission_control/observational_campaign_contract.py
@@ -117,6 +125,7 @@ mission_control/operator_identity.py
 mission_control/organic_video_collector.py
 mission_control/organic_video_discovery.py
 mission_control/organic_video_policy.py
+mission_control/owner_domain_routes.py
 mission_control/payment_sources.py
 mission_control/personal_agent_profiles.py
 mission_control/play_connections.py
@@ -125,6 +134,8 @@ mission_control/provider_health.py
 mission_control/provider_reports.py
 mission_control/providers.py
 mission_control/publication_artifacts.py
+mission_control/publication_authority.py
+mission_control/publication_execution.py
 mission_control/publication_linkedin.py
 mission_control/publication_reports.py
 mission_control/publication_schedule.py
@@ -237,10 +248,13 @@ tests/test_licensing_plain.py
 tests/test_linkedin_render_contract.py
 tests/test_linux_vault.py
 tests/test_market_growth_next_action.py
+tests/test_marketing_review.py
 tests/test_measurement_connectors.py
 tests/test_measurement_economics.py
 tests/test_meta_windowed_spend.py
 tests/test_migrations.py
+tests/test_mini_demo.py
+tests/test_mini_demo_retention.py
 tests/test_native_workspace_credential_isolation.py
 tests/test_new_public_annotations.py
 tests/test_notices.py
@@ -253,6 +267,7 @@ tests/test_openseo_browser.py
 tests/test_openseo_read.py
 tests/test_openseo_transport.py
 tests/test_operation_docs.py
+tests/test_operation_effect_audit.py
 tests/test_operation_feedback_browser.py
 tests/test_operator_client.py
 tests/test_organic_research_browser.py
@@ -313,6 +328,7 @@ tests/test_weekly_store_growth.py
 tests/test_windows_lifecycle_diagnostics.py
 tests/test_worker_dependencies.py
 tests/test_workflow_telemetry.py
+tools/audit_operation_effects.py
 tools/benchmark_http.py
 tools/branch_hygiene.py
 tools/build_desktop.py

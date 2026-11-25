@@ -10,6 +10,7 @@ from .campaign_destination import check_destination
 from .campaign_locks import CampaignLockBusy, paid_lock
 from .campaign_pause_receipts import confirm_paid_transition, pause_revision
 from .campaign_pause_receipts import saved_pause_receipt as saved_pause_receipt
+from .campaign_stale_claims import retain_verified_receipt, retained_claim_snapshot
 from .campaign_transport import MetaTransport, Unconfirmed
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
@@ -467,9 +468,7 @@ class CampaignExecutionService:
                 raise PermissionError("Approved post count is exhausted")
             tag = scoped_tracking_tag(db, app_id, post["link"])
             assert_fresh_campaign_tag(db, app_id, tag, scope_id=scope_id)
-            retained = {"destination_check": destination_check} if destination_check else {}
-            if tag is not None:
-                retained["campaign_tag_hash"] = digest(tag)
+            retained = retained_claim_snapshot(db, app_id, post, destination_check, tag)
             identity = uid()
             stamp = now()
             db.execute(
@@ -519,13 +518,14 @@ class CampaignExecutionService:
             if row["remote_id"] and remote_id and row["remote_id"] != remote_id:
                 raise Invalid("Campaign receipt identity changed")
             previous = json.loads(row["result"]) if row["result"] else {}
-            for field in ("destination_check", "campaign_tag_hash"):
+            for field in ("destination_check", "campaign_tag_hash", "claim_snapshot"):
                 if field in previous:
                     result = dict(result or {}, **{field: previous[field]})
             db.execute(
                 "UPDATE campaign_intents SET status=?,remote_id=COALESCE(?,remote_id),result=?,updated=? WHERE app_id=? AND id=?",
                 (status, remote_id, canonical(result) if result else None, now(), app_id, identity),
             )
+            retain_verified_receipt(db, app_id, row, status, result, previous)
             saved = row_intent(
                 db.execute("SELECT * FROM campaign_intents WHERE app_id=? AND id=?", (app_id, identity)).fetchone()
             )

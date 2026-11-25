@@ -174,6 +174,15 @@ MAX_WORKFLOWS = len(WORKFLOWS)
 # These operations remain separately approved through exact scoped grants or a
 # current owner session; they are not added to existing standing policies.
 UNBUNDLED_OPERATIONS = {
+    "marketing-review.index-artifact": "local_evidence",
+    "marketing-review.claims": "local_evidence",
+    "marketing-review.check-artifact": "local_evidence",
+    "marketing-review.effort": "local_evidence",
+    "marketing-review.change": "video_authoring_editing",
+    "marketing-review.topics": "video_authoring_editing",
+    "marketing-review.prepare-demo": "video_authoring_editing",
+    "marketing-review.demo-status": "video_authoring_editing",
+    "marketing-review.retention": "local_evidence",
     "web.research.read": "local_evidence",
     "web.research.save": "local_evidence",
     "search.plan.execute": "local_evidence",
