@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from mission_control.agent_checkpoints import Checkpoints
+from mission_control.agent_grants import Grants
 from mission_control.agent_review_dispatch import ReviewedDispatch
 from mission_control.common import Invalid, canonical, digest, now, uid
 from mission_control.db import connection
@@ -21,12 +22,19 @@ from mission_control.operation_outcome import EffectUncertain
 from mission_control.operator_client import ClientError, OperatorClient
 from mission_control.publication_authority import Publications, current
 from mission_control.review_access import Access
+from mission_control.server import Server
 from mission_control.store import Store
 from tests import test_agent_review_policy as fixture
 from tests import test_verified_review as identities
 
 
 class ReviewedDispatchAdversarialTests(unittest.TestCase):
+    store: Store
+    server: Server
+    origin: str
+    owner: OperatorClient
+    grants: Grants
+
     setUp_base = fixture.ReviewPolicyTests.setUp
     tearDown = fixture.ReviewPolicyTests.tearDown
     body = fixture.ReviewPolicyTests.body
