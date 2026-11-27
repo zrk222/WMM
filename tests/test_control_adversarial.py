@@ -226,9 +226,8 @@ class ReviewedDispatchAdversarialTests(unittest.TestCase):
         with self.assertRaises(ClientError) as error:
             client.call(self.envelope("growth.save", self.listing_body()))
         self.assertEqual(error.exception.status, 403)
-        grants_view = self.grants.list("sample-one", identities.OWNER)
-        assert isinstance(grants_view, dict)
-        rows = grants_view["grants"]
+        rows = self.grants.list("sample-one", identities.OWNER)["grants"]
+        assert isinstance(rows, list)
         self.assertEqual(rows[0]["used"], 0)
 
     def test_reviewed_grant_requires_executable_call_ceiling(self) -> None:
