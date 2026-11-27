@@ -212,6 +212,7 @@ tests/test_campaign_schedule_progress.py
 tests/test_check_distribution.py
 tests/test_ci_current_candidate.py
 tests/test_ci_runner.py
+tests/test_control_adversarial.py
 tests/test_creative_analysis.py
 tests/test_creative_learning.py
 tests/test_creative_production.py
