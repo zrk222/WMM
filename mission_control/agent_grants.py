@@ -97,10 +97,14 @@ def issue_data(body: object, observed: datetime) -> None:
     body = cast(dict[str, object], body)
     path_segment(body["agent_id"])
     validate_grant_operations(body["operations"])
-    REVIEW_POLICY.validate(body)
+    review_operations = REVIEW_POLICY.validate(body)
     calls = body["max_calls"]
     if type(calls) is not int or not 1 <= calls <= 10000:
         raise Invalid("Use a call ceiling from 1 through 10000")
+    if review_operations and calls < 2:
+        raise Invalid(
+            "A grant requiring independent review needs at least 2 calls: preparation and execution each consume one granted attempt"
+        )
     if "extended_expiry_consent" in body and type(body["extended_expiry_consent"]) is not bool:
         raise Invalid("Expiry consent must be an explicit boolean")
     from .authority_expiry import deadline
@@ -670,4 +674,4 @@ class Grants:
             return cast(
                 dict[str, object],
                 dict(result, automation_execution_id=execution) if execution else result,
-            )
+    )
