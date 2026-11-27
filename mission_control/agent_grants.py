@@ -674,4 +674,4 @@ class Grants:
             return cast(
                 dict[str, object],
                 dict(result, automation_execution_id=execution) if execution else result,
-    )
+            )
